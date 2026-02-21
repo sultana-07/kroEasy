@@ -1,0 +1,127 @@
+const express = require('express');
+const router = express.Router();
+const Car = require('../models/Car');
+const CarOwner = require('../models/CarOwner');
+const { protect, authorize } = require('../middleware/auth');
+
+// Helper: parse pagination query params
+const paginate = (query) => {
+    const page = Math.max(1, parseInt(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20));
+    const skip = (page - 1) * limit;
+    return { page, limit, skip };
+};
+
+// GET /api/cars - public listing with filters + pagination
+router.get('/', async (req, res) => {
+    try {
+        const { ac, driverIncluded, priceType, city } = req.query;
+        const filter = { availability: true };
+        if (ac !== undefined) filter.ac = ac === 'true';
+        if (driverIncluded !== undefined) filter.driverIncluded = driverIncluded === 'true';
+        if (priceType) filter.priceType = priceType;
+        if (city) filter.city = { $regex: city, $options: 'i' };
+
+        // Only show cars belonging to APPROVED car owners
+        const approvedOwners = await CarOwner.find({ isApproved: true }).select('_id').lean();
+        const approvedOwnerIds = approvedOwners.map(o => o._id);
+        filter.ownerId = { $in: approvedOwnerIds };
+
+        const { page, limit, skip } = paginate(req.query);
+        const [cars, total] = await Promise.all([
+            Car.find(filter)
+                .populate({ path: 'ownerId', populate: { path: 'userId', select: 'name phone city' } })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            Car.countDocuments(filter),
+        ]);
+
+        res.json({
+            data: cars,
+            total,
+            page,
+            pages: Math.ceil(total / limit),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET /api/cars/my - owner's own cars
+router.get('/my', protect, authorize('carowner'), async (req, res) => {
+    try {
+        const owner = await CarOwner.findOne({ userId: req.user._id });
+        if (!owner) return res.status(404).json({ message: 'Car owner profile not found' });
+        const cars = await Car.find({ ownerId: owner._id });
+        res.json(cars);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST /api/car - add car
+router.post('/', protect, authorize('carowner'), async (req, res) => {
+    try {
+        const owner = await CarOwner.findOne({ userId: req.user._id });
+        if (!owner) return res.status(404).json({ message: 'Car owner profile not found' });
+        if (!owner.isApproved) return res.status(403).json({ message: 'Your account is pending approval' });
+
+        const car = await Car.create({ ...req.body, ownerId: owner._id, city: req.user.city });
+        res.status(201).json(car);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// PATCH /api/car/:id - update car
+router.patch('/:id', protect, authorize('carowner'), async (req, res) => {
+    try {
+        const owner = await CarOwner.findOne({ userId: req.user._id });
+        const car = await Car.findOne({ _id: req.params.id, ownerId: owner._id });
+        if (!car) return res.status(404).json({ message: 'Car not found or not authorized' });
+        const updated = await Car.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET /api/car/:id/reviews - public reviews for a car
+router.get('/:id/reviews', async (req, res) => {
+    try {
+        const Booking = require('../models/Booking');
+        const { page, limit, skip } = paginate(req.query);
+        const filter = {
+            carId: req.params.id,
+            'review.rating': { $exists: true, $ne: null },
+        };
+        const [reviews, total] = await Promise.all([
+            Booking.find(filter)
+                .populate('userId', 'name avatar')
+                .sort({ 'review.createdAt': -1 })
+                .select('review userId createdAt')
+                .skip(skip)
+                .limit(limit),
+            Booking.countDocuments(filter),
+        ]);
+        res.json({ data: reviews, total, page, pages: Math.ceil(total / limit) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// DELETE /api/car/:id
+router.delete('/:id', protect, authorize('carowner'), async (req, res) => {
+    try {
+        const owner = await CarOwner.findOne({ userId: req.user._id });
+        const car = await Car.findOne({ _id: req.params.id, ownerId: owner._id });
+        if (!car) return res.status(404).json({ message: 'Car not found or not authorized' });
+        await Car.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Car deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+module.exports = router;
