@@ -48,7 +48,7 @@ export default function LabourCard({ labour, userId }) {
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px', fontSize: '13px', color: '#374151' }}>
           <span>💼 {labour.experience || 0} yrs exp</span>
           {rating > 0 && <span>⭐ {rating}/5 ({labour.reviewCount || 0})</span>}
-          <span>📋 {labour.bookingCount || 0} jobs</span>
+          <span>✅ {labour.bookingCount || 0} completed</span>
         </div>
 
         {/* Tap hint */}

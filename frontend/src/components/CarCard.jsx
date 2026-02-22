@@ -36,13 +36,23 @@ export default function CarCard({ car, userId }) {
           <span className={`badge ${car.availability ? 'badge-green' : 'badge-red'}`}>
             {car.availability ? '✅ Available' : '❌ Unavailable'}
           </span>
+          {car.numberPlate && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '4px',
+              background: '#1E3A8A', color: 'white',
+              borderRadius: '6px', padding: '3px 10px',
+              fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px',
+              fontFamily: 'monospace',
+            }}>
+              🔢 {car.numberPlate}
+            </span>
+          )}
         </div>
 
         {/* Stats + tap hint */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', gap: '12px' }}>
-            <span>📞 {car.leadCount || 0} calls</span>
-            <span>📋 {car.bookingCount || 0} bookings</span>
+            <span>✅ {car.bookingCount || 0} completed</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ fontSize: '12px', color: '#94A3B8' }}>View details</span>

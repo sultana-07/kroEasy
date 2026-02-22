@@ -12,12 +12,14 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [visible, setVisible] = useState(false);
   const [booking, setBooking] = useState(false);
+  const [booked, setBooked] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_SHOW);
   const owner = car.ownerId?.userId;
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 10);
     fetchReviews();
+    checkExistingBooking();
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
@@ -28,6 +30,18 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
       setReviews(data.data ?? data);
     } catch { /* silently fail */ }
     finally { setLoadingReviews(false); }
+  };
+
+  const checkExistingBooking = async () => {
+    if (!userId) return;
+    try {
+      const { data } = await api.get('/booking/user');
+      const has = data.some(b =>
+        (b.carId?._id === car._id || b.carId === car._id) &&
+        (b.status === 'pending' || b.status === 'confirmed')
+      );
+      setBooked(has);
+    } catch { /* silently fail */ }
   };
 
   const close = () => {
@@ -50,8 +64,8 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
     try {
       await api.post('/booking', { providerId: car.ownerId?._id, providerType: 'car', carId: car._id });
       toast.success('✅ Booking request sent!');
+      setBooked(true);
       close();
-      // Navigate to bookings tab after drawer closes
       setTimeout(() => navigate('/dashboard', { state: { openTab: 'bookings' } }), 350);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Booking failed');
@@ -91,13 +105,29 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
           <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>Car Details</div>
         </div>
 
-        {/* Hero section — includes Call + Book buttons at top */}
+        {/* Hero section */}
         <div style={{ background: 'linear-gradient(160deg, #0F172A 0%, #1E3A8A 100%)', padding: '24px 20px 28px', textAlign: 'center', color: 'white', flexShrink: 0 }}>
           <div style={{ fontSize: '56px', marginBottom: '10px' }}>🚗</div>
           <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '4px' }}>{car.carName}</h2>
-          <p style={{ opacity: 0.75, fontSize: '14px', marginBottom: '14px' }}>
+          <p style={{ opacity: 0.75, fontSize: '14px', marginBottom: '6px' }}>
             {car.modelYear} • {owner?.name} • 🏙️ {car.city || owner?.city}
           </p>
+
+          {/* Number plate display */}
+          {car.numberPlate && (
+            <div style={{ marginBottom: '12px' }}>
+              <span style={{
+                display: 'inline-block',
+                background: 'white', color: '#0F172A',
+                borderRadius: '6px', padding: '4px 14px',
+                fontSize: '14px', fontWeight: '800',
+                letterSpacing: '2px', fontFamily: 'monospace',
+                border: '2px solid #F59E0B',
+              }}>
+                {car.numberPlate}
+              </span>
+            </div>
+          )}
 
           {/* Price pill */}
           <div style={{ display: 'inline-block', background: '#F97316', padding: '8px 20px', borderRadius: '24px', fontWeight: '800', fontSize: '20px', marginBottom: '14px' }}>
@@ -110,29 +140,29 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
             </span>
           </div>
 
-          {/* ── Action buttons in the hero ── */}
-          <div style={{ display: 'flex', gap: '10px', maxWidth: '320px', margin: '0 auto' }}>
-            <button
-              onClick={handleCall}
-              style={{
-                flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700', borderRadius: '12px',
-                background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)',
-                border: '1.5px solid rgba(255,255,255,0.3)', color: 'white', cursor: 'pointer',
-              }}
-            >
-              📞 Call Owner
-            </button>
-            <button
-              onClick={handleBook}
-              disabled={booking}
-              style={{
-                flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700', borderRadius: '12px',
-                background: booking ? 'rgba(249,115,22,0.5)' : '#F97316',
-                border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {booking ? '⏳ Booking...' : '📋 Book Now'}
-            </button>
+          {/* ── Action button ── */}
+          <div style={{ maxWidth: '320px', margin: '0 auto' }}>
+            {booked ? (
+              <div style={{
+                background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(22,163,74,0.4)',
+                borderRadius: '10px', padding: '12px 16px',
+                fontSize: '13px', color: '#DCFCE7', lineHeight: '1.6', textAlign: 'center',
+              }}>
+                🎉 Booking requested! Go to <strong>My Bookings</strong> to call the owner.
+              </div>
+            ) : (
+              <button
+                onClick={handleBook}
+                disabled={booking}
+                style={{
+                  width: '100%', padding: '13px', fontSize: '15px', fontWeight: '700', borderRadius: '12px',
+                  background: booking ? 'rgba(249,115,22,0.5)' : '#F97316',
+                  border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {booking ? '⏳ Booking...' : '📋 Book Now'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -168,9 +198,9 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
                 { label: 'Name', value: owner?.name || '—' },
-                { label: '📱 Contact', value: owner?.phone || '—' },
                 { label: '🏙️ City', value: car.city || owner?.city || '—' },
                 { label: '📅 Year', value: car.modelYear },
+                ...(car.numberPlate ? [{ label: '🔢 Number Plate', value: car.numberPlate }] : []),
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                   <span style={{ color: '#64748B' }}>{label}</span>

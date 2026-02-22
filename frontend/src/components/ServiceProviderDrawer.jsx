@@ -12,13 +12,16 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [visible, setVisible] = useState(false);
   const [booking, setBooking] = useState(false);
+  const [booked, setBooked] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_SHOW);
+  const [profileImgOpen, setProfileImgOpen] = useState(false);
   const user = labour.userId;
   const rating = labour.rating || 0;
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 10);
     fetchReviews();
+    checkExistingBooking();
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
@@ -29,6 +32,18 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
       setReviews(data.data ?? data);
     } catch { /* silently fail */ }
     finally { setLoadingReviews(false); }
+  };
+
+  const checkExistingBooking = async () => {
+    if (!userId) return;
+    try {
+      const { data } = await api.get('/booking/user');
+      const has = data.some(b =>
+        (b.providerDetails?._id === labour._id || b.providerId === labour._id) &&
+        (b.status === 'pending' || b.status === 'confirmed')
+      );
+      setBooked(has);
+    } catch { /* silently fail */ }
   };
 
   const close = () => {
@@ -51,8 +66,8 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
     try {
       await api.post('/booking', { providerId: labour._id, providerType: 'labour' });
       toast.success('✅ Booking request sent!');
+      setBooked(true);
       close();
-      // Navigate to bookings tab after drawer closes
       setTimeout(() => navigate('/dashboard', { state: { openTab: 'bookings' } }), 350);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Booking failed');
@@ -96,17 +111,20 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
           <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>Service Provider Profile</div>
         </div>
 
-        {/* Profile hero — Call + Book buttons live here */}
+        {/* Profile hero — Book / Call buttons live here */}
         <div style={{
           background: 'linear-gradient(160deg, #1E3A8A 0%, #2563EB 100%)',
           padding: '0 20px 24px',
           textAlign: 'center', color: 'white', flexShrink: 0,
         }}>
-          {/* Avatar */}
+          {/* Avatar — click to expand */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px', paddingTop: '4px' }}>
             {labour.profileImage ? (
-              <img src={labour.profileImage} alt={user?.name}
-                style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.4)' }} />
+              <div style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }} onClick={() => setProfileImgOpen(true)}>
+                <img src={labour.profileImage} alt={user?.name}
+                  style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.4)' }} />
+                <div style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'rgba(0,0,0,0.55)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>🔍</div>
+              </div>
             ) : (
               <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', border: '3px solid rgba(255,255,255,0.3)', fontWeight: '700' }}>
                 {user?.name?.[0]?.toUpperCase()}
@@ -123,29 +141,29 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
             {labour.availability ? '✅ Available Now' : '⏸️ Currently Busy'}
           </span>
 
-          {/* ── Action buttons in the hero ── */}
-          <div style={{ display: 'flex', gap: '10px', maxWidth: '320px', margin: '0 auto' }}>
-            <button
-              onClick={handleCall}
-              style={{
-                flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700', borderRadius: '12px',
-                background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)',
-                border: '1.5px solid rgba(255,255,255,0.3)', color: 'white', cursor: 'pointer',
-              }}
-            >
-              📞 Call Now
-            </button>
-            <button
-              onClick={handleBook}
-              disabled={booking}
-              style={{
-                flex: 1, padding: '12px', fontSize: '14px', fontWeight: '700', borderRadius: '12px',
-                background: booking ? 'rgba(249,115,22,0.5)' : '#F97316',
-                border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {booking ? '⏳ Booking...' : '📋 Book Now'}
-            </button>
+          {/* ── Action button ── */}
+          <div style={{ maxWidth: '320px', margin: '0 auto' }}>
+            {booked ? (
+              <div style={{
+                background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(22,163,74,0.4)',
+                borderRadius: '10px', padding: '12px 16px',
+                fontSize: '13px', color: '#DCFCE7', lineHeight: '1.6', textAlign: 'center',
+              }}>
+                🎉 Booking requested! Go to <strong>My Bookings</strong> to call the provider.
+              </div>
+            ) : (
+              <button
+                onClick={handleBook}
+                disabled={booking}
+                style={{
+                  width: '100%', padding: '13px', fontSize: '15px', fontWeight: '700', borderRadius: '12px',
+                  background: booking ? 'rgba(249,115,22,0.5)' : '#F97316',
+                  border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {booking ? '⏳ Booking...' : '📋 Book Now'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -262,6 +280,44 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Profile Image Full-Size Modal */}
+      {profileImgOpen && labour.profileImage && (
+        <div
+          onClick={() => setProfileImgOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 500,
+            background: 'rgba(0,0,0,0.93)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <button
+            onClick={() => setProfileImgOpen(false)}
+            style={{
+              position: 'absolute', top: '20px', right: '20px',
+              background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
+              width: '40px', height: '40px', borderRadius: '50%',
+              fontSize: '20px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700',
+            }}
+          >
+            ✕
+          </button>
+          <img
+            src={labour.profileImage}
+            alt={user?.name}
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '90vw', maxHeight: '80vh',
+              borderRadius: '16px',
+              objectFit: 'contain',
+              boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
+              border: '3px solid rgba(255,255,255,0.15)',
+            }}
+          />
+        </div>
+      )}
     </>
   );
 }

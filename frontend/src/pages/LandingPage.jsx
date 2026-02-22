@@ -2,32 +2,39 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import InstallPrompt from '../components/InstallPrompt';
 
-const features = [
-  { icon: '🔧', title: 'Service Providers', desc: 'Find skilled workers for any job in your city' },
-  { icon: '🚗', title: 'Car Booking', desc: 'Book reliable cars with or without driver' },
-  { icon: '📞', title: 'Direct Contact', desc: 'Call providers directly, no middleman' },
-  { icon: '✅', title: 'Verified Profiles', desc: 'All providers are verified by our team' },
-];
-
-const benefits = [
-  { icon: '🄓', text: 'Free Registration' },
-  { icon: '📱', text: 'Direct Call Access' },
-  { icon: '⚡', text: 'Quick Booking' },
-  { icon: '🏘️', text: 'Local Trusted Providers' },
-];
-
 export default function LandingPage() {
   const [visible, setVisible] = useState(false);
   const navigate = useNavigate();
-  useEffect(() => { setTimeout(() => setVisible(true), 100); }, []);
+  useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
+
+  /* animated counter hook */
+  const useCounter = (end, duration = 1800) => {
+    const [val, setVal] = useState(0);
+    useEffect(() => {
+      if (!visible) return;
+      let start = 0;
+      const step = Math.ceil(end / (duration / 30));
+      const t = setInterval(() => {
+        start += step;
+        if (start >= end) { setVal(end); clearInterval(t); }
+        else setVal(start);
+      }, 30);
+      return () => clearInterval(t);
+    }, [visible]);
+    return val;
+  };
+
+  const happyUsers = useCounter(500);
+  const jobsDone = useCounter(1200);
+  const providers = useCounter(80);
 
   return (
-    <div className="page-container" style={{ paddingBottom: '20px' }}>
+    <div className="page-container" style={{ paddingBottom: 0, overflow: 'hidden' }}>
       {/* Header */}
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>⚡ KroEasy</div>
-          <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '1px' }}>Services Made Easy</div>
+          <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '1px' }}>Apna Kaam, Easy Kaam</div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <Link to="/login">
@@ -36,177 +43,322 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Hero Section */}
+      {/* ═══════════ HERO — hook in 3 seconds ═══════════ */}
       <div style={{
-        background: 'linear-gradient(160deg, #1E3A8A 0%, #2563EB 50%, #1E3A8A 100%)',
-        padding: '48px 24px 56px',
+        background: 'linear-gradient(165deg, #0F172A 0%, #1E3A8A 45%, #2563EB 100%)',
+        padding: '44px 24px 52px',
         textAlign: 'center',
         color: 'white',
         position: 'relative',
         overflow: 'hidden',
       }}>
-        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
-        <div style={{ position: 'absolute', bottom: '-60px', left: '-30px', width: '180px', height: '180px', borderRadius: '50%', background: 'rgba(249,115,22,0.1)' }} />
+        {/* decorative circles */}
+        <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '220px', height: '220px', borderRadius: '50%', background: 'rgba(249,115,22,0.08)' }} />
+        <div style={{ position: 'absolute', bottom: '-70px', left: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(59,130,246,0.1)' }} />
+        <div style={{ position: 'absolute', top: '20%', left: '10%', width: '6px', height: '6px', borderRadius: '50%', background: '#F97316', animation: 'pulse 2s infinite' }} />
+        <div style={{ position: 'absolute', top: '40%', right: '12%', width: '4px', height: '4px', borderRadius: '50%', background: '#22D3EE', animation: 'pulse 2.5s infinite' }} />
 
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: '56px', marginBottom: '12px' }}>⚡</div>
-          <h1 style={{ fontSize: '32px', fontWeight: '800', lineHeight: '1.2', marginBottom: '12px', letterSpacing: '-0.5px' }}>
-            KroEasy
+        <div style={{
+          position: 'relative', zIndex: 1,
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'translateY(0)' : 'translateY(24px)',
+          transition: 'all 0.7s cubic-bezier(0.16,1,0.3,1)',
+        }}>
+          {/* Emotional headline — user reads this first */}
+          <div style={{ fontSize: '15px', fontWeight: '600', color: '#F97316', marginBottom: '8px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+            🛡️ Safe · Verified · Affordable
+          </div>
+          <h1 style={{ fontSize: '28px', fontWeight: '900', lineHeight: '1.25', marginBottom: '14px', letterSpacing: '-0.3px' }}>
+            AC kharab? Plumber chahiye?<br/>
+            <span style={{ color: '#F97316' }}>3 minute</span> mein milega!
           </h1>
-          <p style={{ fontSize: '16px', opacity: 0.9, marginBottom: '8px', fontWeight: '500' }}>
-            Services Made Easy
-          </p>
-          <p style={{ fontSize: '14px', opacity: 0.75, marginBottom: '32px', lineHeight: '1.6' }}>
-            Find trusted service providers &amp; cars<br />in your city – fast, easy, affordable
+          <p style={{ fontSize: '15px', opacity: 0.85, marginBottom: '10px', lineHeight: '1.6', maxWidth: '340px', margin: '0 auto 10px' }}>
+            Verified electricians, plumbers, painters, cars — sab <strong>ek app</strong> pe. No middleman, no extra charges.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '280px', margin: '0 auto' }}>
-            {/* Browse without login */}
+          {/* Trust signal */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(22,163,74,0.3)',
+            borderRadius: '20px', padding: '5px 14px', fontSize: '12px',
+            color: '#86EFAC', fontWeight: '600', marginBottom: '24px',
+          }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', animation: 'pulse 1.5s infinite' }} />
+            {providers}+ verified providers near you
+          </div>
+
+          {/* CTA buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '300px', margin: '0 auto' }}>
             <Link to="/dashboard">
-              <button className="btn-secondary" style={{ width: '100%', padding: '14px', fontSize: '16px' }}>
-                🔧 Find Service Providers
+              <button style={{
+                width: '100%', padding: '15px', fontSize: '16px', fontWeight: '800',
+                background: 'linear-gradient(135deg, #F97316, #EA580C)',
+                border: 'none', borderRadius: '12px', color: 'white', cursor: 'pointer',
+                boxShadow: '0 4px 20px rgba(249,115,22,0.4)',
+                transform: 'scale(1)', transition: 'transform 0.15s',
+              }}
+                onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+                onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                🔧 Find Worker Now — Free
               </button>
             </Link>
             <Link to="/dashboard">
               <button style={{
-                width: '100%', padding: '14px', fontSize: '16px',
-                background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)',
-                border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: '10px',
-                color: 'white', fontWeight: '600', cursor: 'pointer',
+                width: '100%', padding: '14px', fontSize: '15px', fontWeight: '700',
+                background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)',
+                border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: '12px',
+                color: 'white', cursor: 'pointer',
               }}>
                 🚗 Book a Car
-              </button>
-            </Link>
-            <Link to="/register">
-              <button className="btn-outline" style={{ width: '100%', padding: '14px', fontSize: '16px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>
-                ✨ Register Free
               </button>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* ── Our Services ── */}
-      <div style={{ padding: '28px 16px 8px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '4px', color: '#0F172A' }}>
-          Our Services
+      {/* ═══════════ SOCIAL PROOF COUNTER BAR ═══════════ */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+        background: 'white', padding: '18px 12px',
+        borderBottom: '1px solid #E2E8F0',
+      }}>
+        {[
+          { val: `${happyUsers}+`, label: 'Happy Users', color: '#1E3A8A' },
+          { val: `${jobsDone}+`, label: 'Jobs Done', color: '#16A34A' },
+          { val: `${providers}+`, label: 'Providers', color: '#F97316' },
+        ].map((s, i) => (
+          <div key={i} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '22px', fontWeight: '900', color: s.color }}>{s.val}</div>
+            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '600' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ═══════════ PROBLEM → SOLUTION (for Users) ═══════════ */}
+      <div style={{ padding: '28px 16px 20px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '6px', color: '#0F172A' }}>
+          😩 Purana Tarika vs ⚡ KroEasy
         </h2>
-        <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748B', marginBottom: '20px' }}>
-          Find skilled professionals near you
+        <p style={{ textAlign: 'center', fontSize: '12px', color: '#64748B', marginBottom: '20px' }}>
+          See the difference
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {[
+            { old: '❌ Kisi se pucho, wait karo', now: '✅ Instantly browse providers' },
+            { old: '❌ No guarantee of quality', now: '✅ Verified & rated profiles' },
+            { old: '❌ Hidden charges, dalaal fees', now: '✅ Direct contact, no middleman' },
+            { old: '❌ No history or record', now: '✅ Booking history + call logs' },
+          ].map((r, i) => (
+            <div key={i} style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px',
+              fontSize: '12px', lineHeight: '1.5',
+            }}>
+              <div style={{ padding: '8px 10px', background: '#FEF2F2', borderRadius: '8px', color: '#991B1B', fontWeight: '600' }}>{r.old}</div>
+              <div style={{ padding: '8px 10px', background: '#F0FDF4', borderRadius: '8px', color: '#166534', fontWeight: '600' }}>{r.now}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ═══════════ SERVICE CATEGORIES — tap to explore ═══════════ */}
+      <div style={{ padding: '8px 16px 24px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '4px', color: '#0F172A' }}>
+          🔧 Find Skilled Workers
+        </h2>
+        <p style={{ textAlign: 'center', fontSize: '12px', color: '#64748B', marginBottom: '16px' }}>
+          Tap a category to find providers near you
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
           {[
             { icon: '⚡', label: 'Electrician' },
             { icon: '🔧', label: 'Plumber' },
             { icon: '🪚', label: 'Carpenter' },
             { icon: '🎨', label: 'Painter' },
-            { icon: '❄️', label: 'AC Technician' },
+            { icon: '❄️', label: 'AC Repair' },
             { icon: '🧱', label: 'Mason' },
             { icon: '🚗', label: 'Driver' },
             { icon: '🧹', label: 'Cleaner' },
             { icon: '🍳', label: 'Cook' },
             { icon: '💇', label: 'Beautician' },
             { icon: '🌿', label: 'Gardener' },
-            { icon: '🛡️', label: 'Security Guard' },
+            { icon: '🛡️', label: 'Guard' },
           ].map(s => (
             <Link to={`/dashboard?skill=${encodeURIComponent(s.label)}`} key={s.label} style={{ textDecoration: 'none' }}>
               <div style={{
-                background: 'white',
-                borderRadius: '14px',
-                padding: '14px 8px',
-                textAlign: 'center',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                border: '1px solid #F1F5F9',
-                cursor: 'pointer',
-                transition: 'transform 0.15s',
+                background: 'white', borderRadius: '12px', padding: '12px 4px',
+                textAlign: 'center', boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+                border: '1px solid #F1F5F9', cursor: 'pointer',
+                transition: 'transform 0.12s',
               }}
-                onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                onMouseDown={e => e.currentTarget.style.transform = 'scale(0.94)'}
                 onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-                onTouchStart={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                onTouchStart={e => e.currentTarget.style.transform = 'scale(0.94)'}
                 onTouchEnd={e => e.currentTarget.style.transform = 'scale(1)'}
               >
-                <div style={{ fontSize: '28px', marginBottom: '6px' }}>{s.icon}</div>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: '#1E3A8A', lineHeight: '1.3' }}>{s.label}</div>
+                <div style={{ fontSize: '24px', marginBottom: '4px' }}>{s.icon}</div>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: '#1E3A8A', lineHeight: '1.2' }}>{s.label}</div>
               </div>
             </Link>
           ))}
         </div>
       </div>
 
-      {/* What We Offer */}
-      <div style={{ padding: '24px 16px 16px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: '700', textAlign: 'center', marginBottom: '20px', color: '#0F172A' }}>
-          What We Offer
+      {/* ═══════════ HOW IT WORKS — 3 steps ═══════════ */}
+      <div style={{ padding: '24px 16px', background: '#F8FAFC' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '20px', color: '#0F172A' }}>
+          📱 Just 3 Steps
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          {features.map((f, i) => (
-            <div key={i} className="card" style={{ padding: '20px 16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '32px', marginBottom: '8px' }}>{f.icon}</div>
-              <div style={{ fontSize: '14px', fontWeight: '700', color: '#1E3A8A', marginBottom: '4px' }}>{f.title}</div>
-              <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.5' }}>{f.desc}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '360px', margin: '0 auto' }}>
+          {[
+            { step: '1', icon: '🔍', title: 'Search', desc: 'Browse workers or cars by category' },
+            { step: '2', icon: '📋', title: 'Book', desc: 'One tap to request a booking — free!' },
+            { step: '3', icon: '📞', title: 'Call', desc: 'Direct call — work done, pay the worker' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: '14px',
+              background: 'white', padding: '16px', borderRadius: '14px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0',
+            }}>
+              <div style={{
+                width: '48px', height: '48px', borderRadius: '14px', flexShrink: 0,
+                background: 'linear-gradient(135deg, #1E3A8A, #2563EB)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '22px', color: 'white',
+              }}>
+                {s.icon}
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', marginBottom: '2px' }}>
+                  Step {s.step}: {s.title}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.4' }}>{s.desc}</div>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Benefits */}
-      <div style={{ padding: '16px', margin: '8px 16px', background: 'linear-gradient(135deg, #EFF6FF, #FFF7ED)', borderRadius: '16px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: '700', textAlign: 'center', marginBottom: '16px', color: '#0F172A' }}>
-          🎁 Free Benefits
+      {/* ═══════════ SAFETY & TRUST — for Users ═══════════ */}
+      <div style={{ padding: '24px 16px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '20px', color: '#0F172A' }}>
+          🛡️ Your Safety is Our Priority
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          {benefits.map((b, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: 'white', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <span style={{ fontSize: '20px' }}>{b.icon}</span>
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{b.text}</span>
+          {[
+            { icon: '✅', title: 'Admin Verified', desc: 'Every provider checked by our team' },
+            { icon: '⭐', title: 'Ratings & Reviews', desc: 'See real reviews before booking' },
+            { icon: '📞', title: 'Call Tracking', desc: 'All calls are recorded & logged' },
+            { icon: '🔒', title: 'No Data Sharing', desc: 'Your number is safe with us' },
+          ].map((f, i) => (
+            <div key={i} style={{
+              background: 'white', borderRadius: '14px', padding: '16px 12px',
+              textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              border: '1px solid #E2E8F0',
+            }}>
+              <div style={{ fontSize: '28px', marginBottom: '6px' }}>{f.icon}</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E3A8A', marginBottom: '3px' }}>{f.title}</div>
+              <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '1.4' }}>{f.desc}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* CTA */}
-      <div style={{ padding: '24px 16px 16px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>Ready to get started?</h2>
-        <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '20px' }}>Join thousands of users in your city</p>
-        <Link to="/register">
-          <button className="btn-primary" style={{ width: '100%', padding: '16px', fontSize: '17px' }}>
-            🚀 Register Now – It's Free!
-          </button>
-        </Link>
-        <p style={{ marginTop: '12px', fontSize: '13px', color: '#64748B' }}>
-          Already have an account?{' '}
-          <Link to="/login" style={{ color: '#1E3A8A', fontWeight: '600', textDecoration: 'none' }}>Login here</Link>
-        </p>
+      {/* ═══════════ WORKER CTA — earn more ═══════════ */}
+      <div style={{
+        margin: '0 16px 20px', padding: '28px 20px',
+        background: 'linear-gradient(145deg, #0F172A, #1E293B)',
+        borderRadius: '20px', textAlign: 'center', color: 'white',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(249,115,22,0.1)' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: '36px', marginBottom: '8px' }}>💼</div>
+          <h3 style={{ fontSize: '20px', fontWeight: '800', marginBottom: '8px' }}>
+            Kya aap worker hain?
+          </h3>
+          <p style={{ fontSize: '14px', opacity: 0.8, marginBottom: '6px', lineHeight: '1.6' }}>
+            Register free aur <span style={{ color: '#F97316', fontWeight: '700' }}>sidha customers se connect</span> karen
+          </p>
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: '8px',
+            margin: '16px auto 0', maxWidth: '280px',
+          }}>
+            {[
+              '💰 No commission — sab paisa aapka',
+              '📞 Direct calls from customers',
+              '⭐ Build your profile & reviews',
+              '📈 Zyada customers, zyada kamaai',
+            ].map((t, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                background: 'rgba(255,255,255,0.07)', borderRadius: '10px',
+                padding: '10px 12px', fontSize: '13px', fontWeight: '600',
+                textAlign: 'left',
+              }}>
+                {t}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+            <Link to="/register?role=labour">
+              <button style={{
+                padding: '12px 20px', fontSize: '14px', fontWeight: '700',
+                background: 'linear-gradient(135deg, #F97316, #EA580C)',
+                border: 'none', borderRadius: '12px', color: 'white', cursor: 'pointer',
+                boxShadow: '0 4px 16px rgba(249,115,22,0.35)',
+              }}>
+                🔧 Register as Worker
+              </button>
+            </Link>
+            <Link to="/register?role=carowner">
+              <button style={{
+                padding: '12px 20px', fontSize: '14px', fontWeight: '700',
+                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: '12px', color: 'white', cursor: 'pointer',
+              }}>
+                🚗 Car Owner
+              </button>
+            </Link>
+          </div>
+        </div>
       </div>
 
-      {/* Provider CTA */}
-      <div style={{ margin: '0 16px 24px', padding: '20px', background: '#0F172A', borderRadius: '16px', textAlign: 'center', color: 'white' }}>
-        <div style={{ fontSize: '24px', marginBottom: '8px' }}>💼</div>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Are you a Service Provider?</h3>
-        <p style={{ fontSize: '13px', opacity: 0.7, marginBottom: '16px' }}>Register as Service Provider or Car Owner and get leads directly</p>
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-          <Link to="/register?role=labour">
-            <button className="btn-secondary" style={{ padding: '10px 18px', fontSize: '13px' }}>🔧 Service Provider</button>
-          </Link>
-          <Link to="/register?role=carowner">
-            <button style={{ padding: '10px 18px', fontSize: '13px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', color: 'white', fontWeight: '600', cursor: 'pointer' }}>🚗 Car Owner</button>
-          </Link>
+      {/* ═══════════ FINAL USER CTA ═══════════ */}
+      <div style={{ padding: '24px 16px 20px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '6px', color: '#0F172A' }}>
+          Aaj hi try karo — <span style={{ color: '#16A34A' }}>bilkul free!</span>
+        </h2>
+        <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '20px', lineHeight: '1.6' }}>
+          Koi registration zaruri nahi browse karne ke liye.<br/>
+          Book karne ke liye register karo — 30 seconds mein.
+        </p>
+        <Link to="/dashboard">
+          <button className="btn-primary" style={{
+            width: '100%', padding: '16px', fontSize: '17px', fontWeight: '800',
+            borderRadius: '14px',
+            boxShadow: '0 4px 20px rgba(37,99,235,0.3)',
+          }}>
+            ⚡ Browse Services Now
+          </button>
+        </Link>
+        <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
+          <Link to="/register" style={{ fontSize: '13px', color: '#1E3A8A', fontWeight: '600', textDecoration: 'none' }}>✨ Register Free</Link>
+          <Link to="/login" style={{ fontSize: '13px', color: '#64748B', fontWeight: '500', textDecoration: 'none' }}>🔒 Login</Link>
         </div>
       </div>
 
       <InstallPrompt />
 
-      {/* Footer */}
+      {/* ═══════════ FOOTER ═══════════ */}
       <div style={{ background: '#0F172A', color: 'white', padding: '28px 20px 20px', marginTop: '8px' }}>
-        {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ fontSize: '22px', fontWeight: '800', marginBottom: '4px' }}>⚡ KroEasy</div>
           <div style={{ fontSize: '12px', opacity: 0.6 }}>Nowrozabad & Birshingpur Pali</div>
         </div>
 
-        {/* Links Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-          {/* Features */}
           <div>
             <div style={{ fontSize: '13px', fontWeight: '700', opacity: 0.5, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Features</div>
             {[
@@ -218,8 +370,6 @@ export default function LandingPage() {
               <Link key={i} to={l.to} style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.75)', textDecoration: 'none', marginBottom: '8px' }}>{l.label}</Link>
             ))}
           </div>
-
-          {/* Support & Legal */}
           <div>
             <div style={{ fontSize: '13px', fontWeight: '700', opacity: 0.5, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Support & Legal</div>
             {[
@@ -232,19 +382,25 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Contact */}
         <div style={{ padding: '14px', background: 'rgba(255,255,255,0.07)', borderRadius: '12px', marginBottom: '20px' }}>
           <div style={{ fontSize: '12px', fontWeight: '700', opacity: 0.6, marginBottom: '8px', textTransform: 'uppercase' }}>Contact</div>
           <a href="mailto:sultanalih8@gmail.com" style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.8)', textDecoration: 'none', marginBottom: '6px' }}>📧 sultanalih8@gmail.com</a>
           <a href="https://wa.me/918878353787" style={{ display: 'block', fontSize: '13px', color: '#25D366', textDecoration: 'none', fontWeight: '600' }}>💬 WhatsApp: 8878353787</a>
         </div>
 
-        {/* Bottom bar */}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px', textAlign: 'center' }}>
           <p style={{ fontSize: '12px', opacity: 0.5 }}>© 2025 KroEasy. Made with ❤️ for small-town India.</p>
           <p style={{ fontSize: '11px', opacity: 0.35, marginTop: '4px' }}>Nowrozabad & Birshingpur Pali, MP</p>
         </div>
       </div>
+
+      {/* Pulse animation keyframe */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.5); }
+        }
+      `}</style>
     </div>
   );
 }

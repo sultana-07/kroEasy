@@ -99,6 +99,7 @@ export default function UserDashboard() {
   const [filters, setFilters] = useState({ city: '', skills: '', ac: '', driverIncluded: '', priceType: '' });
   const [reviewTarget, setReviewTarget] = useState(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const fileRef = useRef();
 
   // Switch to a specific tab when navigated here with state (e.g. after booking)
@@ -208,6 +209,19 @@ export default function UserDashboard() {
   };
 
   const handleLogout = () => { logout(); navigate('/'); };
+
+  const handleCallFromBooking = async (b) => {
+    const isLabour = b.providerType === 'labour';
+    const providerUser = b.providerDetails?.userId;
+    const phone = isLabour ? providerUser?.phone : b.providerDetails?.userId?.phone;
+    const targetId = isLabour ? b.providerDetails?._id : b.carId?._id;
+    const targetType = isLabour ? 'labour' : 'car';
+    if (!phone) { toast.error('Phone number not available'); return; }
+    try {
+      await api.post('/call-log', { userId: user._id, targetId, targetType, phone });
+    } catch { /* fail silently, still allow call */ }
+    window.open(`tel:${phone}`, '_self');
+  };
 
   return (
     <div className="page-container" style={{ paddingBottom: '80px' }}>
@@ -410,7 +424,7 @@ export default function UserDashboard() {
                       {isLabour ? (
                         <>
                           <div style={{ fontWeight: '700', fontSize: '14px', color: '#0F172A', marginBottom: '4px' }}>{providerUser?.name || 'Service Provider'}</div>
-                          <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '6px' }}>📱 {providerUser?.phone || '—'} • 🏙️ {providerUser?.city || '—'}</div>
+                          <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '6px' }}>🏙️ {providerUser?.city || '—'}</div>
                           {provider?.skills?.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                               {provider.skills.slice(0, 4).map(s => (
@@ -428,7 +442,7 @@ export default function UserDashboard() {
                             {car?.ac && <span style={{ background: '#DBEAFE', color: '#1E3A8A', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>❄️ AC</span>}
                             {car?.driverIncluded && <span style={{ background: '#DCFCE7', color: '#16A34A', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>🧑‍✈️ Driver</span>}
                           </div>
-                          {providerUser?.name && <div style={{ fontSize: '12px', color: '#64748B' }}>👤 Owner: {providerUser.name} • 📱 {providerUser.phone}</div>}
+                          {providerUser?.name && <div style={{ fontSize: '12px', color: '#64748B' }}>👤 Owner: {providerUser.name}</div>}
                         </>
                       )}
                     </div>
@@ -438,17 +452,47 @@ export default function UserDashboard() {
                     </div>
                     {b.notes && <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '6px' }}>📝 {b.notes}</div>}
 
-                    {b.status === 'completed' && !b.review?.rating && (
-                      <button onClick={() => setReviewTarget(b)} className="btn-primary" style={{ width: '100%', padding: '10px', fontSize: '13px', marginTop: '8px' }}>
-                        ⭐ Write a Review
-                      </button>
-                    )}
-                    {b.review?.rating && (
-                      <div style={{ marginTop: '10px', padding: '10px', background: '#FFF7ED', borderRadius: '8px', border: '1px solid #FED7AA' }}>
-                        <div style={{ fontSize: '13px', fontWeight: '600', color: '#EA580C', marginBottom: '4px' }}>{'⭐'.repeat(b.review.rating)} Your Review</div>
-                        {b.review.comment && <p style={{ fontSize: '12px', color: '#64748B' }}>{b.review.comment}</p>}
+                    {/* Bottom action row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', gap: '8px' }}>
+                      {/* Review button (left) */}
+                      <div style={{ flex: 1 }}>
+                        {b.status === 'completed' && !b.review?.rating && (
+                          <button onClick={() => setReviewTarget(b)} className="btn-primary" style={{ width: '100%', padding: '10px', fontSize: '13px' }}>
+                            ⭐ Write a Review
+                          </button>
+                        )}
+                        {b.review?.rating && (
+                          <div style={{ padding: '8px 10px', background: '#FFF7ED', borderRadius: '8px', border: '1px solid #FED7AA' }}>
+                            <div style={{ fontSize: '12px', fontWeight: '600', color: '#EA580C', marginBottom: '2px' }}>{'⭐'.repeat(b.review.rating)} Your Review</div>
+                            {b.review.comment && <p style={{ fontSize: '11px', color: '#64748B' }}>{b.review.comment}</p>}
+                          </div>
+                        )}
                       </div>
-                    )}
+
+                      {/* Call button (right) — only for active bookings */}
+                      {(b.status === 'pending' || b.status === 'confirmed') && (
+                        <button
+                          onClick={() => handleCallFromBooking(b)}
+                          style={{
+                            flexShrink: 0,
+                            padding: '10px 16px',
+                            borderRadius: '10px',
+                            background: '#16A34A',
+                            border: 'none',
+                            color: 'white',
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          📞 Call
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -461,10 +505,15 @@ export default function UserDashboard() {
       {activeTab === 'profile' && (
         <div style={{ padding: '24px 16px' }}>
           <div className="card" style={{ padding: '24px', textAlign: 'center', marginBottom: '16px' }}>
-            {/* Avatar with upload */}
+            {/* Avatar with upload + click to expand */}
             <div style={{ position: 'relative', display: 'inline-block', marginBottom: '12px' }}>
               {user?.avatar ? (
-                <img src={user.avatar} alt="Profile" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0' }} />
+                <img
+                  src={user.avatar}
+                  alt="Profile"
+                  onClick={() => setProfileModalOpen(true)}
+                  style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', cursor: 'pointer' }}
+                />
               ) : (
                 <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #1E3A8A, #2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', color: 'white', fontWeight: '700' }}>
                   {user?.name?.[0]?.toUpperCase()}
@@ -477,6 +526,7 @@ export default function UserDashboard() {
             </div>
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
             {avatarUploading && <p style={{ fontSize: '12px', color: '#3B82F6', marginBottom: '8px' }}>⏳ Uploading...</p>}
+            {user?.avatar && <p style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '6px' }}>Tap photo to view full size</p>}
             <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>{user?.name}</h2>
             <p style={{ color: '#64748B', fontSize: '14px' }}>📱 {user?.phone}</p>
             <p style={{ color: '#64748B', fontSize: '14px' }}>🏙️ {user?.city || 'Not set'}</p>
@@ -485,6 +535,46 @@ export default function UserDashboard() {
           <button onClick={handleLogout} className="btn-danger" style={{ width: '100%', padding: '14px', fontSize: '15px', justifyContent: 'center' }}>
             🚪 Logout
           </button>
+        </div>
+      )}
+
+      {/* Profile Image Full-Size Modal */}
+      {profileModalOpen && user?.avatar && (
+        <div
+          onClick={() => setProfileModalOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 2000,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setProfileModalOpen(false)}
+            style={{
+              position: 'absolute', top: '20px', right: '20px',
+              background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
+              width: '40px', height: '40px', borderRadius: '50%',
+              fontSize: '20px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700',
+            }}
+          >
+            ✕
+          </button>
+          {/* Large image */}
+          <img
+            src={user.avatar}
+            alt="Profile"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '90vw', maxHeight: '80vh',
+              borderRadius: '16px',
+              objectFit: 'contain',
+              boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
+              border: '3px solid rgba(255,255,255,0.15)',
+            }}
+          />
         </div>
       )}
 

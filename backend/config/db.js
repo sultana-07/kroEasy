@@ -3,9 +3,10 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
-      maxPoolSize: 20,          // up from default 5 — handles more concurrent queries
-      serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 5,                   // free tier only needs 5 (saves memory on Render)
+      serverSelectionTimeoutMS: 10000,   // more time for cold-start connections
       socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {

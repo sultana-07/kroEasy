@@ -204,16 +204,16 @@ export default function AdminDashboard() {
                       </div>
                       <span className={`badge ${l.isApproved ? 'badge-green' : 'badge-orange'}`}>{l.isApproved ? '✅' : '⏳'}</span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       {[
-                        { label: '📋 Bookings\nThis Week', val: l.weekBookings, color: '#1E3A8A' },
-                        { label: '📋 Bookings\nThis Month', val: l.monthBookings, color: '#2563EB' },
-                        { label: '📞 Calls\nThis Week', val: l.weekCalls, color: '#16A34A' },
-                        { label: '📞 Calls\nThis Month', val: l.monthCalls, color: '#059669' },
+                        { label: '📋 Total\nBookings', val: l.totalBookings, color: '#0F172A' },
+                        { label: '✅ Completed\nBookings', val: l.completedBookings, color: '#16A34A' },
+                        { label: '📞 Calls\nToday', val: l.todayCalls, color: '#DC2626' },
+                        { label: '📞 Calls\nThis Month', val: l.monthCalls, color: '#2563EB' },
                       ].map((s, i) => (
-                        <div key={i} style={{ background: '#F8FAFC', borderRadius: '10px', padding: '10px 8px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
-                          <div style={{ fontSize: '20px', fontWeight: '800', color: s.color }}>{s.val}</div>
-                          <div style={{ fontSize: '10px', color: '#64748B', whiteSpace: 'pre-line', lineHeight: '1.3', marginTop: '2px' }}>{s.label}</div>
+                        <div key={i} style={{ background: '#F8FAFC', borderRadius: '10px', padding: '12px 8px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
+                          <div style={{ fontSize: '22px', fontWeight: '800', color: s.color }}>{s.val}</div>
+                          <div style={{ fontSize: '10px', color: '#64748B', whiteSpace: 'pre-line', lineHeight: '1.3', marginTop: '3px' }}>{s.label}</div>
                         </div>
                       ))}
                     </div>
@@ -281,16 +281,16 @@ export default function AdminDashboard() {
                       </div>
                       <span className={`badge ${o.isApproved ? 'badge-green' : 'badge-orange'}`}>{o.isApproved ? '✅' : '⏳'}</span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       {[
-                        { label: '📋 Bookings\nThis Week', val: o.weekBookings, color: '#1E3A8A' },
-                        { label: '📋 Bookings\nThis Month', val: o.monthBookings, color: '#2563EB' },
-                        { label: '📞 Calls\nThis Week', val: o.weekCalls, color: '#16A34A' },
-                        { label: '📞 Calls\nThis Month', val: o.monthCalls, color: '#059669' },
+                        { label: '📋 Total\nBookings', val: o.totalBookings, color: '#0F172A' },
+                        { label: '✅ Completed\nBookings', val: o.completedBookings, color: '#16A34A' },
+                        { label: '📞 Calls\nToday', val: o.todayCalls, color: '#DC2626' },
+                        { label: '📞 Calls\nThis Month', val: o.monthCalls, color: '#2563EB' },
                       ].map((s, i) => (
-                        <div key={i} style={{ background: '#F8FAFC', borderRadius: '10px', padding: '10px 8px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
-                          <div style={{ fontSize: '20px', fontWeight: '800', color: s.color }}>{s.val}</div>
-                          <div style={{ fontSize: '10px', color: '#64748B', whiteSpace: 'pre-line', lineHeight: '1.3', marginTop: '2px' }}>{s.label}</div>
+                        <div key={i} style={{ background: '#F8FAFC', borderRadius: '10px', padding: '12px 8px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
+                          <div style={{ fontSize: '22px', fontWeight: '800', color: s.color }}>{s.val}</div>
+                          <div style={{ fontSize: '10px', color: '#64748B', whiteSpace: 'pre-line', lineHeight: '1.3', marginTop: '3px' }}>{s.label}</div>
                         </div>
                       ))}
                     </div>

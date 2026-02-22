@@ -171,9 +171,10 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
         const now = new Date();
         const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
         const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         // Aggregate bookings grouped by providerId for the last week and month
-        const [weekBookings, monthBookings, weekCalls, monthCalls] = await Promise.all([
+        const [weekBookings, monthBookings, weekCalls, monthCalls, totalBookingsAgg, completedBookingsAgg, todayCalls] = await Promise.all([
             Booking.aggregate([
                 { $match: { createdAt: { $gte: weekAgo } } },
                 { $group: { _id: '$providerId', count: { $sum: 1 } } },
@@ -188,6 +189,17 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
             ]),
             CallLog.aggregate([
                 { $match: { createdAt: { $gte: monthAgo } } },
+                { $group: { _id: '$targetId', targetType: { $first: '$targetType' }, count: { $sum: 1 } } },
+            ]),
+            Booking.aggregate([
+                { $group: { _id: '$providerId', count: { $sum: 1 } } },
+            ]),
+            Booking.aggregate([
+                { $match: { status: 'completed' } },
+                { $group: { _id: '$providerId', count: { $sum: 1 } } },
+            ]),
+            CallLog.aggregate([
+                { $match: { createdAt: { $gte: todayStart } } },
                 { $group: { _id: '$targetId', targetType: { $first: '$targetType' }, count: { $sum: 1 } } },
             ]),
         ]);
@@ -200,6 +212,10 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
         const monthCallMap = toMap(monthCalls.filter(x => x.targetType === 'labour'));
         const weekCarCallMap = toMap(weekCalls.filter(x => x.targetType === 'car'));
         const monthCarCallMap = toMap(monthCalls.filter(x => x.targetType === 'car'));
+        const totalBookMap = toMap(totalBookingsAgg);
+        const completedBookMap = toMap(completedBookingsAgg);
+        const todayCallMap = toMap(todayCalls.filter(x => x.targetType === 'labour'));
+        const todayCarCallMap = toMap(todayCalls.filter(x => x.targetType === 'car'));
 
         // Get all labours and carowners with userId populated
         const [labours, carOwners] = await Promise.all([
@@ -216,6 +232,9 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
             isApproved: l.isApproved,
             weekBookings: weekBookMap[l._id.toString()] || 0,
             monthBookings: monthBookMap[l._id.toString()] || 0,
+            totalBookings: totalBookMap[l._id.toString()] || 0,
+            completedBookings: completedBookMap[l._id.toString()] || 0,
+            todayCalls: todayCallMap[l._id.toString()] || 0,
             weekCalls: weekCallMap[l._id.toString()] || 0,
             monthCalls: monthCallMap[l._id.toString()] || 0,
         }));
@@ -228,6 +247,9 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
             isApproved: o.isApproved,
             weekBookings: weekBookMap[o._id.toString()] || 0,
             monthBookings: monthBookMap[o._id.toString()] || 0,
+            totalBookings: totalBookMap[o._id.toString()] || 0,
+            completedBookings: completedBookMap[o._id.toString()] || 0,
+            todayCalls: todayCarCallMap[o._id.toString()] || 0,
             weekCalls: weekCarCallMap[o._id.toString()] || 0,
             monthCalls: monthCarCallMap[o._id.toString()] || 0,
         }));

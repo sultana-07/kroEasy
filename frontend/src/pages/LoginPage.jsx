@@ -7,12 +7,17 @@ import toast from 'react-hot-toast';
 export default function LoginPage() {
   const [form, setForm] = useState({ phone: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.phone || !form.password) return toast.error('Please fill all fields');
+    setError('');
+    if (!form.phone || !form.password) {
+      setError('Please fill in all fields to login.');
+      return;
+    }
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', form);
@@ -21,7 +26,7 @@ export default function LoginPage() {
       const paths = { user: '/dashboard', labour: '/labour-dashboard', carowner: '/carowner-dashboard', admin: '/admin' };
       navigate(paths[data.role] || '/');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.message || 'Login failed. Please check your phone number and password.');
     } finally {
       setLoading(false);
     }
@@ -56,7 +61,7 @@ export default function LoginPage() {
               type="tel"
               placeholder="Enter your phone number"
               value={form.phone}
-              onChange={e => setForm({ ...form, phone: e.target.value })}
+              onChange={e => { setForm({ ...form, phone: e.target.value }); setError(''); }}
             />
           </div>
 
@@ -70,16 +75,35 @@ export default function LoginPage() {
               type="password"
               placeholder="Enter your password"
               value={form.password}
-              onChange={e => setForm({ ...form, password: e.target.value })}
+              onChange={e => { setForm({ ...form, password: e.target.value }); setError(''); }}
             />
           </div>
+
+          {/* Inline error message */}
+          {error && (
+            <div style={{
+              background: '#FEF2F2',
+              border: '1.5px solid #FECACA',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+            }}>
+              <span style={{ fontSize: '16px', flexShrink: 0 }}>❌</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#B91C1C', marginBottom: '2px' }}>Login Failed</div>
+                <div style={{ fontSize: '13px', color: '#DC2626', lineHeight: '1.5' }}>{error}</div>
+              </div>
+            </div>
+          )}
 
           <button
             id="login-submit"
             className="btn-primary"
             type="submit"
             disabled={loading}
-            style={{ width: '100%', padding: '15px', fontSize: '16px', marginTop: '8px', opacity: loading ? 0.7 : 1 }}
+            style={{ width: '100%', padding: '15px', fontSize: '16px', marginTop: '4px', opacity: loading ? 0.7 : 1 }}
           >
             {loading ? '⏳ Logging in...' : '🚀 Login'}
           </button>
@@ -90,7 +114,9 @@ export default function LoginPage() {
           <Link to="/register" style={{ color: '#1E3A8A', fontWeight: '700', textDecoration: 'none' }}>Register Free</Link>
         </p>
 
-
+        <p style={{ textAlign: 'center', marginTop: '8px', fontSize: '13px', color: '#94A3B8' }}>
+          Make sure your phone number is registered before logging in.
+        </p>
       </div>
     </div>
   );
