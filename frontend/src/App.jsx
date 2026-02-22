@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -53,8 +54,8 @@ export default function App() {
       // Let the animations play for 1.2s, then fade out
       const timer = setTimeout(() => {
         splash.classList.add('hide');
-        setTimeout(() => splash.remove(), 500); // remove from DOM after fade
-      }, 1200);
+        setTimeout(() => splash.remove(), 500);
+      }, 2500);  // 2.5s — matches the longer animation sequence
       return () => clearTimeout(timer);
     }
   }, []);
@@ -63,6 +64,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Toaster position="top-center" toastOptions={{ duration: 4000, style: { borderRadius: '10px', fontFamily: 'Inter, sans-serif' } }} />
+        <Analytics />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
