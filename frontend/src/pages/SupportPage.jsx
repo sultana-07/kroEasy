@@ -4,7 +4,7 @@ export default function SupportPage() {
   return (
     <div className="page-container" style={{ paddingBottom: '32px' }}>
       <div className="app-header" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Link to="/" style={{ color: 'white', textDecoration: 'none', fontSize: '20px' }}>←</Link>
+        <Link to="/" style={{ color: 'white', textDecoration: 'none', fontSize: '20px', display: 'flex', alignItems: 'center' }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg></Link>
         <div>
           <div style={{ fontSize: '18px', fontWeight: '800' }}>⚡ KroEasy</div>
           <div style={{ fontSize: '11px', opacity: 0.8 }}>Help & Support</div>
@@ -59,7 +59,7 @@ export default function SupportPage() {
         </div>
 
         <div style={{ textAlign: 'center', padding: '8px 0' }}>
-          <Link to="/" style={{ color: '#1E3A8A', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}>← Back to Home</Link>
+          <Link to="/" style={{ color: '#1E3A8A', fontWeight: '600', fontSize: '14px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E3A8A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg> Back to Home</Link>
         </div>
       </div>
     </div>

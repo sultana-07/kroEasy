@@ -101,7 +101,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
       }}>
         {/* Top nav bar */}
         <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E3A8A)', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          <button onClick={close} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>←</button>
+          <button onClick={close} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
           <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>Car Details</div>
         </div>
 

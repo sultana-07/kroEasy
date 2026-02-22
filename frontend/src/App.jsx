@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -45,10 +46,23 @@ const getDashboardPath = (role) => {
 };
 
 export default function App() {
+  // Dismiss splash screen after React has mounted
+  useEffect(() => {
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+      // Let the animations play for 1.2s, then fade out
+      const timer = setTimeout(() => {
+        splash.classList.add('hide');
+        setTimeout(() => splash.remove(), 500); // remove from DOM after fade
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Toaster position="top-center" toastOptions={{ duration: 3000, style: { borderRadius: '10px', fontFamily: 'Inter, sans-serif' } }} />
+        <Toaster position="top-center" toastOptions={{ duration: 4000, style: { borderRadius: '10px', fontFamily: 'Inter, sans-serif' } }} />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

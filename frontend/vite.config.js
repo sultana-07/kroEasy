@@ -15,7 +15,7 @@ export default defineConfig({
         short_name: 'KroEasy',
         description: 'KroEasy – Apne Shehar Ki Har Service',
         theme_color: '#1E3A8A',
-        background_color: '#F8FAFC',
+        background_color: '#0F172A',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

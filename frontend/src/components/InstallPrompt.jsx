@@ -38,7 +38,7 @@ export default function InstallPrompt() {
     }}>
       <div style={{ fontSize: '32px' }}>📱</div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '14px', fontWeight: '700', marginBottom: '2px' }}>Install ApniSeva App</div>
+        <div style={{ fontSize: '14px', fontWeight: '700', marginBottom: '2px' }}>Install KroEasy App</div>
         <div style={{ fontSize: '12px', opacity: 0.85 }}>Add to home screen for quick access</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
