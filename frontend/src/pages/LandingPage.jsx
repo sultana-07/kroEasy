@@ -1,10 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import InstallPrompt from '../components/InstallPrompt';
 
 export default function LandingPage() {
   const [visible, setVisible] = useState(false);
+  const [shareMsg, setShareMsg] = useState('');
   const navigate = useNavigate();
+  const { user } = useAuth();
+
   useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
 
   /* animated counter hook */
@@ -28,6 +32,29 @@ export default function LandingPage() {
   const jobsDone = useCounter(1200);
   const providers = useCounter(80);
 
+  const handleShare = async () => {
+    const shareData = {
+      title: '⚡ KroEasy — Apna Kaam, Easy Kaam',
+      text: 'Find trusted workers & cars near you! Verified electricians, plumbers, painters, cars — sab ek app pe. Bilkul free!',
+      url: 'https://kro-easy.vercel.app',
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (e) { /* user cancelled */ }
+    } else {
+      // Fallback: copy link
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        setShareMsg('🔗 Link copied!');
+        setTimeout(() => setShareMsg(''), 2500);
+      } catch {
+        setShareMsg('Copy: kro-easy.vercel.app');
+        setTimeout(() => setShareMsg(''), 3000);
+      }
+    }
+  };
+
   return (
     <div className="page-container" style={{ paddingBottom: 0, overflow: 'hidden' }}>
       {/* Header */}
@@ -36,10 +63,31 @@ export default function LandingPage() {
           <div style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>⚡ KroEasy</div>
           <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '1px' }}>Apna Kaam, Easy Kaam</div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Link to="/login">
-            <button className="btn-outline" style={{ padding: '8px 16px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>Login</button>
-          </Link>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Share Button */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={handleShare}
+              style={{ padding: '8px 14px', fontSize: '13px', fontWeight: '700', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+            >
+              📤 Share
+            </button>
+            {shareMsg && (
+              <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1E293B', color: 'white', fontSize: '11px', padding: '5px 10px', borderRadius: '8px', whiteSpace: 'nowrap', zIndex: 100, marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                {shareMsg}
+              </div>
+            )}
+          </div>
+          {/* Login / Dashboard button based on auth state */}
+          {user ? (
+            <Link to="/dashboard">
+              <button className="btn-outline" style={{ padding: '8px 16px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>Dashboard →</button>
+            </Link>
+          ) : (
+            <Link to="/login">
+              <button className="btn-outline" style={{ padding: '8px 16px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>Login</button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -89,7 +137,7 @@ export default function LandingPage() {
 
           {/* CTA buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '300px', margin: '0 auto' }}>
-            <Link to="/dashboard">
+            <Link to="/services">
               <button style={{
                 width: '100%', padding: '15px', fontSize: '16px', fontWeight: '800',
                 background: 'linear-gradient(135deg, #F97316, #EA580C)',
@@ -103,7 +151,7 @@ export default function LandingPage() {
                 🔧 Find Worker Now — Free
               </button>
             </Link>
-            <Link to="/dashboard">
+            <Link to="/services?tab=cars">
               <button style={{
                 width: '100%', padding: '14px', fontSize: '15px', fontWeight: '700',
                 background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)',
@@ -185,7 +233,7 @@ export default function LandingPage() {
             { icon: '🌿', label: 'Gardener' },
             { icon: '🛡️', label: 'Guard' },
           ].map(s => (
-            <Link to={`/dashboard?skill=${encodeURIComponent(s.label)}`} key={s.label} style={{ textDecoration: 'none' }}>
+            <Link to={`/services?skill=${encodeURIComponent(s.label)}`} key={s.label} style={{ textDecoration: 'none' }}>
               <div style={{
                 background: 'white', borderRadius: '12px', padding: '12px 4px',
                 textAlign: 'center', boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
@@ -334,7 +382,7 @@ export default function LandingPage() {
           Koi registration zaruri nahi browse karne ke liye.<br/>
           Book karne ke liye register karo — 30 seconds mein.
         </p>
-        <Link to="/dashboard">
+        <Link to="/services">
           <button className="btn-primary" style={{
             width: '100%', padding: '16px', fontSize: '17px', fontWeight: '800',
             borderRadius: '14px',
@@ -345,7 +393,9 @@ export default function LandingPage() {
         </Link>
         <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
           <Link to="/register" style={{ fontSize: '13px', color: '#1E3A8A', fontWeight: '600', textDecoration: 'none' }}>✨ Register Free</Link>
-          <Link to="/login" style={{ fontSize: '13px', color: '#64748B', fontWeight: '500', textDecoration: 'none' }}>🔒 Login</Link>
+          {!user && (
+            <Link to="/login" style={{ fontSize: '13px', color: '#64748B', fontWeight: '500', textDecoration: 'none' }}>🔒 Login</Link>
+          )}
         </div>
       </div>
 
@@ -365,7 +415,7 @@ export default function LandingPage() {
               { label: '🔧 Service Providers', to: '/dashboard' },
               { label: '🚗 Car Booking', to: '/dashboard' },
               { label: '👤 Register Free', to: '/register' },
-              { label: '🔒 Login', to: '/login' },
+              ...(!user ? [{ label: '🔒 Login', to: '/login' }] : []),
             ].map((l, i) => (
               <Link key={i} to={l.to} style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.75)', textDecoration: 'none', marginBottom: '8px' }}>{l.label}</Link>
             ))}

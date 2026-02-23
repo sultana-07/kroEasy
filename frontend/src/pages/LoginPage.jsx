@@ -109,7 +109,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: '#64748B' }}>
+        <p style={{ textAlign: 'center', marginTop: '14px', fontSize: '11px', color: '#94A3B8', lineHeight: '1.6' }}>
+          By logging in, you agree to our{' '}
+          <Link to="/terms" style={{ color: '#1E3A8A', fontWeight: '600', textDecoration: 'underline' }}>Terms &amp; Conditions</Link>
+          {' '}and{' '}
+          <Link to="/privacy" style={{ color: '#1E3A8A', fontWeight: '600', textDecoration: 'underline' }}>Privacy Policy</Link>.
+        </p>
+
+        <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '14px', color: '#64748B' }}>
           Don't have an account?{' '}
           <Link to="/register" style={{ color: '#1E3A8A', fontWeight: '700', textDecoration: 'none' }}>Register Free</Link>
         </p>

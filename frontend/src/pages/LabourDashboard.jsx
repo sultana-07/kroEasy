@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#16A34A', cancelled: '#EF4444' };
 
 export default function LabourDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -81,6 +81,7 @@ export default function LabourDashboard() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setProfile(data);
+      refreshUser();
       toast.success('📸 Profile photo updated!');
     } catch { toast.error('Image upload failed'); }
     finally { setUploading(false); }
@@ -193,7 +194,6 @@ export default function LabourDashboard() {
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
                 {uploading && <p style={{ fontSize: '12px', color: '#3B82F6' }}>⏳ Uploading...</p>}
                 <h2 style={{ fontSize: '20px', fontWeight: '700' }}>{user?.name}</h2>
-                <p style={{ color: '#64748B', fontSize: '14px' }}>📱 {user?.phone}</p>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
                 {profile?.skills?.map(s => <span key={s} className="badge badge-blue">{s}</span>)}

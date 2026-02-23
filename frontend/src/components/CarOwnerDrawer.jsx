@@ -14,6 +14,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
   const [booking, setBooking] = useState(false);
   const [booked, setBooked] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_SHOW);
+  const [ownerImgOpen, setOwnerImgOpen] = useState(false);
   const owner = car.ownerId?.userId;
 
   useEffect(() => {
@@ -72,16 +73,11 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
     } finally { setBooking(false); }
   };
 
-  const StarRow = ({ count }) => (
-    <div style={{ display: 'flex', gap: '2px' }}>
-      {[1,2,3,4,5].map(s => (
-        <span key={s} style={{ fontSize: '15px', color: s <= count ? '#F59E0B' : 'rgba(255,255,255,0.3)' }}>★</span>
-      ))}
-    </div>
-  );
-
   const visibleReviews = reviews.slice(0, visibleCount);
   const hasMore = visibleCount < reviews.length;
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s, r) => s + (r.review?.rating || 0), 0) / reviews.length).toFixed(1)
+    : null;
 
   return (
     <>
@@ -101,25 +97,27 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
       }}>
         {/* Top nav bar */}
         <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E3A8A)', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          <button onClick={close} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <button onClick={close} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
           <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>Car Details</div>
         </div>
 
-        {/* Hero section */}
+        {/* ═══ HERO: Car name + price ═══ */}
         <div style={{ background: 'linear-gradient(160deg, #0F172A 0%, #1E3A8A 100%)', padding: '24px 20px 28px', textAlign: 'center', color: 'white', flexShrink: 0 }}>
           <div style={{ fontSize: '56px', marginBottom: '10px' }}>🚗</div>
           <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '4px' }}>{car.carName}</h2>
-          <p style={{ opacity: 0.75, fontSize: '14px', marginBottom: '6px' }}>
-            {car.modelYear} • {owner?.name} • 🏙️ {car.city || owner?.city}
+          <p style={{ opacity: 0.75, fontSize: '14px', marginBottom: '10px' }}>
+            {car.modelYear} • 🏙️ {car.city || owner?.city || 'N/A'}
           </p>
 
-          {/* Number plate display */}
+          {/* Number plate */}
           {car.numberPlate && (
-            <div style={{ marginBottom: '12px' }}>
+            <div style={{ marginBottom: '14px' }}>
               <span style={{
                 display: 'inline-block',
                 background: 'white', color: '#0F172A',
-                borderRadius: '6px', padding: '4px 14px',
+                borderRadius: '6px', padding: '4px 16px',
                 fontSize: '14px', fontWeight: '800',
                 letterSpacing: '2px', fontFamily: 'monospace',
                 border: '2px solid #F59E0B',
@@ -130,17 +128,18 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
           )}
 
           {/* Price pill */}
-          <div style={{ display: 'inline-block', background: '#F97316', padding: '8px 20px', borderRadius: '24px', fontWeight: '800', fontSize: '20px', marginBottom: '14px' }}>
+          <div style={{ display: 'inline-block', background: '#F97316', padding: '8px 22px', borderRadius: '24px', fontWeight: '800', fontSize: '22px', marginBottom: '12px' }}>
             ₹{car.basePrice} <span style={{ fontSize: '13px', fontWeight: '500', opacity: 0.9 }}>/ {car.priceType === 'per_day' ? 'day' : 'km'}</span>
           </div>
 
+          {/* Availability badge */}
           <div style={{ marginBottom: '18px' }}>
             <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: '20px', background: car.availability ? 'rgba(22,163,74,0.8)' : 'rgba(239,68,68,0.8)', fontSize: '12px', fontWeight: '700' }}>
               {car.availability ? '✅ Available Now' : '❌ Not Available'}
             </span>
           </div>
 
-          {/* ── Action button ── */}
+          {/* Book button */}
           <div style={{ maxWidth: '320px', margin: '0 auto' }}>
             {booked ? (
               <div style={{
@@ -160,58 +159,150 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
                   border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
                 }}
               >
-                {booking ? '⏳ Booking...' : '📋 Book Now'}
+                {booking ? '⏳ Booking...' : '📋 Book This Car'}
               </button>
             )}
           </div>
         </div>
 
-        {/* Booking count stat */}
-        <div style={{ background: 'white', padding: '14px', textAlign: 'center', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '32px' }}>
-            <div>
+        {/* ═══ STATS BAR ═══ */}
+        <div style={{ background: 'white', padding: '14px 16px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '40px' }}>
+            <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '22px', marginBottom: '2px' }}>📋</div>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: '#1E3A8A' }}>{car.bookingCount || 0}</div>
-              <div style={{ fontSize: '12px', color: '#64748B' }}>Bookings Completed</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#1E3A8A' }}>{car.bookingCount || 0}</div>
+              <div style={{ fontSize: '11px', color: '#64748B' }}>Bookings Done</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '22px', marginBottom: '2px' }}>⭐</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#F59E0B' }}>{avgRating || '—'}</div>
+              <div style={{ fontSize: '11px', color: '#64748B' }}>Avg Rating</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '22px', marginBottom: '2px' }}>💬</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#16A34A' }}>{reviews.length}</div>
+              <div style={{ fontSize: '11px', color: '#64748B' }}>Reviews</div>
             </div>
           </div>
         </div>
 
-        {/* Scrollable content */}
-        <div style={{ padding: '0 16px', flex: 1 }}>
-          {/* Features */}
-          <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px', color: '#0F172A' }}>🔍 Car Features</h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {car.ac
-                ? <span className="badge badge-blue" style={{ fontSize: '13px', padding: '5px 12px' }}>❄️ AC</span>
-                : <span className="badge badge-gray" style={{ fontSize: '13px', padding: '5px 12px' }}>🌡️ Non-AC</span>}
-              {car.driverIncluded
-                ? <span className="badge badge-green" style={{ fontSize: '13px', padding: '5px 12px' }}>🧑‍✈️ Driver Included</span>
-                : <span className="badge badge-gray" style={{ fontSize: '13px', padding: '5px 12px' }}>🚗 Self Drive</span>}
+        {/* ═══ SCROLLABLE CONTENT ═══ */}
+        <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+          {/* ── OWNER PROFILE CARD ── */}
+          <div className="card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '16px', color: '#0F172A' }}>👤 Owner Details</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {/* Profile photo — tap to expand */}
+              <div
+                onClick={() => owner?.avatar && setOwnerImgOpen(true)}
+                style={{ flexShrink: 0, cursor: owner?.avatar ? 'pointer' : 'default', position: 'relative' }}
+              >
+                {owner?.avatar ? (
+                  <>
+                    <img
+                      src={owner.avatar}
+                      alt={owner.name}
+                      style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', display: 'block' }}
+                    />
+                    <div style={{
+                      position: 'absolute', bottom: '0', right: '0',
+                      background: '#1E3A8A', borderRadius: '50%',
+                      width: '20px', height: '20px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '10px', border: '2px solid white',
+                    }}>🔍</div>
+                  </>
+                ) : (
+                  <div style={{
+                    width: '72px', height: '72px', borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #F97316, #EA580C)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '30px', color: 'white', fontWeight: '800', border: '3px solid #E2E8F0',
+                  }}>
+                    {owner?.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                )}
+              </div>
+
+              {/* Owner info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {owner?.name || 'Car Owner'}
+                </div>
+                <div style={{ fontSize: '13px', color: '#64748B', marginBottom: '6px' }}>
+                  🏙️ {car.city || owner?.city || 'Location not set'}
+                </div>
+                <span style={{
+                  display: 'inline-block', padding: '3px 10px', borderRadius: '12px',
+                  background: '#EFF6FF', color: '#1E3A8A', fontSize: '11px', fontWeight: '700',
+                }}>🚗 Verified Car Owner</span>
+              </div>
             </div>
+
+            {owner?.avatar && (
+              <p style={{ marginTop: '10px', fontSize: '11px', color: '#94A3B8', textAlign: 'center' }}>
+                Tap photo to view full size
+              </p>
+            )}
+
+            {/* Call owner button */}
+            <button
+              onClick={handleCall}
+              style={{
+                marginTop: '16px', width: '100%', padding: '12px', fontSize: '14px', fontWeight: '700',
+                background: 'linear-gradient(135deg, #16A34A, #15803D)',
+                border: 'none', borderRadius: '12px', color: 'white', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                boxShadow: '0 4px 12px rgba(22,163,74,0.3)',
+              }}
+            >
+              📞 Call Owner Directly
+            </button>
           </div>
 
-          {/* Owner Details */}
-          <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px', color: '#0F172A' }}>👤 Owner Details</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* ── CAR FEATURES ── */}
+          <div className="card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '14px', color: '#0F172A' }}>🔍 Car Features</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {[
-                { label: 'Name', value: owner?.name || '—' },
-                { label: '🏙️ City', value: car.city || owner?.city || '—' },
-                { label: '📅 Year', value: car.modelYear },
+                { icon: car.ac ? '❄️' : '🌡️', label: car.ac ? 'AC' : 'Non-AC', ok: car.ac },
+                { icon: car.driverIncluded ? '🧑‍✈️' : '🚗', label: car.driverIncluded ? 'Driver Included' : 'Self Drive', ok: car.driverIncluded },
+              ].map((f, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '10px 12px', borderRadius: '10px',
+                  background: f.ok ? '#F0FDF4' : '#F8FAFC',
+                  border: `1px solid ${f.ok ? '#BBF7D0' : '#E2E8F0'}`,
+                }}>
+                  <span style={{ fontSize: '20px' }}>{f.icon}</span>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: f.ok ? '#166534' : '#374151' }}>{f.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Spec table */}
+            <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {[
+                { label: '📅 Model Year', value: car.modelYear },
+                { label: '💰 Price Type', value: car.priceType === 'per_day' ? 'Per Day' : 'Per KM' },
+                { label: '💵 Base Price', value: `₹${car.basePrice} / ${car.priceType === 'per_day' ? 'day' : 'km'}` },
                 ...(car.numberPlate ? [{ label: '🔢 Number Plate', value: car.numberPlate }] : []),
+                { label: '🏙️ City', value: car.city || owner?.city || '—' },
               ].map(({ label, value }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                <div key={label} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 0', borderBottom: '1px solid #F1F5F9', fontSize: '14px',
+                }}>
                   <span style={{ color: '#64748B' }}>{label}</span>
-                  <strong>{value}</strong>
+                  <strong style={{ color: '#0F172A', maxWidth: '55%', textAlign: 'right' }}>{value}</strong>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Reviews */}
-          <div className="card" style={{ padding: '16px', marginBottom: '24px' }}>
+          {/* ── REVIEWS ── */}
+          <div className="card" style={{ padding: '16px', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: '#0F172A' }}>
               ⭐ Customer Reviews {reviews.length > 0 && `(${reviews.length})`}
             </h3>
@@ -267,6 +358,48 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* ═══ OWNER IMAGE FULL-SIZE LIGHTBOX ═══ */}
+      {ownerImgOpen && owner?.avatar && (
+        <div
+          onClick={() => setOwnerImgOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <button
+            onClick={() => setOwnerImgOpen(false)}
+            style={{
+              position: 'absolute', top: '20px', right: '20px',
+              background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
+              width: '40px', height: '40px', borderRadius: '50%',
+              fontSize: '20px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700',
+            }}
+          >✕</button>
+          <div style={{ textAlign: 'center' }}>
+            <img
+              src={owner.avatar}
+              alt={owner.name}
+              onClick={e => e.stopPropagation()}
+              style={{
+                maxWidth: '88vw', maxHeight: '74vh',
+                borderRadius: '16px', objectFit: 'contain',
+                boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
+                border: '3px solid rgba(255,255,255,0.15)',
+              }}
+            />
+            <div style={{ marginTop: '12px', color: 'white', fontSize: '14px', fontWeight: '600' }}>
+              {owner.name}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>
+              🚗 Car Owner
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

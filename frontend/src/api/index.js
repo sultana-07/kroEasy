@@ -15,7 +15,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
+        // Only force-redirect to /login if the user HAD a valid token that expired.
+        // Do NOT redirect during login/register attempts (no token = they're already on login page).
+        const hadToken = !!localStorage.getItem('kroeasy_token');
+        if (hadToken && error.response?.status === 401) {
             localStorage.removeItem('kroeasy_token');
             localStorage.removeItem('kroeasy_user');
             window.location.href = '/login';

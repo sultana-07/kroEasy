@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
@@ -13,6 +13,13 @@ import AdminDashboard from './pages/AdminDashboard';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import SupportPage from './pages/SupportPage';
+
+// Scrolls to top on every route change
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [pathname]);
+  return null;
+};
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -29,7 +36,17 @@ const AppRoutes = () => {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={user ? <Navigate to={getDashboardPath(user.role)} /> : <LoginPage />} />
       <Route path="/register" element={user ? <Navigate to={getDashboardPath(user.role)} /> : <RegisterPage />} />
-      <Route path="/dashboard" element={<UserDashboard />} />
+      {/* /dashboard auto-redirects role-specific users to their own dashboard */}
+      <Route
+        path="/dashboard"
+        element={
+          user && user.role !== 'user'
+            ? <Navigate to={getDashboardPath(user.role)} replace />
+            : <UserDashboard />
+        }
+      />
+      {/* /services always shows the customer browsing page — no role redirect */}
+      <Route path="/services" element={<UserDashboard />} />
       <Route path="/labour-dashboard" element={<ProtectedRoute roles={['labour']}><LabourDashboard /></ProtectedRoute>} />
       <Route path="/carowner-dashboard" element={<ProtectedRoute roles={['carowner']}><CarOwnerDashboard /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
@@ -63,6 +80,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <Toaster position="top-center" toastOptions={{ duration: 4000, style: { borderRadius: '10px', fontFamily: 'Inter, sans-serif' } }} />
         <Analytics />
         <AppRoutes />

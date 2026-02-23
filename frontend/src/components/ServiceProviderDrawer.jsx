@@ -211,10 +211,6 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
                   <strong>{labour.charges}</strong>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                <span style={{ color: '#64748B' }}>📱 Contact</span>
-                <strong>{user?.phone}</strong>
-              </div>
             </div>
             {labour.description && (
               <p style={{ marginTop: '12px', fontSize: '13px', color: '#64748B', lineHeight: '1.7', borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>

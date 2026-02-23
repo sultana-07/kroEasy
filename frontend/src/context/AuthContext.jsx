@@ -28,8 +28,15 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Re-reads the user from localStorage and updates React state.
+  // Call this after mutating kroeasy_user (e.g. after avatar upload).
+  const refreshUser = () => {
+    const stored = localStorage.getItem('kroeasy_user');
+    if (stored) setUser(JSON.parse(stored));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated: !!user, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

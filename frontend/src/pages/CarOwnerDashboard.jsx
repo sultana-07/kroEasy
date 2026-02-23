@@ -8,7 +8,7 @@ const emptyCarForm = { carName: '', numberPlate: '', modelYear: new Date().getFu
 const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#16A34A', cancelled: '#EF4444' };
 
 export default function CarOwnerDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +46,7 @@ export default function CarOwnerDashboard() {
       });
       const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
       localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, avatar: data.avatar }));
+      refreshUser();
       toast.success('📸 Profile photo updated!');
     } catch { toast.error('Image upload failed'); }
     finally { setAvatarUploading(false); }
@@ -131,8 +132,48 @@ export default function CarOwnerDashboard() {
         <button onClick={() => { logout(); navigate('/'); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Logout</button>
       </div>
 
+      {/* Approval Status Banners */}
+      {user?.approvalStatus === 'pending' && (
+        <div style={{ margin: '12px 16px 0', padding: '14px 16px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <span style={{ fontSize: '22px', flexShrink: 0 }}>⏳</span>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#EA580C' }}>Approval Pending</div>
+            <div style={{ fontSize: '12px', color: '#9A3412', lineHeight: '1.5' }}>Your car owner account is under review by admin. You will be able to add cars once approved.</div>
+          </div>
+        </div>
+      )}
+      {user?.approvalStatus === 'approved' && (
+        <div style={{ margin: '12px 16px 0', padding: '14px 16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <span style={{ fontSize: '22px', flexShrink: 0 }}>✅</span>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#16A34A' }}>Account Approved!</div>
+            <div style={{ fontSize: '12px', color: '#166534', lineHeight: '1.5' }}>Congratulations! You can now add your cars and start getting bookings from customers.</div>
+          </div>
+        </div>
+      )}
+      {user?.approvalStatus === 'rejected' && (
+        <div style={{ margin: '12px 16px 0', padding: '14px 16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <span style={{ fontSize: '22px', flexShrink: 0 }}>❌</span>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#DC2626' }}>Account Rejected</div>
+            <div style={{ fontSize: '12px', color: '#991B1B', lineHeight: '1.5' }}>Your account has been rejected by admin. Please contact support for more information.</div>
+            <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: '#DC2626', fontWeight: '700', marginTop: '4px', display: 'inline-block' }}>💬 Contact Support</a>
+          </div>
+        </div>
+      )}
+      {user?.approvalStatus === 'suspended' && (
+        <div style={{ margin: '12px 16px 0', padding: '14px 16px', background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <span style={{ fontSize: '22px', flexShrink: 0 }}>🚫</span>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#BE123C' }}>Account Suspended</div>
+            <div style={{ fontSize: '12px', color: '#9F1239', lineHeight: '1.5' }}>Your account has been suspended by admin. Please contact support to resolve this.</div>
+            <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: '#BE123C', fontWeight: '700', marginTop: '4px', display: 'inline-block' }}>💬 Contact Support</a>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
+      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #E2E8F0', marginTop: '12px' }}>
         {[{ key: 'cars', label: '🚗 My Cars' }, { key: 'bookings', label: '📋 Bookings' }, { key: 'profile', label: '👤 Profile' }].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flex: 1, padding: '14px 8px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: activeTab === tab.key ? '#1E3A8A' : '#64748B', borderBottom: activeTab === tab.key ? '3px solid #1E3A8A' : '3px solid transparent' }}>{tab.label}</button>
         ))}

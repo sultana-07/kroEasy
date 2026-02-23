@@ -84,7 +84,7 @@ function ReviewModal({ booking, onClose, onSubmit }) {
 }
 
 export default function UserDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -101,6 +101,8 @@ export default function UserDashboard() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const fileRef = useRef();
+  // Guard: true while we're handling a ?skill= URL param so [activeTab] effect skips its fetch
+  const skipNextServicesFetch = useRef(false);
 
   // Switch to a specific tab when navigated here with state (e.g. after booking)
   useEffect(() => {
@@ -111,17 +113,33 @@ export default function UserDashboard() {
     }
   }, [location.state]);
 
-  // Handle ?skill= query param from landing page category tiles
+  // Handle ?skill= and ?tab= query params from landing page category tiles
   useEffect(() => {
     const skill = searchParams.get('skill');
+    const tab = searchParams.get('tab');
     if (skill) {
+      skipNextServicesFetch.current = true; // prevent [activeTab] effect from overwriting
       setActiveTab('services');
       setFilters(prev => ({ ...prev, skills: skill }));
+      // Call directly with skillOverride so we don't wait for state to flush
+      fetchLabours(1, false, skill);
+    } else if (tab === 'cars') {
+      setActiveTab('cars');
+      // fetchCars will fire from the [activeTab] effect when tab changes from 'services'
+    } else if (tab) {
+      setActiveTab(tab);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'services') fetchLabours();
+    if (activeTab === 'services') {
+      if (skipNextServicesFetch.current) {
+        skipNextServicesFetch.current = false; // consume the guard, don't skip again
+        return;
+      }
+      fetchLabours();
+    }
     if (activeTab === 'cars') fetchCars();
     if (activeTab === 'bookings') {
       if (!user) { navigate('/login'); return; }
@@ -203,6 +221,7 @@ export default function UserDashboard() {
       const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
       const updated = { ...stored, avatar: data.avatar };
       localStorage.setItem('kroeasy_user', JSON.stringify(updated));
+      refreshUser();
       toast.success('📸 Profile photo updated!');
     } catch { toast.error('Image upload failed'); }
     finally { setAvatarUploading(false); }
@@ -274,14 +293,14 @@ export default function UserDashboard() {
                 { icon: '🔧', label: 'Plumber' },
                 { icon: '🪚', label: 'Carpenter' },
                 { icon: '🎨', label: 'Painter' },
-                { icon: '❄️', label: 'AC Technician' },
+                { icon: '❄️', label: 'AC Repair' },
                 { icon: '🧱', label: 'Mason' },
                 { icon: '🚗', label: 'Driver' },
                 { icon: '🧹', label: 'Cleaner' },
                 { icon: '🍳', label: 'Cook' },
                 { icon: '💇', label: 'Beautician' },
                 { icon: '🌿', label: 'Gardener' },
-                { icon: '🛡️', label: 'Security Guard' },
+                { icon: '🛡️', label: 'Guard' },
               ].map(s => {
                 const active = filters.skills === s.label;
                 return (

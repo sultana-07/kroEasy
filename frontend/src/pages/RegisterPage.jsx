@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [selectedRole, setSelectedRole] = useState(searchParams.get('role') || 'user');
   const [form, setForm] = useState({ name: '', phone: '', password: '', city: '', skills: [], experience: '', charges: '', description: '' });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -29,9 +30,19 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.phone || !form.password || !form.city) return toast.error('Please fill all required fields');
-    if (form.password.length < 6) return toast.error('Password must be at least 6 characters');
-    if (selectedRole === 'labour' && form.skills.length === 0) return toast.error('Please select at least one skill');
+    setError('');
+    if (!form.name || !form.phone || !form.password || !form.city) {
+      setError('Please fill in all required fields (Name, Phone, Password, City).');
+      return;
+    }
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (selectedRole === 'labour' && form.skills.length === 0) {
+      setError('Please select at least one skill for your service provider account.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -41,7 +52,7 @@ export default function RegisterPage() {
       const paths = { user: '/dashboard', labour: '/labour-dashboard', carowner: '/carowner-dashboard' };
       navigate(paths[data.role] || '/');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Registration failed');
+      setError(err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,7 +78,7 @@ export default function RegisterPage() {
               <button
                 key={r.value}
                 type="button"
-                onClick={() => setSelectedRole(r.value)}
+                onClick={() => { setSelectedRole(r.value); setError(''); }}
                 style={{
                   padding: '14px 16px',
                   borderRadius: '10px',
@@ -95,19 +106,19 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Full Name *</label>
-            <input id="reg-name" className="input-field" placeholder="Your full name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+            <input id="reg-name" className="input-field" placeholder="Your full name" value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); setError(''); }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Phone Number *</label>
-            <input id="reg-phone" className="input-field" type="tel" placeholder="10-digit phone number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+            <input id="reg-phone" className="input-field" type="tel" placeholder="10-digit phone number" value={form.phone} onChange={e => { setForm({ ...form, phone: e.target.value }); setError(''); }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Password *</label>
-            <input id="reg-password" className="input-field" type="password" placeholder="Min 6 characters" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+            <input id="reg-password" className="input-field" type="password" placeholder="Min 6 characters" value={form.password} onChange={e => { setForm({ ...form, password: e.target.value }); setError(''); }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>City *</label>
-            <input id="reg-city" className="input-field" placeholder="Your city" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+            <input id="reg-city" className="input-field" placeholder="Your city" value={form.city} onChange={e => { setForm({ ...form, city: e.target.value }); setError(''); }} />
           </div>
 
           {/* Labour-specific fields */}
@@ -147,18 +158,37 @@ export default function RegisterPage() {
             </>
           )}
 
+          {/* ── Inline error message ── */}
+          {error && (
+            <div style={{
+              background: '#FEF2F2', border: '1.5px solid #FECACA',
+              borderRadius: '10px', padding: '12px 14px',
+              display: 'flex', alignItems: 'flex-start', gap: '10px',
+            }}>
+              <span style={{ fontSize: '16px', flexShrink: 0 }}>❌</span>
+              <div style={{ fontSize: '13px', color: '#DC2626', lineHeight: '1.5' }}>{error}</div>
+            </div>
+          )}
+
           <button
             id="reg-submit"
             className="btn-primary"
             type="submit"
             disabled={loading}
-            style={{ width: '100%', padding: '15px', fontSize: '16px', marginTop: '8px', opacity: loading ? 0.7 : 1 }}
+            style={{ width: '100%', padding: '15px', fontSize: '16px', marginTop: '4px', opacity: loading ? 0.7 : 1 }}
           >
             {loading ? '⏳ Creating Account...' : '🎉 Create Account Free'}
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '14px', color: '#64748B' }}>
+        <p style={{ textAlign: 'center', marginTop: '10px', fontSize: '11px', color: '#94A3B8', lineHeight: '1.6' }}>
+          By clicking <strong style={{ color: '#374151' }}>Create Account</strong>, you agree to our{' '}
+          <Link to="/terms" style={{ color: '#1E3A8A', fontWeight: '600', textDecoration: 'underline' }}>Terms &amp; Conditions</Link>
+          {' '}and{' '}
+          <Link to="/privacy" style={{ color: '#1E3A8A', fontWeight: '600', textDecoration: 'underline' }}>Privacy Policy</Link>.
+        </p>
+
+        <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '14px', color: '#64748B' }}>
           Already have an account?{' '}
           <Link to="/login" style={{ color: '#1E3A8A', fontWeight: '700', textDecoration: 'none' }}>Login</Link>
         </p>
