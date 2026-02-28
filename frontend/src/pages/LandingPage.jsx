@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import InstallPrompt from '../components/InstallPrompt';
 
 export default function LandingPage() {
@@ -8,6 +9,7 @@ export default function LandingPage() {
   const [shareMsg, setShareMsg] = useState('');
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t, lang, switchLang } = useLanguage();
 
   useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
 
@@ -61,16 +63,23 @@ export default function LandingPage() {
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>⚡ KroEasy</div>
-          <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '1px' }}>Apna Kaam, Easy Kaam</div>
+          <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '1px' }}>{t('landingTagline')}</div>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {/* Language toggle */}
+          <button
+            onClick={() => switchLang(lang === 'en' ? 'hi' : 'en')}
+            style={{ padding: '6px 10px', fontSize: '12px', fontWeight: '700', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}
+          >
+            {lang === 'en' ? '🇮🇳 HI' : '🌐 EN'}
+          </button>
           {/* Share Button */}
           <div style={{ position: 'relative' }}>
             <button
               onClick={handleShare}
-              style={{ padding: '8px 14px', fontSize: '13px', fontWeight: '700', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+              style={{ padding: '8px 12px', fontSize: '13px', fontWeight: '700', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
             >
-              📤 Share
+              📤 {t('share')}
             </button>
             {shareMsg && (
               <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1E293B', color: 'white', fontSize: '11px', padding: '5px 10px', borderRadius: '8px', whiteSpace: 'nowrap', zIndex: 100, marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
@@ -81,11 +90,11 @@ export default function LandingPage() {
           {/* Login / Dashboard button based on auth state */}
           {user ? (
             <Link to="/dashboard">
-              <button className="btn-outline" style={{ padding: '8px 16px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>Dashboard →</button>
+              <button className="btn-outline" style={{ padding: '8px 14px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>{t('dashboard')} →</button>
             </Link>
           ) : (
             <Link to="/login">
-              <button className="btn-outline" style={{ padding: '8px 16px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>Login</button>
+              <button className="btn-outline" style={{ padding: '8px 14px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>{t('login')}</button>
             </Link>
           )}
         </div>
@@ -112,16 +121,14 @@ export default function LandingPage() {
           transform: visible ? 'translateY(0)' : 'translateY(24px)',
           transition: 'all 0.7s cubic-bezier(0.16,1,0.3,1)',
         }}>
-          {/* Emotional headline — user reads this first */}
           <div style={{ fontSize: '15px', fontWeight: '600', color: '#F97316', marginBottom: '8px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-            🛡️ Safe · Verified · Affordable
+            🛡️ {t('heroTrust')}
           </div>
           <h1 style={{ fontSize: '28px', fontWeight: '900', lineHeight: '1.25', marginBottom: '14px', letterSpacing: '-0.3px' }}>
-            AC kharab? Plumber chahiye?<br/>
-            <span style={{ color: '#F97316' }}>3 minute</span> mein milega!
+            {t('heroHeadline')}
           </h1>
           <p style={{ fontSize: '15px', opacity: 0.85, marginBottom: '10px', lineHeight: '1.6', maxWidth: '340px', margin: '0 auto 10px' }}>
-            Verified electricians, plumbers, painters, cars — sab <strong>ek app</strong> pe. No middleman, no extra charges.
+            {t('heroSubtitle')}
           </p>
 
           {/* Trust signal */}
@@ -132,7 +139,7 @@ export default function LandingPage() {
             color: '#86EFAC', fontWeight: '600', marginBottom: '24px',
           }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', animation: 'pulse 1.5s infinite' }} />
-            {providers}+ verified providers near you
+            {providers}+ {t('verifiedNearYou')}
           </div>
 
           {/* CTA buttons */}
@@ -148,7 +155,7 @@ export default function LandingPage() {
                 onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
                 onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
               >
-                🔧 Find Worker Now — Free
+                🔧 {t('findWorkerCta')}
               </button>
             </Link>
             <Link to="/services?tab=cars">
@@ -158,7 +165,7 @@ export default function LandingPage() {
                 border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: '12px',
                 color: 'white', cursor: 'pointer',
               }}>
-                🚗 Book a Car
+                🚗 {t('bookCarCta')}
               </button>
             </Link>
           </div>
@@ -172,9 +179,9 @@ export default function LandingPage() {
         borderBottom: '1px solid #E2E8F0',
       }}>
         {[
-          { val: `${happyUsers}+`, label: 'Happy Users', color: '#1E3A8A' },
-          { val: `${jobsDone}+`, label: 'Jobs Done', color: '#16A34A' },
-          { val: `${providers}+`, label: 'Providers', color: '#F97316' },
+          { val: `${happyUsers}+`, label: t('happyUsers'), color: '#1E3A8A' },
+          { val: `${jobsDone}+`, label: t('jobsDone'), color: '#16A34A' },
+          { val: `${providers}+`, label: t('providers'), color: '#F97316' },
         ].map((s, i) => (
           <div key={i} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '22px', fontWeight: '900', color: s.color }}>{s.val}</div>
@@ -213,27 +220,27 @@ export default function LandingPage() {
       {/* ═══════════ SERVICE CATEGORIES — tap to explore ═══════════ */}
       <div style={{ padding: '8px 16px 24px' }}>
         <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '4px', color: '#0F172A' }}>
-          🔧 Find Skilled Workers
+          🔧 {t('findWorkers')}
         </h2>
         <p style={{ textAlign: 'center', fontSize: '12px', color: '#64748B', marginBottom: '16px' }}>
-          Tap a category to find providers near you
+          {t('tapCategory')}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
           {[
-            { icon: '⚡', label: 'Electrician' },
-            { icon: '🔧', label: 'Plumber' },
-            { icon: '🪚', label: 'Carpenter' },
-            { icon: '🎨', label: 'Painter' },
-            { icon: '❄️', label: 'AC Repair' },
-            { icon: '🧱', label: 'Mason' },
-            { icon: '🚗', label: 'Driver' },
-            { icon: '🧹', label: 'Cleaner' },
-            { icon: '🍳', label: 'Cook' },
-            { icon: '💇', label: 'Beautician' },
-            { icon: '🌿', label: 'Gardener' },
-            { icon: '🛡️', label: 'Guard' },
+            { icon: '⚡', labelKey: 'skillElectrician', value: 'Electrician' },
+            { icon: '🔧', labelKey: 'skillPlumber', value: 'Plumber' },
+            { icon: '🪚', labelKey: 'skillCarpenter', value: 'Carpenter' },
+            { icon: '🎨', labelKey: 'skillPainter', value: 'Painter' },
+            { icon: '❄️', labelKey: 'skillAcRepair', value: 'AC Technician' },
+            { icon: '🧱', labelKey: 'skillMason', value: 'Mason' },
+            { icon: '🚗', labelKey: 'skillDriver', value: 'Driver' },
+            { icon: '🧹', labelKey: 'skillCleaner', value: 'Cleaner' },
+            { icon: '🍳', labelKey: 'skillCook', value: 'Cook' },
+            { icon: '💇', labelKey: 'skillBeautician', value: 'Beautician' },
+            { icon: '🌸', labelKey: 'skillMehndi', value: 'Mehndi Artist' },
+            { icon: '🤝', labelKey: 'skillHelper', value: 'Helper' },
           ].map(s => (
-            <Link to={`/services?skill=${encodeURIComponent(s.label)}`} key={s.label} style={{ textDecoration: 'none' }}>
+            <Link to={`/services?skill=${encodeURIComponent(s.value)}`} key={s.value} style={{ textDecoration: 'none' }}>
               <div style={{
                 background: 'white', borderRadius: '12px', padding: '12px 4px',
                 textAlign: 'center', boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
@@ -246,7 +253,7 @@ export default function LandingPage() {
                 onTouchEnd={e => e.currentTarget.style.transform = 'scale(1)'}
               >
                 <div style={{ fontSize: '24px', marginBottom: '4px' }}>{s.icon}</div>
-                <div style={{ fontSize: '10px', fontWeight: '700', color: '#1E3A8A', lineHeight: '1.2' }}>{s.label}</div>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: '#1E3A8A', lineHeight: '1.2' }}>{t(s.labelKey)}</div>
               </div>
             </Link>
           ))}
@@ -256,13 +263,13 @@ export default function LandingPage() {
       {/* ═══════════ HOW IT WORKS — 3 steps ═══════════ */}
       <div style={{ padding: '24px 16px', background: '#F8FAFC' }}>
         <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '20px', color: '#0F172A' }}>
-          📱 Just 3 Steps
+          📱 {t('howItWorks')}
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '360px', margin: '0 auto' }}>
           {[
-            { step: '1', icon: '🔍', title: 'Search', desc: 'Browse workers or cars by category' },
-            { step: '2', icon: '📋', title: 'Book', desc: 'One tap to request a booking — free!' },
-            { step: '3', icon: '📞', title: 'Call', desc: 'Direct call — work done, pay the worker' },
+            { step: '1', icon: '🔍', titleKey: 'step1Title', descKey: 'step1Desc' },
+            { step: '2', icon: '📋', titleKey: 'step2Title', descKey: 'step2Desc' },
+            { step: '3', icon: '📞', titleKey: 'step3Title', descKey: 'step3Desc' },
           ].map((s, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'center', gap: '14px',
@@ -279,9 +286,9 @@ export default function LandingPage() {
               </div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', marginBottom: '2px' }}>
-                  Step {s.step}: {s.title}
+                  {t('step')} {s.step}: {t(s.titleKey)}
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.4' }}>{s.desc}</div>
+                <div style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.4' }}>{t(s.descKey)}</div>
               </div>
             </div>
           ))}
@@ -291,14 +298,14 @@ export default function LandingPage() {
       {/* ═══════════ SAFETY & TRUST — for Users ═══════════ */}
       <div style={{ padding: '24px 16px' }}>
         <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '20px', color: '#0F172A' }}>
-          🛡️ Your Safety is Our Priority
+          🛡️ {t('safetyTitle')}
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           {[
-            { icon: '✅', title: 'Admin Verified', desc: 'Every provider checked by our team' },
-            { icon: '⭐', title: 'Ratings & Reviews', desc: 'See real reviews before booking' },
-            { icon: '📞', title: 'Call Tracking', desc: 'All calls are recorded & logged' },
-            { icon: '🔒', title: 'No Data Sharing', desc: 'Your number is safe with us' },
+            { icon: '✅', titleKey: 'safetyVerified', descKey: 'safetyVerifiedDesc' },
+            { icon: '⭐', titleKey: 'safetyRatings', descKey: 'safetyRatingsDesc' },
+            { icon: '📞', titleKey: 'safetyCall', descKey: 'safetyCallDesc' },
+            { icon: '🔒', titleKey: 'safetyData', descKey: 'safetyDataDesc' },
           ].map((f, i) => (
             <div key={i} style={{
               background: 'white', borderRadius: '14px', padding: '16px 12px',
@@ -306,67 +313,45 @@ export default function LandingPage() {
               border: '1px solid #E2E8F0',
             }}>
               <div style={{ fontSize: '28px', marginBottom: '6px' }}>{f.icon}</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E3A8A', marginBottom: '3px' }}>{f.title}</div>
-              <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '1.4' }}>{f.desc}</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E3A8A', marginBottom: '3px' }}>{t(f.titleKey)}</div>
+              <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '1.4' }}>{t(f.descKey)}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* ═══════════ WORKER CTA — earn more ═══════════ */}
-      <div style={{
-        margin: '0 16px 20px', padding: '28px 20px',
-        background: 'linear-gradient(145deg, #0F172A, #1E293B)',
-        borderRadius: '20px', textAlign: 'center', color: 'white',
-        position: 'relative', overflow: 'hidden',
-      }}>
+      <div style={{ margin: '0 16px 20px', padding: '28px 20px', background: 'linear-gradient(145deg, #0F172A, #1E293B)', borderRadius: '20px', textAlign: 'center', color: 'white', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(249,115,22,0.1)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ fontSize: '36px', marginBottom: '8px' }}>💼</div>
           <h3 style={{ fontSize: '20px', fontWeight: '800', marginBottom: '8px' }}>
-            Kya aap worker hain?
+            {t('workerCtaTitle')}
           </h3>
           <p style={{ fontSize: '14px', opacity: 0.8, marginBottom: '6px', lineHeight: '1.6' }}>
-            Register free aur <span style={{ color: '#F97316', fontWeight: '700' }}>sidha customers se connect</span> karen
+            {t('workerCtaDesc')}
           </p>
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: '8px',
-            margin: '16px auto 0', maxWidth: '280px',
-          }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '16px auto 0', maxWidth: '280px' }}>
             {[
-              '💰 No commission — sab paisa aapka',
-              '📞 Direct calls from customers',
-              '⭐ Build your profile & reviews',
-              '📈 Zyada customers, zyada kamaai',
-            ].map((t, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                background: 'rgba(255,255,255,0.07)', borderRadius: '10px',
-                padding: '10px 12px', fontSize: '13px', fontWeight: '600',
-                textAlign: 'left',
-              }}>
-                {t}
+              t('workerBenefit1'),
+              t('workerBenefit2'),
+              t('workerBenefit3'),
+              t('workerBenefit4'),
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.07)', borderRadius: '10px', padding: '10px 12px', fontSize: '13px', fontWeight: '600', textAlign: 'left' }}>
+                {item}
               </div>
             ))}
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
             <Link to="/register?role=labour">
-              <button style={{
-                padding: '12px 20px', fontSize: '14px', fontWeight: '700',
-                background: 'linear-gradient(135deg, #F97316, #EA580C)',
-                border: 'none', borderRadius: '12px', color: 'white', cursor: 'pointer',
-                boxShadow: '0 4px 16px rgba(249,115,22,0.35)',
-              }}>
-                🔧 Register as Worker
+              <button style={{ padding: '12px 20px', fontSize: '14px', fontWeight: '700', background: 'linear-gradient(135deg, #F97316, #EA580C)', border: 'none', borderRadius: '12px', color: 'white', cursor: 'pointer', boxShadow: '0 4px 16px rgba(249,115,22,0.35)' }}>
+                🔧 {t('registerAsWorker')}
               </button>
             </Link>
             <Link to="/register?role=carowner">
-              <button style={{
-                padding: '12px 20px', fontSize: '14px', fontWeight: '700',
-                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: '12px', color: 'white', cursor: 'pointer',
-              }}>
-                🚗 Car Owner
+              <button style={{ padding: '12px 20px', fontSize: '14px', fontWeight: '700', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', color: 'white', cursor: 'pointer' }}>
+                🚗 {t('registerAsCarOwner')}
               </button>
             </Link>
           </div>
@@ -376,25 +361,20 @@ export default function LandingPage() {
       {/* ═══════════ FINAL USER CTA ═══════════ */}
       <div style={{ padding: '24px 16px 20px', textAlign: 'center' }}>
         <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '6px', color: '#0F172A' }}>
-          Aaj hi try karo — <span style={{ color: '#16A34A' }}>bilkul free!</span>
+          {t('finalCtaTitle')}
         </h2>
         <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '20px', lineHeight: '1.6' }}>
-          Koi registration zaruri nahi browse karne ke liye.<br/>
-          Book karne ke liye register karo — 30 seconds mein.
+          {t('finalCtaDesc')}
         </p>
         <Link to="/services">
-          <button className="btn-primary" style={{
-            width: '100%', padding: '16px', fontSize: '17px', fontWeight: '800',
-            borderRadius: '14px',
-            boxShadow: '0 4px 20px rgba(37,99,235,0.3)',
-          }}>
-            ⚡ Browse Services Now
+          <button className="btn-primary" style={{ width: '100%', padding: '16px', fontSize: '17px', fontWeight: '800', borderRadius: '14px', boxShadow: '0 4px 20px rgba(37,99,235,0.3)' }}>
+            ⚡ {t('browseServices')}
           </button>
         </Link>
         <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
-          <Link to="/register" style={{ fontSize: '13px', color: '#1E3A8A', fontWeight: '600', textDecoration: 'none' }}>✨ Register Free</Link>
+          <Link to="/register" style={{ fontSize: '13px', color: '#1E3A8A', fontWeight: '600', textDecoration: 'none' }}>✨ {t('registerFree')}</Link>
           {!user && (
-            <Link to="/login" style={{ fontSize: '13px', color: '#64748B', fontWeight: '500', textDecoration: 'none' }}>🔒 Login</Link>
+            <Link to="/login" style={{ fontSize: '13px', color: '#64748B', fontWeight: '500', textDecoration: 'none' }}>🔒 {t('login')}</Link>
           )}
         </div>
       </div>

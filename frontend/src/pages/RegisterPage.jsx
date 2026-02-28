@@ -10,7 +10,11 @@ const roles = [
   { value: 'carowner', label: '🚗 Car Owner', desc: 'List your car for booking' },
 ];
 
-const skillOptions = ['Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason', 'Welder', 'Driver', 'Cleaner', 'Cook', 'Security Guard', 'Gardener', 'AC Technician'];
+const skillOptions = [
+  'Electrician', 'Plumber', 'Carpenter', 'Painter', 'Mason', 'Welder',
+  'Driver', 'Cleaner', 'Cook', 'Beautician', 'Gardener', 'Guard',
+  'AC Technician', 'Mehndi Artist', 'Helper',
+];
 
 export default function RegisterPage() {
   const [searchParams] = useSearchParams();
@@ -18,6 +22,8 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ name: '', phone: '', password: '', city: '', skills: [], experience: '', charges: '', description: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [customSkill, setCustomSkill] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -39,14 +45,19 @@ export default function RegisterPage() {
       setError('Password must be at least 6 characters long.');
       return;
     }
-    if (selectedRole === 'labour' && form.skills.length === 0) {
-      setError('Please select at least one skill for your service provider account.');
+    if (selectedRole === 'labour' && form.skills.length === 0 && !customSkill.trim()) {
+      setError('Please select at least one skill or enter a custom skill.');
       return;
     }
 
     setLoading(true);
+    // Merge custom skill into the skills array if provided
+    const finalSkills = customSkill.trim()
+      ? [...form.skills, customSkill.trim()]
+      : form.skills;
+
     try {
-      const { data } = await api.post('/auth/register', { ...form, role: selectedRole });
+      const { data } = await api.post('/auth/register', { ...form, skills: finalSkills, role: selectedRole });
       login(data);
       toast.success(`Welcome to KroEasy, ${data.name}! 🎉`);
       const paths = { user: '/dashboard', labour: '/labour-dashboard', carowner: '/carowner-dashboard' };
@@ -133,19 +144,44 @@ export default function RegisterPage() {
                       type="button"
                       onClick={() => toggleSkill(skill)}
                       style={{
-                        padding: '6px 12px',
-                        borderRadius: '20px',
-                        fontSize: '13px',
-                        fontWeight: '500',
+                        padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '500',
                         border: `1.5px solid ${form.skills.includes(skill) ? '#1E3A8A' : '#E2E8F0'}`,
                         background: form.skills.includes(skill) ? '#1E3A8A' : 'white',
                         color: form.skills.includes(skill) ? 'white' : '#374151',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
+                        cursor: 'pointer', transition: 'all 0.15s',
                       }}
                     >{skill}</button>
                   ))}
+                  {/* Other — custom skill pill */}
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomInput(v => !v)}
+                    style={{
+                      padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '500',
+                      border: `1.5px solid ${showCustomInput ? '#F97316' : '#E2E8F0'}`,
+                      background: showCustomInput ? '#FFF7ED' : 'white',
+                      color: showCustomInput ? '#EA580C' : '#374151',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >🎯 Other (custom)</button>
                 </div>
+                {/* Custom skill text input */}
+                {showCustomInput && (
+                  <div style={{ marginTop: '10px' }}>
+                    <input
+                      className="input-field"
+                      placeholder="Type your skill (e.g. Tailor, Welder, Barber...)"
+                      value={customSkill}
+                      onChange={e => setCustomSkill(e.target.value)}
+                      style={{ padding: '8px 12px', fontSize: '13px' }}
+                    />
+                    {customSkill.trim() && (
+                      <div style={{ marginTop: '6px', fontSize: '12px', color: '#16A34A', fontWeight: '600' }}>
+                        ✅ Will be added: "{customSkill.trim()}"
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>Experience (years)</label>

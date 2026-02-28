@@ -10,6 +10,8 @@ const userSchema = new mongoose.Schema({
     avatar: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
     isSuspended: { type: Boolean, default: false },
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpiry: { type: Date, default: null },
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {

@@ -260,4 +260,17 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
     }
 });
 
+// GET /api/admin/password-resets — list all pending (non-expired) reset requests
+router.get('/password-resets', protect, authorize('admin'), async (req, res) => {
+    try {
+        const requests = await User.find({
+            resetPasswordToken: { $ne: null },
+            resetPasswordExpiry: { $gt: new Date() },
+        }).select('name phone resetPasswordToken resetPasswordExpiry').sort({ resetPasswordExpiry: -1 });
+        res.json(requests);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 module.exports = router;

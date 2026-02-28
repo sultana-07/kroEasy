@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
         const { page, limit, skip } = paginate(req.query);
         const [cars, total] = await Promise.all([
             Car.find(filter)
-                .populate({ path: 'ownerId', populate: { path: 'userId', select: 'name phone city' } })
+                .populate({ path: 'ownerId', populate: { path: 'userId', select: 'name phone city avatar' } })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),

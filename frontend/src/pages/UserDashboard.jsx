@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -42,36 +43,15 @@ function ReviewModal({ booking, onClose, onSubmit }) {
         <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '20px' }}>
           How was your experience with this {booking.providerType === 'labour' ? 'worker' : 'car service'}?
         </p>
-
-        {/* Star Rating */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '20px' }}>
           {[1, 2, 3, 4, 5].map(star => (
-            <button
-              key={star}
-              onClick={() => setRating(star)}
-              style={{
-                fontSize: '36px', background: 'none', border: 'none', cursor: 'pointer',
-                opacity: rating >= star ? 1 : 0.3,
-                transform: rating >= star ? 'scale(1.1)' : 'scale(1)',
-                transition: 'all 0.15s',
-              }}
-            >⭐</button>
+            <button key={star} onClick={() => setRating(star)} style={{ fontSize: '36px', background: 'none', border: 'none', cursor: 'pointer', opacity: rating >= star ? 1 : 0.3, transform: rating >= star ? 'scale(1.1)' : 'scale(1)', transition: 'all 0.15s' }}>⭐</button>
           ))}
         </div>
         <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>
           {rating === 1 ? 'Poor' : rating === 2 ? 'Fair' : rating === 3 ? 'Good' : rating === 4 ? 'Very Good' : rating === 5 ? 'Excellent!' : 'Tap to rate'}
         </p>
-
-        {/* Comment */}
-        <textarea
-          className="input-field"
-          placeholder="Share your experience (optional)..."
-          rows={3}
-          value={comment}
-          onChange={e => setComment(e.target.value)}
-          style={{ width: '100%', resize: 'none', marginBottom: '16px', boxSizing: 'border-box' }}
-        />
-
+        <textarea className="input-field" placeholder="Share your experience (optional)..." rows={3} value={comment} onChange={e => setComment(e.target.value)} style={{ width: '100%', resize: 'none', marginBottom: '16px', boxSizing: 'border-box' }} />
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '12px' }}>Cancel</button>
           <button onClick={handleSubmit} className="btn-primary" style={{ flex: 1, padding: '12px' }} disabled={loading}>
@@ -83,8 +63,239 @@ function ReviewModal({ booking, onClose, onSubmit }) {
   );
 }
 
+// ─── Enhanced Profile Tab ─────────────────────────────────────────────────────
+function ProfileTab({ user, onLogout, onTabChange, refreshUser }) {
+  const { t, lang, switchLang } = useLanguage();
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ name: user?.name || '', city: user?.city || '' });
+  const [editLoading, setEditLoading] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const fileRef = useRef();
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const { data } = await api.post('/auth/upload-avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+      localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, avatar: data.avatar }));
+      refreshUser();
+      toast.success('📸 Profile photo updated!');
+    } catch { toast.error('Image upload failed'); }
+    finally { setAvatarUploading(false); }
+  };
+
+  const handleEditSave = async () => {
+    if (!editForm.name.trim()) { toast.error('Name cannot be empty'); return; }
+    setEditLoading(true);
+    try {
+      const { data } = await api.put('/auth/profile', { name: editForm.name, city: editForm.city });
+      const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+      localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, name: data.name, city: data.city }));
+      refreshUser();
+      toast.success(t('profileUpdated'));
+      setEditOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Update failed');
+    } finally { setEditLoading(false); }
+  };
+
+  const handlePasswordChange = async () => {
+    setPwError('');
+    if (!pwForm.oldPassword || !pwForm.newPassword) { setPwError('All fields are required'); return; }
+    if (pwForm.newPassword.length < 6) { setPwError('New password must be at least 6 characters'); return; }
+    if (pwForm.newPassword !== pwForm.confirm) { setPwError(t('passwordsNotMatch')); return; }
+    setPwLoading(true);
+    try {
+      await api.put('/auth/change-password', { oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword });
+      toast.success(t('passwordChanged'));
+      setPwOpen(false);
+      setPwForm({ oldPassword: '', newPassword: '', confirm: '' });
+    } catch (err) {
+      setPwError(err.response?.data?.message || 'Password change failed');
+    } finally { setPwLoading(false); }
+  };
+
+  return (
+    <div style={{ padding: '20px 16px', paddingBottom: '100px' }}>
+      {/* Avatar card */}
+      <div className="card" style={{ padding: '24px', textAlign: 'center', marginBottom: '16px' }}>
+        <div style={{ position: 'relative', display: 'inline-block', marginBottom: '12px' }}>
+          {user?.avatar ? (
+            <img src={user.avatar} alt="Profile" onClick={() => setProfileModalOpen(true)}
+              style={{ width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', cursor: 'pointer' }} />
+          ) : (
+            <div style={{ width: '84px', height: '84px', borderRadius: '50%', background: 'linear-gradient(135deg, #1E3A8A, #2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '34px', color: 'white', fontWeight: '700' }}>
+              {user?.name?.[0]?.toUpperCase()}
+            </div>
+          )}
+          <button onClick={() => fileRef.current?.click()} style={{ position: 'absolute', bottom: '0', right: '-4px', background: '#1E3A8A', border: 'none', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}>📷</button>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
+        {avatarUploading && <p style={{ fontSize: '12px', color: '#3B82F6', marginBottom: '6px' }}>⏳ Uploading...</p>}
+        {user?.avatar && <p style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '6px' }}>{t('tapPhotoToView')}</p>}
+        <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>{user?.name}</h2>
+        <p style={{ color: '#64748B', fontSize: '14px' }}>📱 {user?.phone}</p>
+        <p style={{ color: '#64748B', fontSize: '14px' }}>🏙️ {user?.city || 'Not set'}</p>
+        <span className="badge badge-blue" style={{ marginTop: '8px' }}>{t('customer')}</span>
+      </div>
+
+      {/* Quick booking shortcuts */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+        {[
+          { emoji: '⏳', label: t('pendingBookings'), status: 'pending', color: '#FFF7ED', border: '#FED7AA', textColor: '#EA580C' },
+          { emoji: '✅', label: t('completedBookings'), status: 'completed', color: '#F0FDF4', border: '#BBF7D0', textColor: '#16A34A' },
+        ].map(({ emoji, label, color, border, textColor }) => (
+          <button
+            key={label}
+            onClick={() => onTabChange('bookings')}
+            style={{
+              background: color, border: `1.5px solid ${border}`, borderRadius: '12px',
+              padding: '16px 12px', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+              transition: 'transform 0.1s', textAlign: 'center',
+            }}
+            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <span style={{ fontSize: '28px' }}>{emoji}</span>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: textColor, lineHeight: '1.3' }}>{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Language Toggle */}
+      <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>🌐 {t('language')}</div>
+            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>{lang === 'en' ? 'English' : 'हिंदी'}</div>
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {['en', 'hi'].map(l => (
+              <button
+                key={l}
+                onClick={() => switchLang(l)}
+                style={{
+                  padding: '7px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: '700',
+                  border: '2px solid', cursor: 'pointer',
+                  borderColor: lang === l ? '#1E3A8A' : '#E2E8F0',
+                  background: lang === l ? '#1E3A8A' : 'white',
+                  color: lang === l ? 'white' : '#64748B',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {l === 'en' ? '🌐 EN' : '🇮🇳 HI'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Profile */}
+      <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
+        <button
+          onClick={() => { setEditOpen(!editOpen); setEditForm({ name: user?.name || '', city: user?.city || '' }); }}
+          style={{
+            width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '20px' }}>✏️</span>
+            <span style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{t('editProfile')}</span>
+          </div>
+          <span style={{ fontSize: '18px', color: '#94A3B8', transform: editOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>›</span>
+        </button>
+        {editOpen && (
+          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('name')}</label>
+              <input className="input-field" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} style={{ padding: '10px 12px', fontSize: '14px' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('city')}</label>
+              <input className="input-field" value={editForm.city} onChange={e => setEditForm({ ...editForm, city: e.target.value })} placeholder="Enter your city" style={{ padding: '10px 12px', fontSize: '14px' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setEditOpen(false)} className="btn-outline" style={{ flex: 1, padding: '10px', fontSize: '13px' }}>{t('cancel')}</button>
+              <button onClick={handleEditSave} className="btn-primary" disabled={editLoading} style={{ flex: 1, padding: '10px', fontSize: '13px', opacity: editLoading ? 0.7 : 1 }}>
+                {editLoading ? t('updating') : t('updateProfile')}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Change Password */}
+      <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
+        <button
+          onClick={() => { setPwOpen(!pwOpen); setPwForm({ oldPassword: '', newPassword: '', confirm: '' }); setPwError(''); }}
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '20px' }}>🔒</span>
+            <span style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{t('changePassword')}</span>
+          </div>
+          <span style={{ fontSize: '18px', color: '#94A3B8', transform: pwOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>›</span>
+        </button>
+        {pwOpen && (
+          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[
+              { key: 'oldPassword', label: t('currentPassword'), ph: 'Enter current password' },
+              { key: 'newPassword', label: t('newPassword'), ph: 'Min 6 characters' },
+              { key: 'confirm', label: t('confirmNewPassword'), ph: 'Re-enter new password' },
+            ].map(({ key, label, ph }) => (
+              <div key={key}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{label}</label>
+                <input className="input-field" type="password" placeholder={ph}
+                  value={pwForm[key]} onChange={e => { setPwForm({ ...pwForm, [key]: e.target.value }); setPwError(''); }}
+                  style={{ padding: '10px 12px', fontSize: '14px' }} />
+              </div>
+            ))}
+            {pwError && (
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: '#DC2626' }}>
+                ❌ {pwError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setPwOpen(false)} className="btn-outline" style={{ flex: 1, padding: '10px', fontSize: '13px' }}>{t('cancel')}</button>
+              <button onClick={handlePasswordChange} className="btn-primary" disabled={pwLoading} style={{ flex: 1, padding: '10px', fontSize: '13px', opacity: pwLoading ? 0.7 : 1 }}>
+                {pwLoading ? t('updating') : t('changePassword')}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Logout */}
+      <button onClick={onLogout} className="btn-danger" style={{ width: '100%', padding: '14px', fontSize: '15px', justifyContent: 'center', marginTop: '8px' }}>
+        🚪 {t('logout')}
+      </button>
+
+      {/* Profile Image Modal */}
+      {profileModalOpen && user?.avatar && (
+        <div onClick={() => setProfileModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={() => setProfileModalOpen(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '40px', height: '40px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>✕</button>
+          <img src={user.avatar} alt="Profile" onClick={e => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 8px 48px rgba(0,0,0,0.6)', border: '3px solid rgba(255,255,255,0.15)' }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function UserDashboard() {
   const { user, logout, refreshUser } = useAuth();
+  const { t, lang, switchLang } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -98,34 +309,25 @@ export default function UserDashboard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [filters, setFilters] = useState({ city: '', skills: '', ac: '', driverIncluded: '', priceType: '' });
   const [reviewTarget, setReviewTarget] = useState(null);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const fileRef = useRef();
-  // Guard: true while we're handling a ?skill= URL param so [activeTab] effect skips its fetch
   const skipNextServicesFetch = useRef(false);
 
-  // Switch to a specific tab when navigated here with state (e.g. after booking)
   useEffect(() => {
     if (location.state?.openTab) {
       setActiveTab(location.state.openTab);
-      // Clear the state so refreshing doesn't re-trigger
       window.history.replaceState({}, '');
     }
   }, [location.state]);
 
-  // Handle ?skill= and ?tab= query params from landing page category tiles
   useEffect(() => {
     const skill = searchParams.get('skill');
     const tab = searchParams.get('tab');
     if (skill) {
-      skipNextServicesFetch.current = true; // prevent [activeTab] effect from overwriting
+      skipNextServicesFetch.current = true;
       setActiveTab('services');
       setFilters(prev => ({ ...prev, skills: skill }));
-      // Call directly with skillOverride so we don't wait for state to flush
       fetchLabours(1, false, skill);
     } else if (tab === 'cars') {
       setActiveTab('cars');
-      // fetchCars will fire from the [activeTab] effect when tab changes from 'services'
     } else if (tab) {
       setActiveTab(tab);
     }
@@ -134,10 +336,7 @@ export default function UserDashboard() {
 
   useEffect(() => {
     if (activeTab === 'services') {
-      if (skipNextServicesFetch.current) {
-        skipNextServicesFetch.current = false; // consume the guard, don't skip again
-        return;
-      }
+      if (skipNextServicesFetch.current) { skipNextServicesFetch.current = false; return; }
       fetchLabours();
     }
     if (activeTab === 'cars') fetchCars();
@@ -150,7 +349,6 @@ export default function UserDashboard() {
   useEffect(() => {
     if (activeTab !== 'bookings') return;
     if (!user) return;
-    // Silent background poll every 30s — no loading flash
     const interval = setInterval(() => fetchBookings(true), 30000);
     return () => clearInterval(interval);
   }, [activeTab]);
@@ -160,11 +358,9 @@ export default function UserDashboard() {
     try {
       const params = { page, limit: 20 };
       if (filters.city) params.city = filters.city;
-      // skillOverride is passed directly from pill clicks (bypasses stale state)
       const skill = skillOverride !== undefined ? skillOverride : filters.skills;
       if (skill) params.skills = skill;
       const { data } = await api.get('/labours', { params });
-      // API now returns { data: [...], total, page, pages }
       setLabours(prev => append ? [...prev, ...data.data] : data.data);
       setLabourMeta({ page: data.page, pages: data.pages, total: data.total });
     } catch { toast.error('Failed to load service providers'); }
@@ -180,7 +376,6 @@ export default function UserDashboard() {
       if (filters.driverIncluded !== '') params.driverIncluded = filters.driverIncluded;
       if (filters.priceType) params.priceType = filters.priceType;
       const { data } = await api.get('/cars', { params });
-      // API now returns { data: [...], total, page, pages }
       setCars(prev => append ? [...prev, ...data.data] : data.data);
       setCarMeta({ page: data.page, pages: data.pages, total: data.total });
     } catch { toast.error('Failed to load cars'); }
@@ -207,26 +402,6 @@ export default function UserDashboard() {
     }
   };
 
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setAvatarUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const { data } = await api.post('/auth/upload-avatar', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      // Update local storage user so avatar persists
-      const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
-      const updated = { ...stored, avatar: data.avatar };
-      localStorage.setItem('kroeasy_user', JSON.stringify(updated));
-      refreshUser();
-      toast.success('📸 Profile photo updated!');
-    } catch { toast.error('Image upload failed'); }
-    finally { setAvatarUploading(false); }
-  };
-
   const handleLogout = () => { logout(); navigate('/'); };
 
   const handleCallFromBooking = async (b) => {
@@ -238,36 +413,47 @@ export default function UserDashboard() {
     if (!phone) { toast.error('Phone number not available'); return; }
     try {
       await api.post('/call-log', { userId: user._id, targetId, targetType, phone });
-    } catch { /* fail silently, still allow call */ }
+    } catch { /* fail silently */ }
     window.open(`tel:${phone}`, '_self');
   };
+
+  const TABS = [
+    { key: 'services', label: t('services') },
+    { key: 'cars', label: t('cars') },
+    { key: 'bookings', label: t('myBookings') },
+    { key: 'profile', label: t('profile') },
+  ];
 
   return (
     <div className="page-container" style={{ paddingBottom: '80px' }}>
       {/* Header */}
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: '18px', fontWeight: '800' }}>⚡ KroEasy</div>
-          <div style={{ fontSize: '12px', opacity: 0.8 }}>{user ? `Hello, ${user.name} 👋` : 'Browse Services'}</div>
+          <div style={{ fontSize: '18px', fontWeight: '800' }}>{t('appName')}</div>
+          <div style={{ fontSize: '12px', opacity: 0.8 }}>{user ? `${t('hello')}, ${user.name} 👋` : t('browseServices')}</div>
         </div>
-        {user ? (
-          <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Logout</button>
-        ) : (
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={() => navigate('/login')} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Login</button>
-            <button onClick={() => navigate('/register')} style={{ background: '#F97316', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Register</button>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Language toggle in header */}
+          <button
+            onClick={() => switchLang(lang === 'en' ? 'hi' : 'en')}
+            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+          >
+            {lang === 'en' ? '🇮🇳 HI' : '🌐 EN'}
+          </button>
+          {user ? (
+            <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>{t('logout')}</button>
+          ) : (
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button onClick={() => navigate('/login')} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>{t('login')}</button>
+              <button onClick={() => navigate('/register')} style={{ background: '#F97316', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>{t('register')}</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tab Navigation */}
       <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: '64px', zIndex: 30, overflowX: 'auto' }}>
-        {[
-          { key: 'services', label: '🔧 Services' },
-          { key: 'cars', label: '🚗 Cars' },
-          { key: 'bookings', label: '📋 My Bookings' },
-          { key: 'profile', label: '👤 Profile' },
-        ].map(tab => (
+        {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -285,48 +471,48 @@ export default function UserDashboard() {
       {/* Services Tab */}
       {activeTab === 'services' && (
         <div>
-          {/* Skill Filter Pill Toggles */}
           <div style={{ padding: '12px 16px 0', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px', marginBottom: '10px' }}>
               {[
-                { icon: '⚡', label: 'Electrician' },
-                { icon: '🔧', label: 'Plumber' },
-                { icon: '🪚', label: 'Carpenter' },
-                { icon: '🎨', label: 'Painter' },
-                { icon: '❄️', label: 'AC Repair' },
-                { icon: '🧱', label: 'Mason' },
-                { icon: '🚗', label: 'Driver' },
-                { icon: '🧹', label: 'Cleaner' },
-                { icon: '🍳', label: 'Cook' },
-                { icon: '💇', label: 'Beautician' },
-                { icon: '🌿', label: 'Gardener' },
-                { icon: '🛡️', label: 'Guard' },
+                { icon: '⚡', label: t('skillElectrician'), value: 'Electrician' },
+                { icon: '🔧', label: t('skillPlumber'), value: 'Plumber' },
+                { icon: '🪚', label: t('skillCarpenter'), value: 'Carpenter' },
+                { icon: '🎨', label: t('skillPainter'), value: 'Painter' },
+                { icon: '❄️', label: t('skillAcRepair'), value: 'AC Technician' },
+                { icon: '🧱', label: t('skillMason'), value: 'Mason' },
+                { icon: '🚗', label: t('skillDriver'), value: 'Driver' },
+                { icon: '🧹', label: t('skillCleaner'), value: 'Cleaner' },
+                { icon: '🍳', label: t('skillCook'), value: 'Cook' },
+                { icon: '💇', label: t('skillBeautician'), value: 'Beautician' },
+                { icon: '🌿', label: t('skillGardener'), value: 'Gardener' },
+                { icon: '🛡️', label: t('skillGuard'), value: 'Guard' },
+                { icon: '🌸', label: t('skillMehndi'), value: 'Mehndi Artist' },
+                { icon: '🤝', label: t('skillHelper'), value: 'Helper' },
               ].map(s => {
-                const active = filters.skills === s.label;
+                const active = filters.skills === s.value;
                 return (
-                  <button
-                    key={s.label}
-                    onClick={() => {
-                      const next = active ? '' : s.label;
-                      setFilters(prev => ({ ...prev, skills: next }));
-                      fetchLabours(1, false, next);
-                    }}
-                    style={{
-                      padding: '5px 11px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
-                      border: `1.5px solid ${active ? '#1E3A8A' : '#E2E8F0'}`,
-                      background: active ? '#1E3A8A' : 'white',
-                      color: active ? 'white' : '#374151',
-                      cursor: 'pointer', whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <button key={s.value} onClick={() => { const next = active ? '' : s.value; setFilters(prev => ({ ...prev, skills: next })); fetchLabours(1, false, next); }}
+                    style={{ padding: '5px 11px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', border: `1.5px solid ${active ? '#1E3A8A' : '#E2E8F0'}`, background: active ? '#1E3A8A' : 'white', color: active ? 'white' : '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     {s.icon} {s.label}
                   </button>
                 );
               })}
+              {/* Other pill — workers with custom/unlisted skills */}
+              {(() => {
+                const otherActive = filters.skills === '__other__';
+                return (
+                  <button
+                    onClick={() => { const next = otherActive ? '' : '__other__'; setFilters(prev => ({ ...prev, skills: next })); fetchLabours(1, false, next); }}
+                    style={{ padding: '5px 11px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', border: `1.5px solid ${otherActive ? '#F97316' : '#E2E8F0'}`, background: otherActive ? '#FFF7ED' : 'white', color: otherActive ? '#EA580C' : '#374151', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    🎯 {t('skillOther')}
+                  </button>
+                );
+              })()}
             </div>
             <div style={{ display: 'flex', gap: '8px', paddingBottom: '12px' }}>
-              <input className="input-field" placeholder="🏙️ Filter by city" value={filters.city} onChange={e => setFilters({ ...filters, city: e.target.value })} style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }} />
-              <button className="btn-primary" onClick={() => fetchLabours()} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>Search</button>
+              <input className="input-field" placeholder={t('filterByCity')} value={filters.city} onChange={e => setFilters({ ...filters, city: e.target.value })} style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }} />
+              <button className="btn-primary" onClick={() => fetchLabours()} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
             </div>
           </div>
           <div style={{ padding: '16px' }}>
@@ -335,20 +521,15 @@ export default function UserDashboard() {
             ) : labours.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
                 <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔧</div>
-                <p style={{ fontWeight: '600' }}>No service providers found</p>
-                <p style={{ fontSize: '13px' }}>Try different filters</p>
+                <p style={{ fontWeight: '600' }}>{t('noServiceProviders')}</p>
+                <p style={{ fontSize: '13px' }}>{t('tryDifferentFilters')}</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {labours.map(labour => <LabourCard key={labour._id} labour={labour} userId={user?._id} />)}
                 {labourMeta.page < labourMeta.pages && (
-                  <button
-                    onClick={() => fetchLabours(labourMeta.page + 1, true)}
-                    className="btn-outline"
-                    style={{ width: '100%', padding: '12px', fontSize: '14px', marginTop: '4px' }}
-                    disabled={loadingMore}
-                  >
-                    {loadingMore ? '⏳ Loading...' : `Load More (${labours.length} of ${labourMeta.total})`}
+                  <button onClick={() => fetchLabours(labourMeta.page + 1, true)} className="btn-outline" style={{ width: '100%', padding: '12px', fontSize: '14px', marginTop: '4px' }} disabled={loadingMore}>
+                    {loadingMore ? '⏳ Loading...' : `${t('loadMore')} (${labours.length} of ${labourMeta.total})`}
                   </button>
                 )}
               </div>
@@ -363,21 +544,15 @@ export default function UserDashboard() {
           <div style={{ padding: '12px 16px', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
               <select className="input-field" value={filters.ac} onChange={e => setFilters({ ...filters, ac: e.target.value })} style={{ padding: '8px 12px', fontSize: '13px', minWidth: '100px' }}>
-                <option value="">❄️ AC</option>
-                <option value="true">AC</option>
-                <option value="false">Non-AC</option>
+                <option value="">❄️ AC</option><option value="true">AC</option><option value="false">Non-AC</option>
               </select>
               <select className="input-field" value={filters.driverIncluded} onChange={e => setFilters({ ...filters, driverIncluded: e.target.value })} style={{ padding: '8px 12px', fontSize: '13px', minWidth: '110px' }}>
-                <option value="">🧑‍✈️ Driver</option>
-                <option value="true">With Driver</option>
-                <option value="false">Self Drive</option>
+                <option value="">🧑‍✈️ Driver</option><option value="true">With Driver</option><option value="false">Self Drive</option>
               </select>
               <select className="input-field" value={filters.priceType} onChange={e => setFilters({ ...filters, priceType: e.target.value })} style={{ padding: '8px 12px', fontSize: '13px', minWidth: '110px' }}>
-                <option value="">💰 Price</option>
-                <option value="per_km">Per KM</option>
-                <option value="per_day">Per Day</option>
+                <option value="">💰 Price</option><option value="per_km">Per KM</option><option value="per_day">Per Day</option>
               </select>
-              <button className="btn-primary" onClick={fetchCars} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>Search</button>
+              <button className="btn-primary" onClick={fetchCars} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
             </div>
           </div>
           <div style={{ padding: '16px' }}>
@@ -387,19 +562,14 @@ export default function UserDashboard() {
               <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
                 <div style={{ fontSize: '48px', marginBottom: '12px' }}>🚗</div>
                 <p style={{ fontWeight: '600' }}>No cars available</p>
-                <p style={{ fontSize: '13px' }}>Try different filters</p>
+                <p style={{ fontSize: '13px' }}>{t('tryDifferentFilters')}</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {cars.map(car => <CarCard key={car._id} car={car} userId={user?._id} />)}
                 {carMeta.page < carMeta.pages && (
-                  <button
-                    onClick={() => fetchCars(carMeta.page + 1, true)}
-                    className="btn-outline"
-                    style={{ width: '100%', padding: '12px', fontSize: '14px', marginTop: '4px' }}
-                    disabled={loadingMore}
-                  >
-                    {loadingMore ? '⏳ Loading...' : `Load More (${cars.length} of ${carMeta.total})`}
+                  <button onClick={() => fetchCars(carMeta.page + 1, true)} className="btn-outline" style={{ width: '100%', padding: '12px', fontSize: '14px', marginTop: '4px' }} disabled={loadingMore}>
+                    {loadingMore ? '⏳ Loading...' : `${t('loadMore')} (${cars.length} of ${carMeta.total})`}
                   </button>
                 )}
               </div>
@@ -416,29 +586,26 @@ export default function UserDashboard() {
           ) : bookings.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
               <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
-              <p style={{ fontWeight: '600' }}>No bookings yet</p>
-              <p style={{ fontSize: '13px' }}>Book a service or car to get started</p>
+              <p style={{ fontWeight: '600' }}>{t('noBookingsYet')}</p>
+              <p style={{ fontSize: '13px' }}>{t('bookServiceOrCar')}</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {bookings.map(b => {
                 const isLabour = b.providerType === 'labour';
-                const provider = b.providerDetails;        // Labour or CarOwner doc (populated by backend)
-                const providerUser = provider?.userId;     // name/phone/city
-                const car = b.carId;                       // Car doc
+                const provider = b.providerDetails;
+                const providerUser = provider?.userId;
+                const car = b.carId;
                 return (
                   <div key={b._id} className="card" style={{ padding: '16px' }}>
-                    {/* Header row */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                       <div style={{ fontWeight: '700', fontSize: '15px' }}>
-                        {isLabour ? '🔧 Service Booking' : '🚗 Car Booking'}
+                        {isLabour ? t('serviceBooking') : t('carBooking')}
                       </div>
                       <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', background: STATUS_COLORS[b.status] + '20', color: STATUS_COLORS[b.status] }}>
                         {STATUS_LABELS[b.status]}
                       </span>
                     </div>
-
-                    {/* Provider Info Panel */}
                     <div style={{ background: '#F1F5F9', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px' }}>
                       {isLabour ? (
                         <>
@@ -465,50 +632,27 @@ export default function UserDashboard() {
                         </>
                       )}
                     </div>
-
                     <div style={{ fontSize: '11px', color: '#94A3B8', marginBottom: b.notes ? '4px' : '0' }}>
                       📅 {new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
                     {b.notes && <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '6px' }}>📝 {b.notes}</div>}
-
-                    {/* Bottom action row */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', gap: '8px' }}>
-                      {/* Review button (left) */}
                       <div style={{ flex: 1 }}>
                         {b.status === 'completed' && !b.review?.rating && (
                           <button onClick={() => setReviewTarget(b)} className="btn-primary" style={{ width: '100%', padding: '10px', fontSize: '13px' }}>
-                            ⭐ Write a Review
+                            {t('writeReview')}
                           </button>
                         )}
                         {b.review?.rating && (
                           <div style={{ padding: '8px 10px', background: '#FFF7ED', borderRadius: '8px', border: '1px solid #FED7AA' }}>
-                            <div style={{ fontSize: '12px', fontWeight: '600', color: '#EA580C', marginBottom: '2px' }}>{'⭐'.repeat(b.review.rating)} Your Review</div>
+                            <div style={{ fontSize: '12px', fontWeight: '600', color: '#EA580C', marginBottom: '2px' }}>{'⭐'.repeat(b.review.rating)} {t('yourReview')}</div>
                             {b.review.comment && <p style={{ fontSize: '11px', color: '#64748B' }}>{b.review.comment}</p>}
                           </div>
                         )}
                       </div>
-
-                      {/* Call button (right) — only for active bookings */}
                       {(b.status === 'pending' || b.status === 'confirmed') && (
-                        <button
-                          onClick={() => handleCallFromBooking(b)}
-                          style={{
-                            flexShrink: 0,
-                            padding: '10px 16px',
-                            borderRadius: '10px',
-                            background: '#16A34A',
-                            border: 'none',
-                            color: 'white',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          📞 Call
+                        <button onClick={() => handleCallFromBooking(b)} style={{ flexShrink: 0, padding: '10px 16px', borderRadius: '10px', background: '#16A34A', border: 'none', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                          {t('callProvider')}
                         </button>
                       )}
                     </div>
@@ -522,90 +666,14 @@ export default function UserDashboard() {
 
       {/* Profile Tab */}
       {activeTab === 'profile' && (
-        <div style={{ padding: '24px 16px' }}>
-          <div className="card" style={{ padding: '24px', textAlign: 'center', marginBottom: '16px' }}>
-            {/* Avatar with upload + click to expand */}
-            <div style={{ position: 'relative', display: 'inline-block', marginBottom: '12px' }}>
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt="Profile"
-                  onClick={() => setProfileModalOpen(true)}
-                  style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', cursor: 'pointer' }}
-                />
-              ) : (
-                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #1E3A8A, #2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', color: 'white', fontWeight: '700' }}>
-                  {user?.name?.[0]?.toUpperCase()}
-                </div>
-              )}
-              <button
-                onClick={() => fileRef.current?.click()}
-                style={{ position: 'absolute', bottom: '0', right: '-4px', background: '#1E3A8A', border: 'none', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}
-              >📷</button>
-            </div>
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
-            {avatarUploading && <p style={{ fontSize: '12px', color: '#3B82F6', marginBottom: '8px' }}>⏳ Uploading...</p>}
-            {user?.avatar && <p style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '6px' }}>Tap photo to view full size</p>}
-            <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>{user?.name}</h2>
-            <p style={{ color: '#64748B', fontSize: '14px' }}>📱 {user?.phone}</p>
-            <p style={{ color: '#64748B', fontSize: '14px' }}>🏙️ {user?.city || 'Not set'}</p>
-            <span className="badge badge-blue" style={{ marginTop: '8px' }}>👤 Customer</span>
-          </div>
-          <button onClick={handleLogout} className="btn-danger" style={{ width: '100%', padding: '14px', fontSize: '15px', justifyContent: 'center' }}>
-            🚪 Logout
-          </button>
-        </div>
-      )}
-
-      {/* Profile Image Full-Size Modal */}
-      {profileModalOpen && user?.avatar && (
-        <div
-          onClick={() => setProfileModalOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 2000,
-            background: 'rgba(0,0,0,0.92)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          {/* Close button */}
-          <button
-            onClick={() => setProfileModalOpen(false)}
-            style={{
-              position: 'absolute', top: '20px', right: '20px',
-              background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
-              width: '40px', height: '40px', borderRadius: '50%',
-              fontSize: '20px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: '700',
-            }}
-          >
-            ✕
-          </button>
-          {/* Large image */}
-          <img
-            src={user.avatar}
-            alt="Profile"
-            onClick={e => e.stopPropagation()}
-            style={{
-              maxWidth: '90vw', maxHeight: '80vh',
-              borderRadius: '16px',
-              objectFit: 'contain',
-              boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
-              border: '3px solid rgba(255,255,255,0.15)',
-            }}
-          />
-        </div>
+        <ProfileTab user={user} onLogout={handleLogout} onTabChange={setActiveTab} refreshUser={refreshUser} />
       )}
 
       <BottomNav active={activeTab} onChange={setActiveTab} role="user" />
 
       {/* Review Modal */}
       {reviewTarget && (
-        <ReviewModal
-          booking={reviewTarget}
-          onClose={() => setReviewTarget(null)}
-          onSubmit={handleReviewSubmit}
-        />
+        <ReviewModal booking={reviewTarget} onClose={() => setReviewTarget(null)} onSubmit={handleReviewSubmit} />
       )}
     </div>
   );

@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../context/LanguageContext';
 
 const INITIAL_SHOW = 3;
 const LOAD_MORE_STEP = 5;
 
 export default function CarOwnerDrawer({ car, userId, onClose }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [visible, setVisible] = useState(false);
   const [booking, setBooking] = useState(false);
-  const [booked, setBooked] = useState(false);
+  // null = check not done yet (prevents flicker), true/false = result
+  const [booked, setBooked] = useState(null);
   const [visibleCount, setVisibleCount] = useState(INITIAL_SHOW);
   const [ownerImgOpen, setOwnerImgOpen] = useState(false);
   const owner = car.ownerId?.userId;
@@ -34,7 +37,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
   };
 
   const checkExistingBooking = async () => {
-    if (!userId) return;
+    if (!userId) { setBooked(false); return; }
     try {
       const { data } = await api.get('/booking/user');
       const has = data.some(b =>
@@ -42,7 +45,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
         (b.status === 'pending' || b.status === 'confirmed')
       );
       setBooked(has);
-    } catch { /* silently fail */ }
+    } catch { setBooked(false); }
   };
 
   const close = () => {
@@ -64,10 +67,11 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
     setBooking(true);
     try {
       await api.post('/booking', { providerId: car.ownerId?._id, providerType: 'car', carId: car._id });
-      toast.success('✅ Booking request sent!');
       setBooked(true);
       close();
-      setTimeout(() => navigate('/dashboard', { state: { openTab: 'bookings' } }), 350);
+      setTimeout(() => navigate('/booking-success', {
+        state: { fromBooking: true, providerName: car.carName }
+      }), 350);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Booking failed');
     } finally { setBooking(false); }
@@ -100,10 +104,10 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
           <button onClick={close} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>Car Details</div>
+          <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>{t('carDetails')}</div>
         </div>
 
-        {/* ═══ HERO: Car name + price ═══ */}
+        {/* HERO: Car name + price */}
         <div style={{ background: 'linear-gradient(160deg, #0F172A 0%, #1E3A8A 100%)', padding: '24px 20px 28px', textAlign: 'center', color: 'white', flexShrink: 0 }}>
           <div style={{ fontSize: '56px', marginBottom: '10px' }}>🚗</div>
           <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '4px' }}>{car.carName}</h2>
@@ -115,12 +119,9 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
           {car.numberPlate && (
             <div style={{ marginBottom: '14px' }}>
               <span style={{
-                display: 'inline-block',
-                background: 'white', color: '#0F172A',
-                borderRadius: '6px', padding: '4px 16px',
-                fontSize: '14px', fontWeight: '800',
-                letterSpacing: '2px', fontFamily: 'monospace',
-                border: '2px solid #F59E0B',
+                display: 'inline-block', background: 'white', color: '#0F172A',
+                borderRadius: '6px', padding: '4px 16px', fontSize: '14px', fontWeight: '800',
+                letterSpacing: '2px', fontFamily: 'monospace', border: '2px solid #F59E0B',
               }}>
                 {car.numberPlate}
               </span>
@@ -135,19 +136,30 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
           {/* Availability badge */}
           <div style={{ marginBottom: '18px' }}>
             <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: '20px', background: car.availability ? 'rgba(22,163,74,0.8)' : 'rgba(239,68,68,0.8)', fontSize: '12px', fontWeight: '700' }}>
-              {car.availability ? '✅ Available Now' : '❌ Not Available'}
+              {car.availability ? t('availableNow') : '❌ Not Available'}
             </span>
           </div>
 
-          {/* Book button */}
+          {/* Book button — null = loading, prevents flicker */}
           <div style={{ maxWidth: '320px', margin: '0 auto' }}>
-            {booked ? (
+            {booked === null ? null : booked ? (
               <div style={{
                 background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(22,163,74,0.4)',
                 borderRadius: '10px', padding: '12px 16px',
                 fontSize: '13px', color: '#DCFCE7', lineHeight: '1.6', textAlign: 'center',
               }}>
-                🎉 Booking requested! Go to <strong>My Bookings</strong> to call the owner.
+                {t('bookingRequested')}{' '}
+                <button
+                  onClick={() => { close(); setTimeout(() => navigate('/dashboard', { state: { openTab: 'bookings' } }), 350); }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#A7F3D0', fontWeight: '800', textDecoration: 'underline',
+                    fontSize: '13px', padding: 0,
+                  }}
+                >
+                  {t('goToMyBookings')}
+                </button>
+                {' '}{t('toCallOwner')}
               </div>
             ) : (
               <button
@@ -159,24 +171,24 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
                   border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
                 }}
               >
-                {booking ? '⏳ Booking...' : '📋 Book This Car'}
+                {booking ? t('booking') : t('requestBooking')}
               </button>
             )}
           </div>
         </div>
 
-        {/* ═══ STATS BAR ═══ */}
+        {/* STATS BAR */}
         <div style={{ background: 'white', padding: '14px 16px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '40px' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '22px', marginBottom: '2px' }}>📋</div>
               <div style={{ fontSize: '22px', fontWeight: '800', color: '#1E3A8A' }}>{car.bookingCount || 0}</div>
-              <div style={{ fontSize: '11px', color: '#64748B' }}>Bookings Done</div>
+              <div style={{ fontSize: '11px', color: '#64748B' }}>{t('bookingsDone')}</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '22px', marginBottom: '2px' }}>⭐</div>
               <div style={{ fontSize: '22px', fontWeight: '800', color: '#F59E0B' }}>{avgRating || '—'}</div>
-              <div style={{ fontSize: '11px', color: '#64748B' }}>Avg Rating</div>
+              <div style={{ fontSize: '11px', color: '#64748B' }}>{t('rating')}</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '22px', marginBottom: '2px' }}>💬</div>
@@ -186,40 +198,25 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
           </div>
         </div>
 
-        {/* ═══ SCROLLABLE CONTENT ═══ */}
+        {/* SCROLLABLE CONTENT */}
         <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-          {/* ── OWNER PROFILE CARD ── */}
+          {/* OWNER PROFILE CARD */}
           <div className="card" style={{ padding: '20px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '16px', color: '#0F172A' }}>👤 Owner Details</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {/* Profile photo — tap to expand */}
+              {/* Profile photo */}
               <div
                 onClick={() => owner?.avatar && setOwnerImgOpen(true)}
                 style={{ flexShrink: 0, cursor: owner?.avatar ? 'pointer' : 'default', position: 'relative' }}
               >
                 {owner?.avatar ? (
                   <>
-                    <img
-                      src={owner.avatar}
-                      alt={owner.name}
-                      style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', display: 'block' }}
-                    />
-                    <div style={{
-                      position: 'absolute', bottom: '0', right: '0',
-                      background: '#1E3A8A', borderRadius: '50%',
-                      width: '20px', height: '20px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '10px', border: '2px solid white',
-                    }}>🔍</div>
+                    <img src={owner.avatar} alt={owner.name} style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', display: 'block' }} />
+                    <div style={{ position: 'absolute', bottom: '0', right: '0', background: '#1E3A8A', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', border: '2px solid white' }}>🔍</div>
                   </>
                 ) : (
-                  <div style={{
-                    width: '72px', height: '72px', borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #F97316, #EA580C)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '30px', color: 'white', fontWeight: '800', border: '3px solid #E2E8F0',
-                  }}>
+                  <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'linear-gradient(135deg, #F97316, #EA580C)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '30px', color: 'white', fontWeight: '800', border: '3px solid #E2E8F0' }}>
                     {owner?.name?.[0]?.toUpperCase() || '?'}
                   </div>
                 )}
@@ -233,10 +230,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
                 <div style={{ fontSize: '13px', color: '#64748B', marginBottom: '6px' }}>
                   🏙️ {car.city || owner?.city || 'Location not set'}
                 </div>
-                <span style={{
-                  display: 'inline-block', padding: '3px 10px', borderRadius: '12px',
-                  background: '#EFF6FF', color: '#1E3A8A', fontSize: '11px', fontWeight: '700',
-                }}>🚗 Verified Car Owner</span>
+                <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', background: '#EFF6FF', color: '#1E3A8A', fontSize: '11px', fontWeight: '700' }}>🚗 Verified Car Owner</span>
               </div>
             </div>
 
@@ -257,11 +251,11 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
                 boxShadow: '0 4px 12px rgba(22,163,74,0.3)',
               }}
             >
-              📞 Call Owner Directly
+              {t('callOwner')}
             </button>
           </div>
 
-          {/* ── CAR FEATURES ── */}
+          {/* CAR FEATURES */}
           <div className="card" style={{ padding: '20px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '14px', color: '#0F172A' }}>🔍 Car Features</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -301,10 +295,10 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
             </div>
           </div>
 
-          {/* ── REVIEWS ── */}
+          {/* REVIEWS */}
           <div className="card" style={{ padding: '16px', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: '#0F172A' }}>
-              ⭐ Customer Reviews {reviews.length > 0 && `(${reviews.length})`}
+              {t('customerReviews')} {reviews.length > 0 && `(${reviews.length})`}
             </h3>
             {loadingReviews ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
@@ -313,7 +307,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
             ) : reviews.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px 0', color: '#94A3B8' }}>
                 <div style={{ fontSize: '32px', marginBottom: '8px' }}>💬</div>
-                <p style={{ fontSize: '13px' }}>No reviews yet — be the first!</p>
+                <p style={{ fontSize: '13px' }}>{t('noReviewsYet')}</p>
               </div>
             ) : (
               <>
@@ -340,17 +334,12 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
                     </div>
                   ))}
                 </div>
-
                 {hasMore && (
                   <button
                     onClick={() => setVisibleCount(c => c + LOAD_MORE_STEP)}
-                    style={{
-                      width: '100%', marginTop: '12px', padding: '10px',
-                      background: '#F1F5F9', border: 'none', borderRadius: '10px',
-                      fontSize: '13px', fontWeight: '600', color: '#1E3A8A', cursor: 'pointer',
-                    }}
+                    style={{ width: '100%', marginTop: '12px', padding: '10px', background: '#F1F5F9', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '600', color: '#1E3A8A', cursor: 'pointer' }}
                   >
-                    Show More ({reviews.length - visibleCount} remaining)
+                    {t('showMore')} ({reviews.length - visibleCount} {t('remaining')})
                   </button>
                 )}
               </>
@@ -359,44 +348,25 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
         </div>
       </div>
 
-      {/* ═══ OWNER IMAGE FULL-SIZE LIGHTBOX ═══ */}
+      {/* OWNER IMAGE LIGHTBOX */}
       {ownerImgOpen && owner?.avatar && (
         <div
           onClick={() => setOwnerImgOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 200,
-            background: 'rgba(0,0,0,0.92)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <button
             onClick={() => setOwnerImgOpen(false)}
-            style={{
-              position: 'absolute', top: '20px', right: '20px',
-              background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
-              width: '40px', height: '40px', borderRadius: '50%',
-              fontSize: '20px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700',
-            }}
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '40px', height: '40px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}
           >✕</button>
           <div style={{ textAlign: 'center' }}>
             <img
               src={owner.avatar}
               alt={owner.name}
               onClick={e => e.stopPropagation()}
-              style={{
-                maxWidth: '88vw', maxHeight: '74vh',
-                borderRadius: '16px', objectFit: 'contain',
-                boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
-                border: '3px solid rgba(255,255,255,0.15)',
-              }}
+              style={{ maxWidth: '88vw', maxHeight: '74vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 8px 48px rgba(0,0,0,0.6)', border: '3px solid rgba(255,255,255,0.15)' }}
             />
-            <div style={{ marginTop: '12px', color: 'white', fontSize: '14px', fontWeight: '600' }}>
-              {owner.name}
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>
-              🚗 Car Owner
-            </div>
+            <div style={{ marginTop: '12px', color: 'white', fontSize: '14px', fontWeight: '600' }}>{owner.name}</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>🚗 Car Owner</div>
           </div>
         </div>
       )}

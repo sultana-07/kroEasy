@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -13,6 +14,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import SupportPage from './pages/SupportPage';
+import BookingSuccessPage from './pages/BookingSuccessPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // Scrolls to top on every route change
 const ScrollToTop = () => {
@@ -53,6 +56,8 @@ const AppRoutes = () => {
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/support" element={<SupportPage />} />
+      <Route path="/booking-success" element={<BookingSuccessPage />} />
+      <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -78,13 +83,15 @@ export default function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <ScrollToTop />
-        <Toaster position="top-center" toastOptions={{ duration: 4000, style: { borderRadius: '10px', fontFamily: 'Inter, sans-serif' } }} />
-        <Analytics />
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <ScrollToTop />
+          <Toaster position="top-center" toastOptions={{ duration: 4000, style: { borderRadius: '10px', fontFamily: 'Inter, sans-serif' } }} />
+          <Analytics />
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

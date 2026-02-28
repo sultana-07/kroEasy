@@ -18,7 +18,18 @@ router.get('/', async (req, res) => {
         const { city, skills, availability } = req.query;
         const filter = { isApproved: true };
         if (city) filter.city = { $regex: city, $options: 'i' };
-        if (skills) filter.skills = { $in: skills.split(',').map(s => s.trim()) };
+        const STANDARD_SKILLS = [
+            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'Mason', 'Welder',
+            'Driver', 'Cleaner', 'Cook', 'Beautician', 'Gardener', 'Guard',
+            'AC Technician', 'Mehndi Artist', 'Helper',
+        ];
+        if (skills === '__other__') {
+            // Workers whose skills contain NONE of the standard options
+            filter.skills = { $not: { $elemMatch: { $in: STANDARD_SKILLS } } };
+        } else if (skills) {
+            filter.skills = { $in: skills.split(',').map(s => s.trim()) };
+        }
+
         if (availability !== undefined) filter.availability = availability === 'true';
 
         const { page, limit, skip } = paginate(req.query);

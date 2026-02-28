@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../context/LanguageContext';
 
 const INITIAL_SHOW = 3;
 const LOAD_MORE_STEP = 5;
 
 export default function ServiceProviderDrawer({ labour, userId, onClose }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [visible, setVisible] = useState(false);
   const [booking, setBooking] = useState(false);
-  const [booked, setBooked] = useState(false);
+  // null = check not done yet, true = booked, false = not booked
+  const [booked, setBooked] = useState(null);
   const [visibleCount, setVisibleCount] = useState(INITIAL_SHOW);
   const [profileImgOpen, setProfileImgOpen] = useState(false);
   const user = labour.userId;
@@ -35,7 +38,7 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
   };
 
   const checkExistingBooking = async () => {
-    if (!userId) return;
+    if (!userId) { setBooked(false); return; }
     try {
       const { data } = await api.get('/booking/user');
       const has = data.some(b =>
@@ -43,7 +46,7 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
         (b.status === 'pending' || b.status === 'confirmed')
       );
       setBooked(has);
-    } catch { /* silently fail */ }
+    } catch { setBooked(false); }
   };
 
   const close = () => {
@@ -65,10 +68,11 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
     setBooking(true);
     try {
       await api.post('/booking', { providerId: labour._id, providerType: 'labour' });
-      toast.success('✅ Booking request sent!');
       setBooked(true);
       close();
-      setTimeout(() => navigate('/dashboard', { state: { openTab: 'bookings' } }), 350);
+      setTimeout(() => navigate('/booking-success', {
+        state: { fromBooking: true, providerName: user?.name }
+      }), 350);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Booking failed');
     } finally { setBooking(false); }
@@ -108,16 +112,16 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
             onClick={close}
             style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           ><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-          <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>Service Provider Profile</div>
+          <div style={{ color: 'white', fontSize: '16px', fontWeight: '700' }}>{t('serviceProviderProfile')}</div>
         </div>
 
-        {/* Profile hero — Book / Call buttons live here */}
+        {/* Profile hero */}
         <div style={{
           background: 'linear-gradient(160deg, #1E3A8A 0%, #2563EB 100%)',
           padding: '0 20px 24px',
           textAlign: 'center', color: 'white', flexShrink: 0,
         }}>
-          {/* Avatar — click to expand */}
+          {/* Avatar */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px', paddingTop: '4px' }}>
             {labour.profileImage ? (
               <div style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }} onClick={() => setProfileImgOpen(true)}>
@@ -138,18 +142,30 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
             background: labour.availability ? 'rgba(22,163,74,0.8)' : 'rgba(100,116,139,0.7)',
             fontSize: '12px', fontWeight: '700', marginBottom: '18px',
           }}>
-            {labour.availability ? '✅ Available Now' : '⏸️ Currently Busy'}
+            {labour.availability ? t('availableNow') : t('currentlyBusy')}
           </span>
 
           {/* ── Action button ── */}
           <div style={{ maxWidth: '320px', margin: '0 auto' }}>
-            {booked ? (
+            {/* null = loading check, show nothing to prevent flicker */}
+            {booked === null ? null : booked ? (
               <div style={{
                 background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(22,163,74,0.4)',
                 borderRadius: '10px', padding: '12px 16px',
                 fontSize: '13px', color: '#DCFCE7', lineHeight: '1.6', textAlign: 'center',
               }}>
-                🎉 Booking requested! Go to <strong>My Bookings</strong> to call the provider.
+                {t('bookingRequested')}{' '}
+                <button
+                  onClick={() => { close(); setTimeout(() => navigate('/dashboard', { state: { openTab: 'bookings' } }), 350); }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#A7F3D0', fontWeight: '800', textDecoration: 'underline',
+                    fontSize: '13px', padding: 0,
+                  }}
+                >
+                  {t('goToMyBookings')}
+                </button>
+                {' '}{t('toCallProvider')}
               </div>
             ) : (
               <button
@@ -161,7 +177,7 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
                   border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
                 }}
               >
-                {booking ? '⏳ Booking...' : '📋 Book Now'}
+                {booking ? t('booking') : t('requestBooking')}
               </button>
             )}
           </div>
@@ -174,13 +190,13 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
               <div>
                 <div style={{ fontSize: '22px', marginBottom: '2px' }}>⭐</div>
                 <div style={{ fontSize: '24px', fontWeight: '800', color: '#1E3A8A' }}>{rating}/5</div>
-                <div style={{ fontSize: '12px', color: '#64748B' }}>Rating</div>
+                <div style={{ fontSize: '12px', color: '#64748B' }}>{t('rating')}</div>
               </div>
             )}
             <div>
               <div style={{ fontSize: '22px', marginBottom: '2px' }}>📋</div>
               <div style={{ fontSize: '24px', fontWeight: '800', color: '#1E3A8A' }}>{labour.bookingCount || 0}</div>
-              <div style={{ fontSize: '12px', color: '#64748B' }}>Bookings Completed</div>
+              <div style={{ fontSize: '12px', color: '#64748B' }}>{t('bookingsCompleted')}</div>
             </div>
           </div>
         </div>
@@ -189,7 +205,7 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
         <div style={{ padding: '0 16px', flex: 1 }}>
           {/* Skills */}
           <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px', color: '#0F172A' }}>🔧 Skills</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px', color: '#0F172A' }}>{t('skills')}</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {labour.skills?.map(s => (
                 <span key={s} className="badge badge-blue" style={{ fontSize: '13px', padding: '5px 12px' }}>{s}</span>
@@ -199,15 +215,15 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
 
           {/* Details */}
           <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px', color: '#0F172A' }}>ℹ️ Details</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px', color: '#0F172A' }}>{t('details')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                <span style={{ color: '#64748B' }}>💼 Experience</span>
-                <strong>{labour.experience || 0} years</strong>
+                <span style={{ color: '#64748B' }}>{t('experience')}</span>
+                <strong>{labour.experience || 0} {t('years')}</strong>
               </div>
               {labour.charges && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span style={{ color: '#64748B' }}>💰 Charges</span>
+                  <span style={{ color: '#64748B' }}>{t('charges')}</span>
                   <strong>{labour.charges}</strong>
                 </div>
               )}
@@ -222,7 +238,7 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
           {/* Reviews */}
           <div className="card" style={{ padding: '16px', marginBottom: '24px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: '#0F172A' }}>
-              ⭐ Customer Reviews {reviews.length > 0 && `(${reviews.length})`}
+              {t('customerReviews')} {reviews.length > 0 && `(${reviews.length})`}
             </h3>
             {loadingReviews ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
@@ -231,7 +247,7 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
             ) : reviews.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px 0', color: '#94A3B8' }}>
                 <div style={{ fontSize: '32px', marginBottom: '8px' }}>💬</div>
-                <p style={{ fontSize: '13px' }}>No reviews yet — be the first!</p>
+                <p style={{ fontSize: '13px' }}>{t('noReviewsYet')}</p>
               </div>
             ) : (
               <>
@@ -258,17 +274,12 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
                     </div>
                   ))}
                 </div>
-
                 {hasMore && (
                   <button
                     onClick={() => setVisibleCount(c => c + LOAD_MORE_STEP)}
-                    style={{
-                      width: '100%', marginTop: '12px', padding: '10px',
-                      background: '#F1F5F9', border: 'none', borderRadius: '10px',
-                      fontSize: '13px', fontWeight: '600', color: '#1E3A8A', cursor: 'pointer',
-                    }}
+                    style={{ width: '100%', marginTop: '12px', padding: '10px', background: '#F1F5F9', border: 'none', borderRadius: '10px', fontSize: '13px', fontWeight: '600', color: '#1E3A8A', cursor: 'pointer' }}
                   >
-                    Show More ({reviews.length - visibleCount} remaining)
+                    {t('showMore')} ({reviews.length - visibleCount} {t('remaining')})
                   </button>
                 )}
               </>
@@ -281,36 +292,17 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
       {profileImgOpen && labour.profileImage && (
         <div
           onClick={() => setProfileImgOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 500,
-            background: 'rgba(0,0,0,0.93)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
+          style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.93)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <button
             onClick={() => setProfileImgOpen(false)}
-            style={{
-              position: 'absolute', top: '20px', right: '20px',
-              background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white',
-              width: '40px', height: '40px', borderRadius: '50%',
-              fontSize: '20px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: '700',
-            }}
-          >
-            ✕
-          </button>
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '40px', height: '40px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}
+          >✕</button>
           <img
             src={labour.profileImage}
             alt={user?.name}
             onClick={e => e.stopPropagation()}
-            style={{
-              maxWidth: '90vw', maxHeight: '80vh',
-              borderRadius: '16px',
-              objectFit: 'contain',
-              boxShadow: '0 8px 48px rgba(0,0,0,0.6)',
-              border: '3px solid rgba(255,255,255,0.15)',
-            }}
+            style={{ maxWidth: '90vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 8px 48px rgba(0,0,0,0.6)', border: '3px solid rgba(255,255,255,0.15)' }}
           />
         </div>
       )}

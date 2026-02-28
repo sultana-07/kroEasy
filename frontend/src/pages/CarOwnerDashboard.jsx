@@ -19,6 +19,7 @@ export default function CarOwnerDashboard() {
   const [ownerProfile, setOwnerProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [profileImgOpen, setProfileImgOpen] = useState(false);
   const fileRef = useRef();
 
   useEffect(() => {
@@ -351,7 +352,12 @@ export default function CarOwnerDashboard() {
           <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
             <div style={{ position: 'relative', display: 'inline-block', marginBottom: '12px' }}>
               {user?.avatar ? (
-                <img src={user.avatar} alt="Profile" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0' }} />
+                <img
+                  src={user.avatar}
+                  alt="Profile"
+                  onClick={() => setProfileImgOpen(true)}
+                  style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0', cursor: 'pointer' }}
+                />
               ) : (
                 <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg, #F97316, #FB923C)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', color: 'white', fontWeight: '700' }}>
                   {user?.name?.[0]?.toUpperCase()}
@@ -364,6 +370,7 @@ export default function CarOwnerDashboard() {
             </div>
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
             {avatarUploading && <p style={{ fontSize: '12px', color: '#F97316', marginBottom: '8px' }}>⏳ Uploading...</p>}
+            {user?.avatar && <p style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '6px' }}>Tap photo to view full size</p>}
             <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>{user?.name}</h2>
             <p style={{ color: '#64748B', fontSize: '14px' }}>📱 {user?.phone}</p>
             <p style={{ color: '#64748B', fontSize: '14px' }}>🏙️ {user?.city}</p>
@@ -372,6 +379,25 @@ export default function CarOwnerDashboard() {
           <button onClick={() => { logout(); navigate('/'); }} className="btn-danger" style={{ width: '100%', padding: '14px', fontSize: '15px', justifyContent: 'center', marginTop: '16px' }}>
             🚪 Logout
           </button>
+        </div>
+      )}
+
+      {/* Profile Image Full-Size Modal */}
+      {profileImgOpen && user?.avatar && (
+        <div
+          onClick={() => setProfileImgOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <button
+            onClick={() => setProfileImgOpen(false)}
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', width: '40px', height: '40px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}
+          >✕</button>
+          <img
+            src={user.avatar}
+            alt="Profile"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 8px 48px rgba(0,0,0,0.6)', border: '3px solid rgba(255,255,255,0.15)' }}
+          />
         </div>
       )}
     </div>

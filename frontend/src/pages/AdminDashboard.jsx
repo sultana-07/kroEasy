@@ -21,19 +21,21 @@ export default function AdminDashboard() {
   const [labourView, setLabourView] = useState('manage'); // 'manage' | 'stats'
   const [carView, setCarView] = useState('manage');       // 'manage' | 'stats'
   const [loading, setLoading] = useState(true);
+  const [passwordResets, setPasswordResets] = useState([]);
 
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [statsRes, activityRes, laboursRes, ownersRes, usersRes, psRes] = await Promise.all([
+      const [statsRes, activityRes, laboursRes, ownersRes, usersRes, psRes, resetRes] = await Promise.all([
         api.get('/admin/stats'),
         api.get('/admin/activity'),
         api.get('/admin/labours'),
         api.get('/admin/carowners'),
         api.get('/admin/users'),
         api.get('/admin/provider-stats'),
+        api.get('/admin/password-resets'),
       ]);
       setStats(statsRes.data);
       setActivity(activityRes.data);
@@ -44,6 +46,7 @@ export default function AdminDashboard() {
       setUsers(usersRes.data.data);
       setUserTotal(usersRes.data.total);
       setProviderStats(psRes.data);
+      setPasswordResets(resetRes.data);
     } catch { toast.error('Failed to load admin data'); }
     finally { setLoading(false); }
   };
@@ -101,6 +104,7 @@ export default function AdminDashboard() {
           { key: 'carowners', label: '🚗 Car Owners' },
           { key: 'users', label: '👤 Users' },
           { key: 'activity', label: '📋 Activity' },
+          { key: 'passwordResets', label: '🔑 Resets' },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flexShrink: 0, padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: activeTab === tab.key ? '#1E3A8A' : '#64748B', borderBottom: activeTab === tab.key ? '3px solid #1E3A8A' : '3px solid transparent', whiteSpace: 'nowrap' }}>{tab.label}</button>
         ))}
@@ -418,6 +422,56 @@ export default function AdminDashboard() {
                         {new Date(c.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                       </div>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Password Resets Tab */}
+      {activeTab === 'passwordResets' && (
+        <div style={{ padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '700' }}>🔑 Password Reset Requests ({passwordResets.length})</h3>
+            <button onClick={fetchAll} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', background: '#EFF6FF', color: '#1E3A8A', fontWeight: '600', cursor: 'pointer' }}>🔄 Refresh</button>
+          </div>
+          {passwordResets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>🎉</div>
+              <p style={{ fontWeight: '600' }}>No pending reset requests</p>
+              <p style={{ fontSize: '13px' }}>All reset links have been used or expired</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', color: '#92400E', marginBottom: '4px' }}>
+                ⚠️ These links expire in <strong>10 minutes</strong> from when the user submitted the request. Copy and send them quickly via WhatsApp/SMS.
+              </div>
+              {passwordResets.map(r => {
+                const link = `${window.location.origin}/reset-password/${r.resetPasswordToken}`;
+                const expiresAt = new Date(r.resetPasswordExpiry);
+                const minsLeft = Math.max(0, Math.round((expiresAt - Date.now()) / 60000));
+                return (
+                  <div key={r._id} className="card" style={{ padding: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                      <div>
+                        <div style={{ fontWeight: '700', fontSize: '15px' }}>{r.name}</div>
+                        <div style={{ fontSize: '13px', color: '#64748B' }}>📱 {r.phone}</div>
+                      </div>
+                      <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', background: minsLeft > 3 ? '#F0FDF4' : '#FEF2F2', color: minsLeft > 3 ? '#16A34A' : '#DC2626', border: `1px solid ${minsLeft > 3 ? '#BBF7D0' : '#FECACA'}` }}>
+                        ⏱️ {minsLeft}m left
+                      </span>
+                    </div>
+                    <div style={{ background: '#F8FAFC', borderRadius: '8px', padding: '8px 10px', fontSize: '11px', color: '#64748B', wordBreak: 'break-all', marginBottom: '10px', fontFamily: 'monospace' }}>
+                      {link}
+                    </div>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(link); toast.success('✅ Reset link copied to clipboard!'); }}
+                      style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'linear-gradient(135deg, #1E3A8A, #2563EB)', border: 'none', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      📋 Copy Reset Link
+                    </button>
                   </div>
                 );
               })}
