@@ -25,14 +25,13 @@ export default function CarCard({ car, userId }) {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#1E3A8A' }}>₹{car.basePrice}</div>
-            <div style={{ fontSize: '11px', color: '#64748B' }}>{car.priceType === 'per_day' ? 'per day' : 'per km'}</div>
+            <div style={{ fontSize: '11px', color: '#64748B' }}>per km</div>
           </div>
         </div>
 
         {/* Badges */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
-          {car.ac ? <span className="badge badge-blue">❄️ AC</span> : <span className="badge badge-gray">🌡️ Non-AC</span>}
-          {car.driverIncluded ? <span className="badge badge-green">🧑‍✈️ Driver</span> : <span className="badge badge-gray">🚗 Self Drive</span>}
+          <span className="badge badge-green">🧑‍✈️ With Driver</span>
           <span className={`badge ${car.availability ? 'badge-green' : 'badge-red'}`}>
             {car.availability ? '✅ Available' : '❌ Unavailable'}
           </span>
@@ -51,8 +50,16 @@ export default function CarCard({ car, userId }) {
 
         {/* Stats + tap hint */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', gap: '12px' }}>
-            <span>✅ {car.bookingCount || 0} completed</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Star Rating */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              {[1,2,3,4,5].map(i => (
+                <span key={i} style={{ fontSize: '13px', color: i <= Math.round(car.rating || 0) ? '#F59E0B' : '#D1D5DB' }}>★</span>
+              ))}
+              <span style={{ fontSize: '12px', color: '#64748B', marginLeft: '3px' }}>
+                {car.reviewCount > 0 ? `${(car.rating || 0).toFixed(1)} (${car.reviewCount})` : <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>New</span>}
+              </span>
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ fontSize: '12px', color: '#94A3B8' }}>View details</span>

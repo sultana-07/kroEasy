@@ -48,7 +48,7 @@ export default function LandingPage() {
       // Fallback: copy link
       try {
         await navigator.clipboard.writeText(shareData.url);
-        setShareMsg('🔗 Link copied!');
+        setShareMsg(t('linkCopied'));
         setTimeout(() => setShareMsg(''), 2500);
       } catch {
         setShareMsg('Copy: kro-easy.vercel.app');
@@ -65,34 +65,42 @@ export default function LandingPage() {
           <div style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>⚡ KroEasy</div>
           <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '1px' }}>{t('landingTagline')}</div>
         </div>
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          {/* Language toggle */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Language toggle — icon only */}
           <button
             onClick={() => switchLang(lang === 'en' ? 'hi' : 'en')}
-            style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '20px', color: 'white', cursor: 'pointer', letterSpacing: '0.5px' }}
+            title="Switch language"
+            style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}
           >
-            {lang === 'en' ? '🇮🇳 HI' : '🌐 EN'}
+            {lang === 'en' ? '🇮🇳' : '🌐'}
           </button>
-          {/* Share Button */}
-          <button
-            onClick={handleShare}
-            style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '20px', color: 'white', cursor: 'pointer' }}
-          >
-            📤 {t('share')}
-          </button>
-          {shareMsg && (
-            <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1E293B', color: 'white', fontSize: '11px', padding: '5px 10px', borderRadius: '8px', whiteSpace: 'nowrap', zIndex: 100, marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-              {shareMsg}
-            </div>
-          )}
-          {/* Login / Dashboard button based on auth state */}
+          {/* Share — icon only */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={handleShare}
+              title="Share KroEasy"
+              style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}
+            >
+              📤
+            </button>
+            {shareMsg && (
+              <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1E293B', color: 'white', fontSize: '11px', padding: '5px 10px', borderRadius: '8px', whiteSpace: 'nowrap', zIndex: 100, marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                {shareMsg}
+              </div>
+            )}
+          </div>
+          {/* Login / Dashboard — solid accent pill */}
           {user ? (
             <Link to="/dashboard">
-              <button style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '700', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '20px', color: 'white', cursor: 'pointer' }}>{t('dashboard')} →</button>
+              <button style={{ padding: '6px 14px', fontSize: '12px', fontWeight: '700', background: '#F97316', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                {t('dashboard')} →
+              </button>
             </Link>
           ) : (
             <Link to="/login">
-              <button style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '700', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '20px', color: 'white', cursor: 'pointer' }}>{t('login')}</button>
+              <button style={{ padding: '6px 14px', fontSize: '12px', fontWeight: '700', background: '#F97316', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer' }}>
+                {t('login')}
+              </button>
             </Link>
           )}
         </div>
@@ -191,18 +199,18 @@ export default function LandingPage() {
       {/* ═══════════ PROBLEM → SOLUTION (for Users) ═══════════ */}
       <div style={{ padding: '28px 16px 20px' }}>
         <h2 style={{ fontSize: '20px', fontWeight: '800', textAlign: 'center', marginBottom: '6px', color: '#0F172A' }}>
-          😩 Purana Tarika vs ⚡ KroEasy
+          {t('compareTitle')}
         </h2>
         <p style={{ textAlign: 'center', fontSize: '12px', color: '#64748B', marginBottom: '20px' }}>
-          See the difference
+          {t('compareSub')}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {[
-            { old: '❌ Kisi se pucho, wait karo', now: '✅ Instantly browse providers' },
-            { old: '❌ No guarantee of quality', now: '✅ Verified & rated profiles' },
-            { old: '❌ Hidden charges, dalaal fees', now: '✅ Direct contact, no middleman' },
-            { old: '❌ No history or record', now: '✅ Booking history + call logs' },
+            { old: t('compareOld1'), now: t('compareNew1') },
+            { old: t('compareOld2'), now: t('compareNew2') },
+            { old: t('compareOld3'), now: t('compareNew3') },
+            { old: t('compareOld4'), now: t('compareNew4') },
           ].map((r, i) => (
             <div key={i} style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px',
@@ -225,7 +233,7 @@ export default function LandingPage() {
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
           {[
-            { icon: '⚡', labelKey: 'skillElectrician', value: 'Electrician' },
+            { icon: '⚡', labelKey: 'Electrician', value: 'Electrician' },
             { icon: '🔧', labelKey: 'skillPlumber', value: 'Plumber' },
             { icon: '🪚', labelKey: 'skillCarpenter', value: 'Carpenter' },
             { icon: '🎨', labelKey: 'skillPainter', value: 'Painter' },
@@ -383,27 +391,26 @@ export default function LandingPage() {
       <div style={{ background: '#0F172A', color: 'white', padding: '28px 20px 20px', marginTop: '8px' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ fontSize: '22px', fontWeight: '800', marginBottom: '4px' }}>⚡ KroEasy</div>
-          <div style={{ fontSize: '12px', opacity: 0.6 }}>Nowrozabad & Birshingpur Pali</div>
+          <div style={{ fontSize: '12px', opacity: 0.6 }}>{t('locationLabel')}</div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: '700', opacity: 0.5, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Features</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', opacity: 0.5, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('footerFeatures')}</div>
             {[
-              { label: '🔧 Service Providers', to: '/dashboard' },
-              { label: '🚗 Car Booking', to: '/dashboard' },
-              { label: '👤 Register Free', to: '/register' },
-              ...(!user ? [{ label: '🔒 Login', to: '/login' }] : []),
+              { label: t('footerServiceProviders'), to: '/dashboard' },
+              { label: t('footerRegisterFree'), to: '/register' },
+              ...(!user ? [{ label: t('footerLoginLink'), to: '/login' }] : []),
             ].map((l, i) => (
               <Link key={i} to={l.to} style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.75)', textDecoration: 'none', marginBottom: '8px' }}>{l.label}</Link>
             ))}
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: '700', opacity: 0.5, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Support & Legal</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', opacity: 0.5, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('footerSupportLegal')}</div>
             {[
-              { label: '🛠️ Help & Support', to: '/support' },
-              { label: '📜 Terms & Conditions', to: '/terms' },
-              { label: '🔒 Privacy Policy', to: '/privacy' },
+              { label: t('footerHelp'), to: '/support' },
+              { label: t('footerTerms'), to: '/terms' },
+              { label: t('footerPrivacy'), to: '/privacy' },
             ].map((l, i) => (
               <Link key={i} to={l.to} style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.75)', textDecoration: 'none', marginBottom: '8px' }}>{l.label}</Link>
             ))}
@@ -411,14 +418,14 @@ export default function LandingPage() {
         </div>
 
         <div style={{ padding: '14px', background: 'rgba(255,255,255,0.07)', borderRadius: '12px', marginBottom: '20px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '700', opacity: 0.6, marginBottom: '8px', textTransform: 'uppercase' }}>Contact</div>
+          <div style={{ fontSize: '12px', fontWeight: '700', opacity: 0.6, marginBottom: '8px', textTransform: 'uppercase' }}>{t('footerContact')}</div>
           <a href="mailto:sultanalih8@gmail.com" style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.8)', textDecoration: 'none', marginBottom: '6px' }}>📧 sultanalih8@gmail.com</a>
           <a href="https://wa.me/918878353787" style={{ display: 'block', fontSize: '13px', color: '#25D366', textDecoration: 'none', fontWeight: '600' }}>💬 WhatsApp: 8878353787</a>
         </div>
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px', textAlign: 'center' }}>
-          <p style={{ fontSize: '12px', opacity: 0.5 }}>© 2025 KroEasy. Made with ❤️ for small-town India.</p>
-          <p style={{ fontSize: '11px', opacity: 0.35, marginTop: '4px' }}>Nowrozabad & Birshingpur Pali, MP</p>
+          <p style={{ fontSize: '12px', opacity: 0.5 }}>{t('footerCopyright')}</p>
+          <p style={{ fontSize: '11px', opacity: 0.35, marginTop: '4px' }}>{t('footerRegion')}</p>
         </div>
       </div>
 

@@ -8,12 +8,12 @@ export default function BookingSuccessPage() {
   const { t } = useLanguage();
   const providerName = location.state?.providerName || '';
 
-  // If user navigates directly without booking, redirect home after 5s
+  // Auto-redirect: 3s after a real booking → bookings tab; 5s if navigated directly → home
   useEffect(() => {
-    if (!location.state?.fromBooking) {
-      const timer = setTimeout(() => navigate('/'), 5000);
-      return () => clearTimeout(timer);
-    }
+    const timer = location.state?.fromBooking
+      ? setTimeout(() => navigate('/dashboard', { state: { openTab: 'bookings' } }), 3000)
+      : setTimeout(() => navigate('/'), 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   return (

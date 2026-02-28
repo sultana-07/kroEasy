@@ -130,7 +130,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
 
           {/* Price pill */}
           <div style={{ display: 'inline-block', background: '#F97316', padding: '8px 22px', borderRadius: '24px', fontWeight: '800', fontSize: '22px', marginBottom: '12px' }}>
-            ₹{car.basePrice} <span style={{ fontSize: '13px', fontWeight: '500', opacity: 0.9 }}>/ {car.priceType === 'per_day' ? 'day' : 'km'}</span>
+            ₹{car.basePrice} <span style={{ fontSize: '13px', fontWeight: '500', opacity: 0.9 }}>/ km</span>
           </div>
 
           {/* Availability badge */}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -8,6 +9,7 @@ const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#1
 
 export default function LabourDashboard() {
   const { user, logout, refreshUser } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -22,7 +24,6 @@ export default function LabourDashboard() {
 
   useEffect(() => { fetchProfile(); fetchBookings(); }, []);
 
-  // Auto-refresh bookings every 15 seconds for real-time feel
   useEffect(() => {
     if (activeTab !== 'bookings') return;
     fetchBookings();
@@ -35,7 +36,7 @@ export default function LabourDashboard() {
       const { data } = await api.get('/labours/my');
       setProfile(data);
       setEditForm({ skills: data.skills, experience: data.experience, charges: data.charges, description: data.description, city: data.userId?.city || '' });
-    } catch { toast.error('Failed to load profile'); }
+    } catch { toast.error('प्रोफ़ाइल लोड नहीं हुई'); }
     finally { setLoading(false); }
   };
 
@@ -50,8 +51,8 @@ export default function LabourDashboard() {
     try {
       const { data } = await api.patch(`/labour/${profile._id}`, { availability: !profile.availability });
       setProfile(data);
-      toast.success(data.availability ? '✅ You are now Available' : '⏸️ You are now Unavailable');
-    } catch { toast.error('Failed to update'); }
+      toast.success(data.availability ? t('availableNowText') : t('notAvailable'));
+    } catch { toast.error('अपडेट नहीं हुआ'); }
   };
 
   const saveProfile = async () => {
@@ -59,8 +60,8 @@ export default function LabourDashboard() {
       const { data } = await api.patch(`/labour/${profile._id}`, editForm);
       setProfile(data);
       setEditing(false);
-      toast.success('Profile updated! ✅');
-    } catch { toast.error('Failed to update profile'); }
+      toast.success(t('profileUpdated') + ' ✅');
+    } catch { toast.error('प्रोफ़ाइल अपडेट नहीं हुई'); }
   };
 
   const toggleSkill = (skill) => {
@@ -82,18 +83,18 @@ export default function LabourDashboard() {
       });
       setProfile(data);
       refreshUser();
-      toast.success('📸 Profile photo updated!');
-    } catch { toast.error('Image upload failed'); }
+      toast.success('📸 प्रोफ़ाइल फ़ोटो अपडेट हुई!');
+    } catch { toast.error('इमेज अपलोड विफल'); }
     finally { setUploading(false); }
   };
 
   const updateBookingStatus = async (bookingId, status) => {
     try {
       await api.patch(`/booking/${bookingId}/status`, { status });
-      toast.success(`Booking marked as ${status} ✅`);
+      toast.success(`बुकिंग ${status === 'confirmed' ? 'स्वीकृत' : status === 'completed' ? 'पूर्ण' : 'रद्द'} ✅`);
       fetchBookings();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update status');
+      toast.error(err.response?.data?.message || 'स्टेटस अपडेट विफल');
     }
   };
 
@@ -103,15 +104,19 @@ export default function LabourDashboard() {
     <div className="page-container" style={{ paddingBottom: '24px' }}>
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: '18px', fontWeight: '800' }}>🔧 Service Provider Dashboard</div>
+          <div style={{ fontSize: '18px', fontWeight: '800' }}>{t('labourDashTitle')}</div>
           <div style={{ fontSize: '12px', opacity: 0.8 }}>{user?.name}</div>
         </div>
-        <button onClick={() => { logout(); navigate('/'); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Logout</button>
+        <button onClick={() => { logout(); navigate('/'); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>{t('logout')}</button>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
-        {[{ key: 'dashboard', label: '📊 Dashboard' }, { key: 'profile', label: '👤 Profile' }, { key: 'bookings', label: '📋 Bookings' }].map(tab => (
+        {[
+          { key: 'dashboard', label: t('tabDashboard') },
+          { key: 'profile', label: t('tabProfile') },
+          { key: 'bookings', label: t('tabBookings') },
+        ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flex: 1, padding: '14px 8px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: activeTab === tab.key ? '#1E3A8A' : '#64748B', borderBottom: activeTab === tab.key ? '3px solid #1E3A8A' : '3px solid transparent' }}>{tab.label}</button>
         ))}
       </div>
@@ -121,8 +126,8 @@ export default function LabourDashboard() {
         <div style={{ margin: '16px', padding: '14px 16px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '20px' }}>⏳</span>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#EA580C' }}>Pending Approval</div>
-            <div style={{ fontSize: '12px', color: '#9A3412' }}>Your profile is under review. You'll be visible after admin approval.</div>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#EA580C' }}>{t('pendingApprovalTitle')}</div>
+            <div style={{ fontSize: '12px', color: '#9A3412' }}>{t('pendingApprovalText')}</div>
           </div>
         </div>
       )}
@@ -132,10 +137,10 @@ export default function LabourDashboard() {
         <div style={{ padding: '16px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
             {[
-              { label: 'Total Bookings', value: profile?.bookingCount || 0, icon: '📋', color: '#1E3A8A' },
-              { label: 'Total Leads', value: profile?.leadCount || 0, icon: '📞', color: '#F97316' },
-              { label: 'Rating', value: `${profile?.rating || 0}/5`, icon: '⭐', color: '#F59E0B' },
-              { label: 'Reviews', value: profile?.reviewCount || 0, icon: '💬', color: '#16A34A' },
+              { label: t('totalBookings'), value: profile?.bookingCount || 0, icon: '📋', color: '#1E3A8A' },
+              { label: t('totalLeads'), value: profile?.leadCount || 0, icon: '📞', color: '#F97316' },
+              { label: t('rating'), value: `${profile?.rating || 0}/5`, icon: '⭐', color: '#F59E0B' },
+              { label: t('reviews'), value: profile?.reviewCount || 0, icon: '💬', color: '#16A34A' },
             ].map((stat, i) => (
               <div key={i} className="stat-card">
                 <div style={{ fontSize: '28px', marginBottom: '6px' }}>{stat.icon}</div>
@@ -148,8 +153,8 @@ export default function LabourDashboard() {
           {/* Availability Toggle */}
           <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: '700' }}>Availability</div>
-              <div style={{ fontSize: '13px', color: '#64748B' }}>{profile?.availability ? '✅ Currently Available' : '⏸️ Not Available'}</div>
+              <div style={{ fontSize: '15px', fontWeight: '700' }}>{t('availability')}</div>
+              <div style={{ fontSize: '13px', color: '#64748B' }}>{profile?.availability ? t('availableNowText') : t('notAvailable')}</div>
             </div>
             <label className="toggle">
               <input type="checkbox" checked={profile?.availability || false} onChange={toggleAvailability} />
@@ -159,13 +164,13 @@ export default function LabourDashboard() {
 
           {/* Profile Summary */}
           <div className="card" style={{ padding: '20px', marginTop: '12px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '12px' }}>Profile Summary</h3>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '12px' }}>{t('profileSummary')}</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
               {profile?.skills?.map(skill => <span key={skill} className="badge badge-blue">{skill}</span>)}
             </div>
             <div style={{ fontSize: '13px', color: '#64748B', lineHeight: '1.6' }}>
-              <div>💰 Charges: <strong>{profile?.charges || 'Not set'}</strong></div>
-              <div>🏙️ City: <strong>{profile?.userId?.city || user?.city}</strong></div>
+              <div>💰 {t('chargesLabel')}: <strong>{profile?.charges || t('notSet')}</strong></div>
+              <div>🏙️ {t('city')}: <strong>{profile?.userId?.city || user?.city}</strong></div>
             </div>
           </div>
         </div>
@@ -174,10 +179,30 @@ export default function LabourDashboard() {
       {/* Profile Tab */}
       {activeTab === 'profile' && (
         <div style={{ padding: '16px' }}>
+
+          {/* Approval Status Card */}
+          {(() => {
+            const statusMap = {
+              pending:  { bg: '#FFF7ED', border: '#FED7AA', icon: '⏳', title: t('pendingApprovalTitle'), text: t('pendingApprovalText'), color: '#EA580C' },
+              approved: { bg: '#F0FDF4', border: '#BBF7D0', icon: '✅', title: t('approvedTitle'), text: t('approvedText'), color: '#16A34A' },
+              rejected: { bg: '#FEF2F2', border: '#FECACA', icon: '❌', title: t('rejectedTitle'), text: t('rejectedText'), color: '#DC2626' },
+            };
+            const s = statusMap[profile?.isApproved ? 'approved' : 'pending'];
+            if (!s) return null;
+            return (
+              <div style={{ padding: '14px 16px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: '14px', display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '26px', flexShrink: 0 }}>{s.icon}</span>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: s.color }}>{s.title}</div>
+                  <div style={{ fontSize: '12px', color: s.color, opacity: 0.8, lineHeight: '1.5', marginTop: '2px' }}>{s.text}</div>
+                </div>
+              </div>
+            );
+          })()}
+
           {!editing ? (
             <div className="card" style={{ padding: '20px' }}>
               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                {/* Profile Image */}
                 <div style={{ position: 'relative', display: 'inline-block', marginBottom: '12px' }}>
                   {profile?.profileImage ? (
                     <img src={profile.profileImage} alt="Profile" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #E2E8F0' }} />
@@ -192,27 +217,27 @@ export default function LabourDashboard() {
                   >📷</button>
                 </div>
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
-                {uploading && <p style={{ fontSize: '12px', color: '#3B82F6' }}>⏳ Uploading...</p>}
+                {uploading && <p style={{ fontSize: '12px', color: '#3B82F6' }}>⏳ {t('uploading')}</p>}
                 <h2 style={{ fontSize: '20px', fontWeight: '700' }}>{user?.name}</h2>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
                 {profile?.skills?.map(s => <span key={s} className="badge badge-blue">{s}</span>)}
               </div>
               <div style={{ fontSize: '14px', color: '#374151', lineHeight: '1.8' }}>
-                <div>💼 Experience: <strong>{profile?.experience} years</strong></div>
-                <div>💰 Charges: <strong>{profile?.charges}</strong></div>
-                <div>🏙️ City: <strong>{profile?.userId?.city}</strong></div>
-                <div>⭐ Rating: <strong>{profile?.rating || 0}/5</strong> ({profile?.reviewCount || 0} reviews)</div>
+                <div>💼 {t('experience')}: <strong>{profile?.experience} {t('years')}</strong></div>
+                <div>💰 {t('chargesLabel')}: <strong>{profile?.charges}</strong></div>
+                <div>🏙️ {t('city')}: <strong>{profile?.userId?.city}</strong></div>
+                <div>⭐ {t('rating')}: <strong>{profile?.rating || 0}/5</strong> ({profile?.reviewCount || 0} {t('reviews')})</div>
                 {profile?.description && <div style={{ marginTop: '8px', color: '#64748B' }}>{profile.description}</div>}
               </div>
-              <button className="btn-primary" onClick={() => setEditing(true)} style={{ width: '100%', marginTop: '16px', padding: '12px' }}>✏️ Edit Profile</button>
+              <button className="btn-primary" onClick={() => setEditing(true)} style={{ width: '100%', marginTop: '16px', padding: '12px' }}>{t('editProfileBtn')}</button>
             </div>
           ) : (
             <div className="card" style={{ padding: '20px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>Edit Profile</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>{t('editProfileTitle')}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Skills</label>
+                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('skillsField')}</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {skillOptions.map(skill => (
                       <button key={skill} type="button" onClick={() => toggleSkill(skill)} style={{ padding: '5px 10px', borderRadius: '16px', fontSize: '12px', fontWeight: '500', border: `1.5px solid ${editForm.skills?.includes(skill) ? '#1E3A8A' : '#E2E8F0'}`, background: editForm.skills?.includes(skill) ? '#1E3A8A' : 'white', color: editForm.skills?.includes(skill) ? 'white' : '#374151', cursor: 'pointer' }}>{skill}</button>
@@ -221,21 +246,21 @@ export default function LabourDashboard() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Experience (yrs)</label>
+                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('experienceYrs')}</label>
                     <input className="input-field" type="number" value={editForm.experience} onChange={e => setEditForm({ ...editForm, experience: e.target.value })} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Charges</label>
+                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('chargesField')}</label>
                     <input className="input-field" value={editForm.charges} onChange={e => setEditForm({ ...editForm, charges: e.target.value })} />
                   </div>
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Description</label>
+                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('descField')}</label>
                   <textarea className="input-field" rows={3} value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} style={{ resize: 'none' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button className="btn-primary" onClick={saveProfile} style={{ flex: 1, padding: '12px' }}>💾 Save</button>
-                  <button className="btn-outline" onClick={() => setEditing(false)} style={{ flex: 1, padding: '12px' }}>Cancel</button>
+                  <button className="btn-primary" onClick={saveProfile} style={{ flex: 1, padding: '12px' }}>{t('saveBtn')}</button>
+                  <button className="btn-outline" onClick={() => setEditing(false)} style={{ flex: 1, padding: '12px' }}>{t('cancel')}</button>
                 </div>
               </div>
             </div>
@@ -249,7 +274,7 @@ export default function LabourDashboard() {
           {bookings.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
               <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
-              <p style={{ fontWeight: '600' }}>No bookings yet</p>
+              <p style={{ fontWeight: '600' }}>{t('noBookingsText')}</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -257,35 +282,33 @@ export default function LabourDashboard() {
                 <div key={b._id} className="card" style={{ padding: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                     <div>
-                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{b.userId?.name || 'Customer'}</div>
+                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{b.userId?.name || 'ग्राहक'}</div>
                       <div style={{ fontSize: '13px', color: '#64748B' }}>📱 {b.userId?.phone}</div>
                       <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                        {new Date(b.createdAt).toLocaleDateString('en-IN')}
+                        {new Date(b.createdAt).toLocaleDateString('hi-IN')}
                       </div>
                     </div>
                     <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', background: (STATUS_COLORS[b.status] || '#64748B') + '20', color: STATUS_COLORS[b.status] || '#64748B' }}>
-                      {b.status}
+                      {b.status === 'pending' ? t('statusPending') : b.status === 'confirmed' ? t('statusConfirmed') : b.status === 'completed' ? t('statusCompleted') : t('statusCancelled')}
                     </span>
                   </div>
 
-                  {/* Status Action Buttons */}
                   {b.status === 'pending' && (
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button onClick={() => updateBookingStatus(b._id, 'confirmed')} className="btn-primary" style={{ flex: 1, padding: '8px', fontSize: '12px' }}>✅ Confirm</button>
-                      <button onClick={() => updateBookingStatus(b._id, 'cancelled')} className="btn-danger" style={{ flex: 1, padding: '8px', fontSize: '12px' }}>❌ Cancel</button>
+                      <button onClick={() => updateBookingStatus(b._id, 'confirmed')} className="btn-primary" style={{ flex: 1, padding: '8px', fontSize: '12px' }}>{t('confirmBtn')}</button>
+                      <button onClick={() => updateBookingStatus(b._id, 'cancelled')} className="btn-danger" style={{ flex: 1, padding: '8px', fontSize: '12px' }}>{t('cancelBtnLabel')}</button>
                     </div>
                   )}
                   {b.status === 'confirmed' && (
                     <button onClick={() => updateBookingStatus(b._id, 'completed')} className="btn-success" style={{ width: '100%', padding: '8px', fontSize: '13px', marginTop: '8px' }}>
-                      🎉 Mark as Completed
+                      {t('markCompletedBtn')}
                     </button>
                   )}
 
-                  {/* Customer Review */}
                   {b.review?.rating && (
                     <div style={{ marginTop: '10px', padding: '10px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
                       <div style={{ fontSize: '13px', fontWeight: '600', color: '#16A34A', marginBottom: '4px' }}>
-                        {'⭐'.repeat(b.review.rating)} Customer Review
+                        {'⭐'.repeat(b.review.rating)} {t('customerReviewLabel')}
                       </div>
                       {b.review.comment && <p style={{ fontSize: '12px', color: '#64748B' }}>{b.review.comment}</p>}
                     </div>

@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
 
-const emptyCarForm = { carName: '', numberPlate: '', modelYear: new Date().getFullYear(), priceType: 'per_day', basePrice: '', ac: false, driverIncluded: false };
+const emptyCarForm = { carName: '', numberPlate: '', modelYear: new Date().getFullYear(), basePrice: '' };
 const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#16A34A', cancelled: '#EF4444' };
 
 export default function CarOwnerDashboard() {
   const { user, logout, refreshUser } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +50,8 @@ export default function CarOwnerDashboard() {
       const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
       localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, avatar: data.avatar }));
       refreshUser();
-      toast.success('📸 Profile photo updated!');
-    } catch { toast.error('Image upload failed'); }
+      toast.success('📸 प्रोफ़ाइल फ़ोटो अपडेट हुई!');
+    } catch { toast.error('इमेज अपलोड विफल'); }
     finally { setAvatarUploading(false); }
   };
 
@@ -76,21 +78,21 @@ export default function CarOwnerDashboard() {
       const { data } = await api.get('/cars/my');
       setCars(data);
     } catch (err) {
-      if (err.response?.status !== 403) toast.error('Failed to load cars');
+      if (err.response?.status !== 403) toast.error('कारें लोड नहीं हुईं');
     } finally { setLoading(false); }
   };
 
   const saveCar = async () => {
-    if (!carForm.carName || !carForm.basePrice) return toast.error('Car name and price are required');
+    if (!carForm.carName || !carForm.basePrice) return toast.error('कार का नाम और कीमत जरूरी है');
     try {
       if (editingCar) {
         const { data } = await api.patch(`/car/${editingCar._id}`, carForm);
         setCars(cars.map(c => c._id === editingCar._id ? data : c));
-        toast.success('Car updated! ✅');
+        toast.success('कार अपडेट हुई! ✅');
       } else {
         const { data } = await api.post('/car', carForm);
         setCars([...cars, data]);
-        toast.success('Car added! 🚗');
+        toast.success('कार जोड़ी गई! 🚗');
       }
       setShowAddForm(false);
       setEditingCar(null);
@@ -101,25 +103,25 @@ export default function CarOwnerDashboard() {
   };
 
   const deleteCar = async (carId) => {
-    if (!window.confirm('Delete this car?')) return;
+    if (!window.confirm('इस कार को हटाएं?')) return;
     try {
       await api.delete(`/car/${carId}`);
       setCars(cars.filter(c => c._id !== carId));
-      toast.success('Car deleted');
-    } catch { toast.error('Failed to delete'); }
+      toast.success('कार हटा दी गई');
+    } catch { toast.error('हटाने में विफल'); }
   };
 
   const toggleCarAvailability = async (car) => {
     try {
       const { data } = await api.patch(`/car/${car._id}`, { availability: !car.availability });
       setCars(cars.map(c => c._id === car._id ? data : c));
-      toast.success(data.availability ? '✅ Car is now Available' : '⏸️ Car marked Unavailable');
-    } catch { toast.error('Failed to update'); }
+      toast.success(data.availability ? '✅ कार अभी उपलब्ध है' : '⏸️ कार अनुपलब्ध');
+    } catch { toast.error('अपडेट नहीं हुआ'); }
   };
 
   const startEdit = (car) => {
     setEditingCar(car);
-    setCarForm({ carName: car.carName, numberPlate: car.numberPlate || '', modelYear: car.modelYear, priceType: car.priceType, basePrice: car.basePrice, ac: car.ac, driverIncluded: car.driverIncluded });
+    setCarForm({ carName: car.carName, numberPlate: car.numberPlate || '', modelYear: car.modelYear, basePrice: car.basePrice });
     setShowAddForm(true);
   };
 
@@ -127,55 +129,15 @@ export default function CarOwnerDashboard() {
     <div className="page-container" style={{ paddingBottom: '24px' }}>
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: '18px', fontWeight: '800' }}>🚗 Car Owner Dashboard</div>
+          <div style={{ fontSize: '18px', fontWeight: '800' }}>{t('carOwnerDashboard')}</div>
           <div style={{ fontSize: '12px', opacity: 0.8 }}>{user?.name}</div>
         </div>
-        <button onClick={() => { logout(); navigate('/'); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Logout</button>
+        <button onClick={() => { logout(); navigate('/'); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>{t('logout')}</button>
       </div>
-
-      {/* Approval Status Banners */}
-      {user?.approvalStatus === 'pending' && (
-        <div style={{ margin: '12px 16px 0', padding: '14px 16px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-          <span style={{ fontSize: '22px', flexShrink: 0 }}>⏳</span>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#EA580C' }}>Approval Pending</div>
-            <div style={{ fontSize: '12px', color: '#9A3412', lineHeight: '1.5' }}>Your car owner account is under review by admin. You will be able to add cars once approved.</div>
-          </div>
-        </div>
-      )}
-      {user?.approvalStatus === 'approved' && (
-        <div style={{ margin: '12px 16px 0', padding: '14px 16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-          <span style={{ fontSize: '22px', flexShrink: 0 }}>✅</span>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#16A34A' }}>Account Approved!</div>
-            <div style={{ fontSize: '12px', color: '#166534', lineHeight: '1.5' }}>Congratulations! You can now add your cars and start getting bookings from customers.</div>
-          </div>
-        </div>
-      )}
-      {user?.approvalStatus === 'rejected' && (
-        <div style={{ margin: '12px 16px 0', padding: '14px 16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-          <span style={{ fontSize: '22px', flexShrink: 0 }}>❌</span>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#DC2626' }}>Account Rejected</div>
-            <div style={{ fontSize: '12px', color: '#991B1B', lineHeight: '1.5' }}>Your account has been rejected by admin. Please contact support for more information.</div>
-            <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: '#DC2626', fontWeight: '700', marginTop: '4px', display: 'inline-block' }}>💬 Contact Support</a>
-          </div>
-        </div>
-      )}
-      {user?.approvalStatus === 'suspended' && (
-        <div style={{ margin: '12px 16px 0', padding: '14px 16px', background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-          <span style={{ fontSize: '22px', flexShrink: 0 }}>🚫</span>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#BE123C' }}>Account Suspended</div>
-            <div style={{ fontSize: '12px', color: '#9F1239', lineHeight: '1.5' }}>Your account has been suspended by admin. Please contact support to resolve this.</div>
-            <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: '#BE123C', fontWeight: '700', marginTop: '4px', display: 'inline-block' }}>💬 Contact Support</a>
-          </div>
-        </div>
-      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #E2E8F0', marginTop: '12px' }}>
-        {[{ key: 'cars', label: '🚗 My Cars' }, { key: 'bookings', label: '📋 Bookings' }, { key: 'profile', label: '👤 Profile' }].map(tab => (
+        {[{ key: 'cars', label: t('myCars') }, { key: 'bookings', label: t('tabBookings') }, { key: 'profile', label: t('tabProfile') }].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flex: 1, padding: '14px 8px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: activeTab === tab.key ? '#1E3A8A' : '#64748B', borderBottom: activeTab === tab.key ? '3px solid #1E3A8A' : '3px solid transparent' }}>{tab.label}</button>
         ))}
       </div>
@@ -183,12 +145,25 @@ export default function CarOwnerDashboard() {
       {/* Cars Tab */}
       {activeTab === 'cars' && (
         <div style={{ padding: '16px' }}>
+          {/* Approval Status inline banner */}
+          {user?.approvalStatus !== 'approved' && (() => {
+            const m = {
+              pending:   { bg: '#FFF7ED', border: '#FED7AA', icon: '⏳', title: t('pendingApprovalTitle'), msg: 'समीक्षाधीन — अनुमोदन के बाद कार जोड़ सकते हैं।', color: '#EA580C' },
+              rejected:  { bg: '#FEF2F2', border: '#FECACA', icon: '❌', title: t('rejectedTitle'), msg: 'अधिक जानकारी के लिए सहायता से संपर्क करें।', color: '#DC2626' },
+              suspended: { bg: '#FFF1F2', border: '#FECDD3', icon: '🚫', title: t('accountSuspended'), msg: 'समाधान के लिए सहायता से संपर्क करें।', color: '#BE123C' },
+            }[user?.approvalStatus];
+            if (!m) return null;
+            return <div style={{ padding: '12px 14px', background: m.bg, border: `1px solid ${m.border}`, borderRadius: '12px', display: 'flex', gap: '10px', marginBottom: '14px', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '20px' }}>{m.icon}</span>
+              <div><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
+            </div>;
+          })()}
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
             {[
-              { label: 'Total Cars', value: cars.length, icon: '🚗' },
-              { label: 'Total Leads', value: cars.reduce((a, c) => a + (c.leadCount || 0), 0), icon: '📞' },
-              { label: 'Bookings', value: cars.reduce((a, c) => a + (c.bookingCount || 0), 0), icon: '📋' },
+              { label: t('totalCars'), value: cars.length, icon: '🚗' },
+              { label: t('totalLeads'), value: cars.reduce((a, c) => a + (c.leadCount || 0), 0), icon: '📞' },
+              { label: t('myBookings'), value: cars.reduce((a, c) => a + (c.bookingCount || 0), 0), icon: '📋' },
             ].map((s, i) => (
               <div key={i} className="stat-card" style={{ padding: '14px 10px' }}>
                 <div style={{ fontSize: '22px', marginBottom: '4px' }}>{s.icon}</div>
@@ -198,56 +173,44 @@ export default function CarOwnerDashboard() {
             ))}
           </div>
 
-          {/* Add Car Button */}
-          {!showAddForm && (
+          {/* Add Car Button — only shown to approved owners */}
+          {!showAddForm && user?.approvalStatus === 'approved' && (
             <button className="btn-primary" onClick={() => { setShowAddForm(true); setEditingCar(null); setCarForm(emptyCarForm); }} style={{ width: '100%', padding: '13px', marginBottom: '16px' }}>
-              ➕ Add New Car
+              {t('addNewCar')}
             </button>
+          )}
+          {!showAddForm && user?.approvalStatus !== 'approved' && (
+            <div style={{ padding: '14px 16px', background: '#FFF7ED', border: '1px dashed #FED7AA', borderRadius: '12px', textAlign: 'center', marginBottom: '16px', color: '#9A3412', fontSize: '13px' }}>
+              ⏳ {t('pendingApprovalText')}
+            </div>
           )}
 
           {/* Add/Edit Form */}
           {showAddForm && (
             <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>{editingCar ? '✏️ Edit Car' : '➕ Add New Car'}</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>{editingCar ? t('editCar') : t('addNewCar')}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Car Name *</label>
+                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('carName')} *</label>
                   <input className="input-field" placeholder="e.g. Maruti Swift" value={carForm.carName} onChange={e => setCarForm({ ...carForm, carName: e.target.value })} />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Number Plate</label>
+                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('numberPlate')}</label>
                   <input className="input-field" placeholder="e.g. MH12AB1234" value={carForm.numberPlate} onChange={e => setCarForm({ ...carForm, numberPlate: e.target.value.toUpperCase() })} style={{ textTransform: 'uppercase', letterSpacing: '1px' }} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
-                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Model Year</label>
+                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('modelYear')}</label>
                     <input className="input-field" type="number" value={carForm.modelYear} onChange={e => setCarForm({ ...carForm, modelYear: e.target.value })} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Base Price (₹) *</label>
+                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('basePrice')}</label>
                     <input className="input-field" type="number" placeholder="0" value={carForm.basePrice} onChange={e => setCarForm({ ...carForm, basePrice: e.target.value })} />
                   </div>
                 </div>
-                <div>
-                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>Price Type</label>
-                  <select className="input-field" value={carForm.priceType} onChange={e => setCarForm({ ...carForm, priceType: e.target.value })}>
-                    <option value="per_day">Per Day</option>
-                    <option value="per_km">Per KM</option>
-                  </select>
-                </div>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                    <input type="checkbox" checked={carForm.ac} onChange={e => setCarForm({ ...carForm, ac: e.target.checked })} style={{ width: '16px', height: '16px' }} />
-                    ❄️ AC
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-                    <input type="checkbox" checked={carForm.driverIncluded} onChange={e => setCarForm({ ...carForm, driverIncluded: e.target.checked })} style={{ width: '16px', height: '16px' }} />
-                    🧑‍✈️ Driver Included
-                  </label>
-                </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button className="btn-primary" onClick={saveCar} style={{ flex: 1, padding: '12px' }}>💾 Save Car</button>
-                  <button className="btn-outline" onClick={() => { setShowAddForm(false); setEditingCar(null); }} style={{ flex: 1, padding: '12px' }}>Cancel</button>
+                  <button className="btn-primary" onClick={saveCar} style={{ flex: 1, padding: '12px' }}>{t('saveCar')}</button>
+                  <button className="btn-outline" onClick={() => { setShowAddForm(false); setEditingCar(null); }} style={{ flex: 1, padding: '12px' }}>{t('cancel')}</button>
                 </div>
               </div>
             </div>
@@ -259,8 +222,8 @@ export default function CarOwnerDashboard() {
           ) : cars.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748B' }}>
               <div style={{ fontSize: '48px', marginBottom: '12px' }}>🚗</div>
-              <p style={{ fontWeight: '600' }}>No cars added yet</p>
-              <p style={{ fontSize: '13px' }}>Add your first car to start getting bookings</p>
+              <p style={{ fontWeight: '600' }}>अभी कोई कार नहीं जोड़ी</p>
+              <p style={{ fontSize: '13px' }}>बुकिंग शुरू करने के लिए अपनी पहली कार जोड़ें</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -289,8 +252,8 @@ export default function CarOwnerDashboard() {
                       <span className="toggle-slider" />
                     </label>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-success" onClick={() => startEdit(car)}>✏️ Edit</button>
-                      <button className="btn-danger" onClick={() => deleteCar(car._id)}>🗑️ Delete</button>
+                      <button className="btn-success" onClick={() => startEdit(car)}>{t('editCar')}</button>
+                      <button className="btn-danger" onClick={() => deleteCar(car._id)}>{t('deleteCar')}</button>
                     </div>
                   </div>
                 </div>
@@ -303,10 +266,23 @@ export default function CarOwnerDashboard() {
       {/* Bookings Tab */}
       {activeTab === 'bookings' && (
         <div style={{ padding: '16px' }}>
+          {/* Approval Status inline banner */}
+          {user?.approvalStatus !== 'approved' && (() => {
+            const m = {
+              pending:   { bg: '#FFF7ED', border: '#FED7AA', icon: '⏳', title: t('pendingApprovalTitle'), msg: 'समीक्षाधीन — अनुमोदन के बाद बुकिंग शुरू होगी।', color: '#EA580C' },
+              rejected:  { bg: '#FEF2F2', border: '#FECACA', icon: '❌', title: t('rejectedTitle'), msg: 'अधिक जानकारी के लिए सहायता से संपर्क करें।', color: '#DC2626' },
+              suspended: { bg: '#FFF1F2', border: '#FECDD3', icon: '🚫', title: t('accountSuspended'), msg: 'समाधान के लिए सहायता से संपर्क करें।', color: '#BE123C' },
+            }[user?.approvalStatus];
+            if (!m) return null;
+            return <div style={{ padding: '12px 14px', background: m.bg, border: `1px solid ${m.border}`, borderRadius: '12px', display: 'flex', gap: '10px', marginBottom: '14px', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '20px' }}>{m.icon}</span>
+              <div><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
+            </div>;
+          })()}
           {bookings.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
               <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
-              <p style={{ fontWeight: '600' }}>No bookings yet</p>
+              <p style={{ fontWeight: '600' }}>{t('noBookingsText')}</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -314,24 +290,24 @@ export default function CarOwnerDashboard() {
                 <div key={b._id} className="card" style={{ padding: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                     <div>
-                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{b.userId?.name || 'Customer'}</div>
+                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{b.userId?.name || 'ग्राहक'}</div>
                       <div style={{ fontSize: '13px', color: '#64748B' }}>📱 {b.userId?.phone}</div>
                       <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
                         {new Date(b.createdAt).toLocaleDateString('en-IN')}
                       </div>
                     </div>
                     <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', background: (STATUS_COLORS[b.status] || '#64748B') + '20', color: STATUS_COLORS[b.status] || '#64748B' }}>
-                      {b.status}
+                      {b.status === 'pending' ? t('statusPending') : b.status === 'confirmed' ? t('statusConfirmed') : b.status === 'completed' ? t('statusCompleted') : t('statusCancelled')}
                     </span>
                   </div>
                   {b.status === 'pending' && (
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button onClick={() => updateBookingStatus(b._id, 'confirmed')} className="btn-primary" style={{ flex: 1, padding: '8px', fontSize: '12px' }}>✅ Confirm</button>
-                      <button onClick={() => updateBookingStatus(b._id, 'cancelled')} className="btn-danger" style={{ flex: 1, padding: '8px', fontSize: '12px' }}>❌ Cancel</button>
+                      <button onClick={() => updateBookingStatus(b._id, 'confirmed')} className="btn-primary" style={{ flex: 1, padding: '8px', fontSize: '12px' }}>{t('confirmBtn')}</button>
+                      <button onClick={() => updateBookingStatus(b._id, 'cancelled')} className="btn-danger" style={{ flex: 1, padding: '8px', fontSize: '12px' }}>{t('cancelBtnLabel')}</button>
                     </div>
                   )}
                   {b.status === 'confirmed' && (
-                    <button onClick={() => updateBookingStatus(b._id, 'completed')} className="btn-success" style={{ width: '100%', padding: '8px', fontSize: '13px', marginTop: '8px' }}>🎉 Mark as Completed</button>
+                    <button onClick={() => updateBookingStatus(b._id, 'completed')} className="btn-success" style={{ width: '100%', padding: '8px', fontSize: '13px', marginTop: '8px' }}>{t('markCompletedBtn')}</button>
                   )}
                   {b.review?.rating && (
                     <div style={{ marginTop: '10px', padding: '10px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
@@ -369,15 +345,37 @@ export default function CarOwnerDashboard() {
               >📷</button>
             </div>
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
-            {avatarUploading && <p style={{ fontSize: '12px', color: '#F97316', marginBottom: '8px' }}>⏳ Uploading...</p>}
-            {user?.avatar && <p style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '6px' }}>Tap photo to view full size</p>}
+            {avatarUploading && <p style={{ fontSize: '12px', color: '#F97316', marginBottom: '8px' }}>⏳ {t('uploading')}</p>}
+            {user?.avatar && <p style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '6px' }}>{t('tapPhotoToView')}</p>}
             <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>{user?.name}</h2>
             <p style={{ color: '#64748B', fontSize: '14px' }}>📱 {user?.phone}</p>
             <p style={{ color: '#64748B', fontSize: '14px' }}>🏙️ {user?.city}</p>
-            <span className="badge badge-orange" style={{ marginTop: '8px' }}>🚗 Car Owner</span>
+            <span className="badge badge-orange" style={{ marginTop: '8px' }}>{t('carOwnerBadge')}</span>
           </div>
+          {/* Approval Status Card */}
+          {(() => {
+            const statusMap = {
+              pending:   { bg: '#FFF7ED', border: '#FED7AA', icon: '⏳', title: t('pendingApprovalTitle'), text: t('pendingApprovalText'), color: '#EA580C' },
+              approved:  { bg: '#F0FDF4', border: '#BBF7D0', icon: '✅', title: t('approvedTitle'), text: t('approvedText'), color: '#16A34A' },
+              rejected:  { bg: '#FEF2F2', border: '#FECACA', icon: '❌', title: t('rejectedTitle'), text: t('rejectedText'), color: '#DC2626' },
+              suspended: { bg: '#FFF1F2', border: '#FECDD3', icon: '🚫', title: t('accountSuspended'), text: 'आपका खाता निलंबित कर दिया गया है। इसे हल करने के लिए सहायता से संपर्क करें।', color: '#BE123C' },
+            };
+            const s = statusMap[user?.approvalStatus] || statusMap.pending;
+            return (
+              <div style={{ padding: '14px 16px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: '14px', display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '16px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '26px', flexShrink: 0 }}>{s.icon}</span>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: s.color }}>{s.title}</div>
+                  <div style={{ fontSize: '12px', color: s.color, opacity: 0.8, lineHeight: '1.5', marginTop: '2px' }}>{s.text}</div>
+                  {(user?.approvalStatus === 'rejected' || user?.approvalStatus === 'suspended') && (
+                    <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: s.color, fontWeight: '700', marginTop: '6px', display: 'inline-block' }}>💬 Contact Support →</a>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           <button onClick={() => { logout(); navigate('/'); }} className="btn-danger" style={{ width: '100%', padding: '14px', fontSize: '15px', justifyContent: 'center', marginTop: '16px' }}>
-            🚪 Logout
+            🚪 {t('logout')}
           </button>
         </div>
       )}

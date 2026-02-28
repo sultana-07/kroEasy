@@ -15,20 +15,14 @@ const STATUS_COLORS = {
   cancelled: '#EF4444',
 };
 
-const STATUS_LABELS = {
-  pending: '⏳ Pending',
-  confirmed: '✅ Confirmed',
-  completed: '🎉 Completed',
-  cancelled: '❌ Cancelled',
-};
-
 function ReviewModal({ booking, onClose, onSubmit }) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const handleSubmit = async () => {
-    if (!rating) { toast.error('Please select a rating'); return; }
+    if (!rating) { toast.error('कृपया रेटिंग चुनें'); return; }
     setLoading(true);
     try {
       await onSubmit(booking._id, { rating, comment });
@@ -36,12 +30,16 @@ function ReviewModal({ booking, onClose, onSubmit }) {
     } finally { setLoading(false); }
   };
 
+  const ratingLabels = [
+    '', t('ratingPoor'), t('ratingFair'), t('ratingGood'), t('ratingVeryGood'), t('ratingExcellent')
+  ];
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
       <div style={{ background: 'white', borderRadius: '20px 20px 0 0', padding: '24px', width: '100%', maxWidth: '480px' }}>
-        <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '6px' }}>Write a Review ⭐</h3>
+        <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '6px' }}>{t('writeReviewTitle')}</h3>
         <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '20px' }}>
-          How was your experience with this {booking.providerType === 'labour' ? 'worker' : 'car service'}?
+          {booking.providerType === 'labour' ? t('reviewWorkerExp') : t('reviewCarExp')}
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '20px' }}>
           {[1, 2, 3, 4, 5].map(star => (
@@ -49,13 +47,13 @@ function ReviewModal({ booking, onClose, onSubmit }) {
           ))}
         </div>
         <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>
-          {rating === 1 ? 'Poor' : rating === 2 ? 'Fair' : rating === 3 ? 'Good' : rating === 4 ? 'Very Good' : rating === 5 ? 'Excellent!' : 'Tap to rate'}
+          {rating ? ratingLabels[rating] : t('rateTap')}
         </p>
-        <textarea className="input-field" placeholder="Share your experience (optional)..." rows={3} value={comment} onChange={e => setComment(e.target.value)} style={{ width: '100%', resize: 'none', marginBottom: '16px', boxSizing: 'border-box' }} />
+        <textarea className="input-field" placeholder={t('reviewPlaceholder')} rows={3} value={comment} onChange={e => setComment(e.target.value)} style={{ width: '100%', resize: 'none', marginBottom: '16px', boxSizing: 'border-box' }} />
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '12px' }}>Cancel</button>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '12px' }}>{t('cancel')}</button>
           <button onClick={handleSubmit} className="btn-primary" style={{ flex: 1, padding: '12px' }} disabled={loading}>
-            {loading ? '⏳ Submitting...' : '✅ Submit Review'}
+            {loading ? t('submittingReview') : t('submitReview')}
           </button>
         </div>
       </div>
@@ -419,13 +417,13 @@ export default function UserDashboard() {
   };
 
   const handleCancelBooking = async (bookingId) => {
-    if (!window.confirm('Cancel this booking request?')) return;
+    if (!window.confirm(t('cancelBookingConfirm'))) return;
     try {
       await api.patch(`/booking/${bookingId}/cancel`);
-      toast.success('Booking cancelled.');
+      toast.success('बुकिंग रद्द हो गई।');
       fetchBookings();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Could not cancel booking');
+      toast.error(err.response?.data?.message || 'बुकिंग रद्द नहीं हुई');
     }
   };
 
@@ -493,7 +491,7 @@ export default function UserDashboard() {
           <div style={{ padding: '12px 16px 0', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px', marginBottom: '10px' }}>
               {[
-                { icon: '⚡', label: t('skillElectrician'), value: 'Electrician' },
+                { icon: '⚡', label: t('Electrician'), value: 'Electrician' },
                 { icon: '🔧', label: t('skillPlumber'), value: 'Plumber' },
                 { icon: '🪚', label: t('skillCarpenter'), value: 'Carpenter' },
                 { icon: '🎨', label: t('skillPainter'), value: 'Painter' },
@@ -561,17 +559,16 @@ export default function UserDashboard() {
       {activeTab === 'cars' && (
         <div>
           <div style={{ padding: '12px 16px', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-              <select className="input-field" value={filters.ac} onChange={e => setFilters({ ...filters, ac: e.target.value })} style={{ padding: '8px 12px', fontSize: '13px', minWidth: '100px' }}>
-                <option value="">❄️ AC</option><option value="true">AC</option><option value="false">Non-AC</option>
-              </select>
-              <select className="input-field" value={filters.driverIncluded} onChange={e => setFilters({ ...filters, driverIncluded: e.target.value })} style={{ padding: '8px 12px', fontSize: '13px', minWidth: '110px' }}>
-                <option value="">🧑‍✈️ Driver</option><option value="true">With Driver</option><option value="false">Self Drive</option>
-              </select>
-              <select className="input-field" value={filters.priceType} onChange={e => setFilters({ ...filters, priceType: e.target.value })} style={{ padding: '8px 12px', fontSize: '13px', minWidth: '110px' }}>
-                <option value="">💰 Price</option><option value="per_km">Per KM</option><option value="per_day">Per Day</option>
-              </select>
-              <button className="btn-primary" onClick={fetchCars} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', alignItems: 'center' }}>
+              <input
+                className="input-field"
+                placeholder="🏙️ Search by city..."
+                value={filters.city || ''}
+                onChange={e => setFilters({ ...filters, city: e.target.value })}
+                onKeyDown={e => e.key === 'Enter' && fetchCars()}
+                style={{ padding: '8px 12px', fontSize: '13px', minWidth: '160px', flex: 1 }}
+              />
+              <button className="btn-primary" onClick={() => fetchCars()} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
             </div>
           </div>
           <div style={{ padding: '16px' }}>
@@ -580,7 +577,7 @@ export default function UserDashboard() {
             ) : cars.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
                 <div style={{ fontSize: '48px', marginBottom: '12px' }}>🚗</div>
-                <p style={{ fontWeight: '600' }}>No cars available</p>
+                <p style={{ fontWeight: '600' }}>{t('noCarsAvailable')}</p>
                 <p style={{ fontSize: '13px' }}>{t('tryDifferentFilters')}</p>
               </div>
             ) : (
@@ -603,11 +600,11 @@ export default function UserDashboard() {
           {/* Status filter pills */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
             {[
-              { label: '📋 All', value: '' },
-              { label: '⏳ Pending', value: 'pending' },
-              { label: '✅ Confirmed', value: 'confirmed' },
-              { label: '🎉 Completed', value: 'completed' },
-              { label: '❌ Cancelled', value: 'cancelled' },
+              { label: t('filterAll'), value: '' },
+              { label: t('statusPending'), value: 'pending' },
+              { label: t('statusConfirmed'), value: 'confirmed' },
+              { label: t('statusCompleted'), value: 'completed' },
+              { label: t('statusCancelled'), value: 'cancelled' },
             ].map(f => (
               <button key={f.value} onClick={() => setBookingStatusFilter(f.value)}
                 style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', border: '1.5px solid', borderColor: bookingStatusFilter === f.value ? '#1E3A8A' : '#E2E8F0', background: bookingStatusFilter === f.value ? '#1E3A8A' : 'white', color: bookingStatusFilter === f.value ? 'white' : '#374151', transition: 'all 0.15s' }}
@@ -636,13 +633,13 @@ export default function UserDashboard() {
                         {isLabour ? t('serviceBooking') : t('carBooking')}
                       </div>
                       <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', background: STATUS_COLORS[b.status] + '20', color: STATUS_COLORS[b.status] }}>
-                        {STATUS_LABELS[b.status]}
+                        {b.status === 'pending' ? t('statusPending') : b.status === 'confirmed' ? t('statusConfirmed') : b.status === 'completed' ? t('statusCompleted') : t('statusCancelled')}
                       </span>
                     </div>
                     <div style={{ background: '#F1F5F9', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px' }}>
                       {isLabour ? (
                         <>
-                          <div style={{ fontWeight: '700', fontSize: '14px', color: '#0F172A', marginBottom: '4px' }}>{providerUser?.name || 'Service Provider'}</div>
+                          <div style={{ fontWeight: '700', fontSize: '14px', color: '#0F172A', marginBottom: '4px' }}>{providerUser?.name || 'सेवा प्रदाता'}</div>
                           <div style={{ fontSize: '12px', color: '#64748B', marginBottom: '6px' }}>🏙️ {providerUser?.city || '—'}</div>
                           {provider?.skills?.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
@@ -655,13 +652,13 @@ export default function UserDashboard() {
                         </>
                       ) : (
                         <>
-                          <div style={{ fontWeight: '700', fontSize: '14px', color: '#0F172A', marginBottom: '4px' }}>🚗 {car?.carName || 'Car'} {car?.modelYear && `(${car.modelYear})`}</div>
-                          {car?.basePrice && <div style={{ fontSize: '13px', fontWeight: '700', color: '#F97316', marginBottom: '5px' }}>₹{car.basePrice} / {car?.priceType === 'per_day' ? 'day' : 'km'}</div>}
+                          <div style={{ fontWeight: '700', fontSize: '14px', color: '#0F172A', marginBottom: '4px' }}>🚗 {car?.carName || 'कार'} {car?.modelYear && `(${car.modelYear})`}</div>
+                          {car?.basePrice && <div style={{ fontSize: '13px', fontWeight: '700', color: '#F97316', marginBottom: '5px' }}>₹{car.basePrice} / {car?.priceType === 'per_day' ? t('dayLabel') : t('kmLabel')}</div>}
                           <div style={{ display: 'flex', gap: '5px', marginBottom: '5px', flexWrap: 'wrap' }}>
                             {car?.ac && <span style={{ background: '#DBEAFE', color: '#1E3A8A', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>❄️ AC</span>}
                             {car?.driverIncluded && <span style={{ background: '#DCFCE7', color: '#16A34A', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>🧑‍✈️ Driver</span>}
                           </div>
-                          {providerUser?.name && <div style={{ fontSize: '12px', color: '#64748B' }}>👤 Owner: {providerUser.name}</div>}
+                          {providerUser?.name && <div style={{ fontSize: '12px', color: '#64748B' }}>👤 {t('ownerLabel')}: {providerUser.name}</div>}
                         </>
                       )}
                     </div>
