@@ -657,22 +657,10 @@ const translations = {
     loginFailed: 'लॉगिन विफल',
     locationLabel: 'नौरोजाबाद एवं बिरसिंहपुर पाली',
 
-    // Car Owner Dashboard
-    carOwnerDashboard: '🚗 कार मालिक डैशबोर्ड',
-    myCars: '🚗 मेरी कारें',
-    totalCars: 'कुल कारें',
-    myBookings: 'बुकिंग',
-    carName: 'कार का नाम',
-    numberPlate: 'नंबर प्लेट',
-    modelYear: 'मॉडल वर्ष',
-    basePrice: 'कीमत प्रति किमी (₹) *',
-    saveCar: '💾 कार सेव करें',
-    addNewCar: '➕ नई कार जोड़ें',
-    editCar: '✏️ संपादित करें',
-    deleteCar: '🗑️ हटाएं',
-    carOwnerBadge: '🚗 कार मालिक',
+    // Extra keys for new pages
     tapPhotoToView: 'पूरा देखने के लिए फ़ोटो टैप करें',
-    accountSuspended: 'खाता निलंबित',
+    myBookings: 'बुकिंग',
+    basePrice: 'कीमत प्रति किमी (₹) *',
   },
 };
 

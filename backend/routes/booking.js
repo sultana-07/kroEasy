@@ -197,6 +197,22 @@ router.post('/:id/review', protect, async (req, res) => {
                 .catch(() => { });
         }
 
+        // Update car rating when a car booking is reviewed
+        if (booking.providerType === 'car' && booking.carId) {
+            const Car = require('../models/Car');
+            Car.findById(booking.carId)
+                .then(car => {
+                    if (!car) return;
+                    const newTotal = (car.rating || 0) * (car.reviewCount || 0) + rating;
+                    const newCount = (car.reviewCount || 0) + 1;
+                    return Car.findByIdAndUpdate(booking.carId, {
+                        reviewCount: newCount,
+                        rating: parseFloat((newTotal / newCount).toFixed(1)),
+                    });
+                })
+                .catch(() => { });
+        }
+
         res.json(booking);
     } catch (error) {
         res.status(500).json({ message: error.message });

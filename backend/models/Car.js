@@ -14,6 +14,8 @@ const carSchema = new mongoose.Schema({
     leadCount: { type: Number, default: 0 },
     bookingCount: { type: Number, default: 0 },
     city: { type: String, index: true },
+    rating: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
 // Compound index for the most common public listing query: available cars by city

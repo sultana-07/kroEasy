@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
         const [cars, total] = await Promise.all([
             Car.find(filter)
                 .populate({ path: 'ownerId', populate: { path: 'userId', select: 'name phone city avatar' } })
-                .sort({ createdAt: -1 })
+                .sort({ rating: -1, bookingCount: -1, createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
             Car.countDocuments(filter),
