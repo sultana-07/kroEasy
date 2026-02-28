@@ -218,10 +218,29 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
         const todayCarCallMap = toMap(todayCalls.filter(x => x.targetType === 'car'));
 
         // Get all labours and carowners with userId populated
-        const [labours, carOwners] = await Promise.all([
+        // Also get all cars so we can map carId -> ownerId for call log matching
+        const [labours, carOwners, allCars] = await Promise.all([
             Labour.find().populate('userId', 'name phone city').lean(),
             CarOwner.find().populate('userId', 'name phone city').lean(),
+            Car.find().select('ownerId').lean(),
         ]);
+
+        // Build reverse map: carId (string) -> carOwnerId (string)
+        const carToOwnerMap = {};
+        allCars.forEach(car => {
+            carToOwnerMap[car._id.toString()] = car.ownerId?.toString();
+        });
+
+        // Helper: sum call counts for an owner across all their cars
+        const sumCarCalls = (callMap, ownerId) => {
+            let total = 0;
+            allCars
+                .filter(car => car.ownerId?.toString() === ownerId)
+                .forEach(car => {
+                    total += callMap[car._id.toString()] || 0;
+                });
+            return total;
+        };
 
         const labourStats = labours.map(l => ({
             _id: l._id,
@@ -239,6 +258,11 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
             monthCalls: monthCallMap[l._id.toString()] || 0,
         }));
 
+        // Build call count maps keyed by car._id for car-type logs
+        const todayCarCallMapByCar = toMap(todayCalls.filter(x => x.targetType === 'car'));
+        const weekCarCallMapByCar = toMap(weekCalls.filter(x => x.targetType === 'car'));
+        const monthCarCallMapByCar = toMap(monthCalls.filter(x => x.targetType === 'car'));
+
         const carOwnerStats = carOwners.map(o => ({
             _id: o._id,
             name: o.userId?.name,
@@ -249,9 +273,9 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
             monthBookings: monthBookMap[o._id.toString()] || 0,
             totalBookings: totalBookMap[o._id.toString()] || 0,
             completedBookings: completedBookMap[o._id.toString()] || 0,
-            todayCalls: todayCarCallMap[o._id.toString()] || 0,
-            weekCalls: weekCarCallMap[o._id.toString()] || 0,
-            monthCalls: monthCarCallMap[o._id.toString()] || 0,
+            todayCalls: sumCarCalls(todayCarCallMapByCar, o._id.toString()),
+            weekCalls: sumCarCalls(weekCarCallMapByCar, o._id.toString()),
+            monthCalls: sumCarCalls(monthCarCallMapByCar, o._id.toString()),
         }));
 
         res.json({ labourStats, carOwnerStats });

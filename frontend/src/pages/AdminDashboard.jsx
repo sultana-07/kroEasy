@@ -18,8 +18,9 @@ export default function AdminDashboard() {
   const [userTotal, setUserTotal] = useState(0);
   const [providerStats, setProviderStats] = useState({ labourStats: [], carOwnerStats: [] });
   const [activeTab, setActiveTab] = useState('overview');
-  const [labourView, setLabourView] = useState('manage'); // 'manage' | 'stats'
-  const [carView, setCarView] = useState('manage');       // 'manage' | 'stats'
+  const [activitySubTab, setActivitySubTab] = useState('bookings');
+  const [labourView, setLabourView] = useState('manage');
+  const [carView, setCarView] = useState('manage');
   const [loading, setLoading] = useState(true);
   const [passwordResets, setPasswordResets] = useState([]);
 
@@ -342,90 +343,104 @@ export default function AdminDashboard() {
       {/* Activity Tab */}
       {activeTab === 'activity' && (
         <div style={{ padding: '16px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '12px' }}>📋 Recent Bookings (Who booked Whom)</h3>
-          {activity.recentBookings.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: '#64748B', marginBottom: '16px' }}>No bookings yet</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-              {activity.recentBookings.map(b => {
-                const pd = b.providerDetails;
-                const providerName = b.providerType === 'labour'
-                  ? pd?.userId?.name
-                  : (b.carId?.carName || pd?.userId?.name);
-                const providerPhone = pd?.userId?.phone;
-                const providerCity = pd?.userId?.city;
-                const providerSkills = pd?.skills;
+          {/* Sub-tab switcher */}
+          <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: '12px', padding: '4px', marginBottom: '16px', gap: '4px' }}>
+            {[
+              { key: 'bookings', label: '📋 Bookings', count: activity.recentBookings.length },
+              { key: 'calllogs', label: '📞 Call Logs', count: activity.recentCallLogs.length },
+            ].map(st => (
+              <button key={st.key} onClick={() => setActivitySubTab(st.key)}
+                style={{ flex: 1, padding: '8px 0', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700',
+                  background: activitySubTab === st.key ? 'white' : 'transparent',
+                  color: activitySubTab === st.key ? '#1E3A8A' : '#64748B',
+                  boxShadow: activitySubTab === st.key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.15s',
+                }}
+              >{st.label} <span style={{ fontSize: '11px', opacity: 0.7 }}>({st.count})</span></button>
+            ))}
+          </div>
 
-                return (
-                  <div key={b._id} className="card" style={{ padding: '14px' }}>
-                    {/* User → Provider header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                      <div style={{ background: '#EFF6FF', borderRadius: '8px', padding: '6px 10px' }}>
-                        <div style={{ fontSize: '11px', color: '#64748B' }}>👤 Customer</div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E3A8A' }}>{b.userId?.name || 'Guest'}</div>
-                        <div style={{ fontSize: '11px', color: '#64748B' }}>📱 {b.userId?.phone}</div>
+          {/* Bookings sub-tab */}
+          {activitySubTab === 'bookings' && (
+            activity.recentBookings.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>No bookings yet</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {activity.recentBookings.map(b => {
+                  const pd = b.providerDetails;
+                  const providerName = b.providerType === 'labour' ? pd?.userId?.name : (b.carId?.carName || pd?.userId?.name);
+                  const providerPhone = pd?.userId?.phone;
+                  const providerCity = pd?.userId?.city;
+                  const providerSkills = pd?.skills;
+                  return (
+                    <div key={b._id} className="card" style={{ padding: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ background: '#EFF6FF', borderRadius: '8px', padding: '6px 10px' }}>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>👤 Customer</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E3A8A' }}>{b.userId?.name || 'Guest'}</div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>📱 {b.userId?.phone}</div>
+                        </div>
+                        <div style={{ fontSize: '18px', color: '#94a3b8' }}>→</div>
+                        <div style={{ background: '#F0FDF4', borderRadius: '8px', padding: '6px 10px', flex: 1, minWidth: '120px' }}>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>{b.providerType === 'labour' ? '🔧 Service Provider' : '🚗 Car Booking'}</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#16A34A' }}>{providerName || '—'}</div>
+                          {providerPhone && <div style={{ fontSize: '11px', color: '#64748B' }}>📱 {providerPhone} {providerCity ? `• 🏙️ ${providerCity}` : ''}</div>}
+                          {providerSkills?.length > 0 && (
+                            <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                              {providerSkills.slice(0, 2).map(s => <span key={s} className="badge badge-blue" style={{ fontSize: '10px' }}>{s}</span>)}
+                            </div>
+                          )}
+                          {b.providerType === 'car' && b.carId && (
+                            <div style={{ fontSize: '11px', color: '#64748B' }}>{b.carId.carName} {b.carId.modelYear} • ₹{b.carId.basePrice}</div>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '18px', color: '#94a3b8' }}>→</div>
-                      <div style={{ background: '#F0FDF4', borderRadius: '8px', padding: '6px 10px', flex: 1, minWidth: '120px' }}>
-                        <div style={{ fontSize: '11px', color: '#64748B' }}>{b.providerType === 'labour' ? '🔧 Service Provider' : '🚗 Car Booking'}</div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#16A34A' }}>{providerName || '—'}</div>
-                        {providerPhone && <div style={{ fontSize: '11px', color: '#64748B' }}>📱 {providerPhone} {providerCity ? `• 🏙️ ${providerCity}` : ''}</div>}
-                        {providerSkills?.length > 0 && (
-                          <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
-                            {providerSkills.slice(0, 2).map(s => <span key={s} className="badge badge-blue" style={{ fontSize: '10px' }}>{s}</span>)}
-                          </div>
-                        )}
-                        {b.providerType === 'car' && b.carId && (
-                          <div style={{ fontSize: '11px', color: '#64748B' }}>{b.carId.carName} {b.carId.modelYear} • ₹{b.carId.basePrice}</div>
-                        )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className={`badge ${b.status === 'pending' ? 'badge-orange' : b.status === 'confirmed' ? 'badge-green' : 'badge-red'}`}>{b.status}</span>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(b.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</div>
                       </div>
+                      {b.notes && <div style={{ marginTop: '6px', fontSize: '12px', color: '#374151', fontStyle: 'italic' }}>💬 "{b.notes}"</div>}
                     </div>
-                    {/* Status + Date */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className={`badge ${b.status === 'pending' ? 'badge-orange' : b.status === 'confirmed' ? 'badge-green' : 'badge-red'}`}>
-                        {b.status}
-                      </span>
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(b.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</div>
-                    </div>
-                    {b.notes && <div style={{ marginTop: '6px', fontSize: '12px', color: '#374151', fontStyle: 'italic' }}>💬 "{b.notes}"</div>}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )
           )}
 
-          <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '12px' }}>📞 Recent Call Logs</h3>
-          {activity.recentCallLogs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: '#64748B' }}>No call logs yet</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {activity.recentCallLogs.map(c => {
-                const td = c.targetDetails;
-                const targetName = c.targetType === 'labour' ? td?.userId?.name : td?.carName;
-                const targetPhone = c.targetType === 'labour' ? td?.userId?.phone : c.phone;
-                const targetCity = c.targetType === 'labour' ? td?.userId?.city : td?.city;
-                return (
-                  <div key={c._id} className="card" style={{ padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <div style={{ background: '#EFF6FF', borderRadius: '8px', padding: '5px 10px' }}>
-                        <div style={{ fontSize: '10px', color: '#64748B' }}>👤 Caller</div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E3A8A' }}>{c.userId?.name || 'Guest'}</div>
-                        {c.userId?.phone && <div style={{ fontSize: '11px', color: '#64748B' }}>📱 {c.userId.phone}</div>}
-                      </div>
-                      <div style={{ fontSize: '16px', color: '#94a3b8' }}>→</div>
-                      <div style={{ background: '#FFF7ED', borderRadius: '8px', padding: '5px 10px', flex: 1, minWidth: '100px' }}>
-                        <div style={{ fontSize: '10px', color: '#64748B' }}>{c.targetType === 'labour' ? '🔧 Provider' : '🚗 Car'}</div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#EA580C' }}>{targetName || '—'}</div>
-                        {targetPhone && <div style={{ fontSize: '11px', color: '#64748B' }}>📱 {targetPhone} {targetCity ? `• 🏙️ ${targetCity}` : ''}</div>}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'right' }}>
-                        {new Date(c.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+          {/* Call Logs sub-tab */}
+          {activitySubTab === 'calllogs' && (
+            activity.recentCallLogs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>No call logs yet</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {activity.recentCallLogs.map(c => {
+                  const td = c.targetDetails;
+                  const targetName = c.targetType === 'labour' ? td?.userId?.name : td?.carName;
+                  const targetPhone = c.targetType === 'labour' ? td?.userId?.phone : c.phone;
+                  const targetCity = c.targetType === 'labour' ? td?.userId?.city : td?.city;
+                  return (
+                    <div key={c._id} className="card" style={{ padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ background: '#EFF6FF', borderRadius: '8px', padding: '5px 10px' }}>
+                          <div style={{ fontSize: '10px', color: '#64748B' }}>👤 Caller</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1E3A8A' }}>{c.userId?.name || 'Guest'}</div>
+                          {c.userId?.phone && <div style={{ fontSize: '11px', color: '#64748B' }}>📱 {c.userId.phone}</div>}
+                        </div>
+                        <div style={{ fontSize: '16px', color: '#94a3b8' }}>→</div>
+                        <div style={{ background: '#FFF7ED', borderRadius: '8px', padding: '5px 10px', flex: 1, minWidth: '100px' }}>
+                          <div style={{ fontSize: '10px', color: '#64748B' }}>{c.targetType === 'labour' ? '🔧 Provider' : '🚗 Car'}</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#EA580C' }}>{targetName || '—'}</div>
+                          {targetPhone && <div style={{ fontSize: '11px', color: '#64748B' }}>📱 {targetPhone} {targetCity ? `• 🏙️ ${targetCity}` : ''}</div>}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'right' }}>
+                          {new Date(c.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
       )}

@@ -153,10 +153,10 @@ function ProfileTab({ user, onLogout, onTabChange, refreshUser }) {
         {[
           { emoji: '⏳', label: t('pendingBookings'), status: 'pending', color: '#FFF7ED', border: '#FED7AA', textColor: '#EA580C' },
           { emoji: '✅', label: t('completedBookings'), status: 'completed', color: '#F0FDF4', border: '#BBF7D0', textColor: '#16A34A' },
-        ].map(({ emoji, label, color, border, textColor }) => (
+        ].map(({ emoji, label, status, color, border, textColor }) => (
           <button
             key={label}
-            onClick={() => onTabChange('bookings')}
+          onClick={() => onTabChange('bookings', status)}
             style={{
               background: color, border: `1.5px solid ${border}`, borderRadius: '12px',
               padding: '16px 12px', cursor: 'pointer',
@@ -304,6 +304,7 @@ export default function UserDashboard() {
   const [labourMeta, setLabourMeta] = useState({ page: 1, pages: 1, total: 0 });
   const [cars, setCars] = useState([]);
   const [carMeta, setCarMeta] = useState({ page: 1, pages: 1, total: 0 });
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -417,12 +418,30 @@ export default function UserDashboard() {
     window.open(`tel:${phone}`, '_self');
   };
 
+  const handleCancelBooking = async (bookingId) => {
+    if (!window.confirm('Cancel this booking request?')) return;
+    try {
+      await api.patch(`/booking/${bookingId}/cancel`);
+      toast.success('Booking cancelled.');
+      fetchBookings();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not cancel booking');
+    }
+  };
+
   const TABS = [
     { key: 'services', label: t('services') },
     { key: 'cars', label: t('cars') },
     { key: 'bookings', label: t('myBookings') },
     { key: 'profile', label: t('profile') },
   ];
+
+  const handleTabChange = (tab, statusFilter) => {
+    setActiveTab(tab);
+    if (tab === 'bookings' && statusFilter !== undefined) {
+      setBookingStatusFilter(statusFilter);
+    }
+  };
 
   return (
     <div className="page-container" style={{ paddingBottom: '80px' }}>
@@ -581,17 +600,31 @@ export default function UserDashboard() {
       {/* My Bookings Tab */}
       {activeTab === 'bookings' && (
         <div style={{ padding: '16px' }}>
+          {/* Status filter pills */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+            {[
+              { label: '📋 All', value: '' },
+              { label: '⏳ Pending', value: 'pending' },
+              { label: '✅ Confirmed', value: 'confirmed' },
+              { label: '🎉 Completed', value: 'completed' },
+              { label: '❌ Cancelled', value: 'cancelled' },
+            ].map(f => (
+              <button key={f.value} onClick={() => setBookingStatusFilter(f.value)}
+                style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', border: '1.5px solid', borderColor: bookingStatusFilter === f.value ? '#1E3A8A' : '#E2E8F0', background: bookingStatusFilter === f.value ? '#1E3A8A' : 'white', color: bookingStatusFilter === f.value ? 'white' : '#374151', transition: 'all 0.15s' }}
+              >{f.label}</button>
+            ))}
+          </div>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><div className="spinner" /></div>
-          ) : bookings.length === 0 ? (
+          ) : bookings.filter(b => !bookingStatusFilter || b.status === bookingStatusFilter).length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
               <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
-              <p style={{ fontWeight: '600' }}>{t('noBookingsYet')}</p>
+              <p style={{ fontWeight: '600' }}>{bookingStatusFilter ? `No ${bookingStatusFilter} bookings` : t('noBookingsYet')}</p>
               <p style={{ fontSize: '13px' }}>{t('bookServiceOrCar')}</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {bookings.map(b => {
+              {bookings.filter(b => !bookingStatusFilter || b.status === bookingStatusFilter).map(b => {
                 const isLabour = b.providerType === 'labour';
                 const provider = b.providerDetails;
                 const providerUser = provider?.userId;
@@ -650,11 +683,22 @@ export default function UserDashboard() {
                           </div>
                         )}
                       </div>
-                      {(b.status === 'pending' || b.status === 'confirmed') && (
-                        <button onClick={() => handleCallFromBooking(b)} style={{ flexShrink: 0, padding: '10px 16px', borderRadius: '10px', background: '#16A34A', border: 'none', color: 'white', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
-                          {t('callProvider')}
-                        </button>
-                      )}
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        {/* Cancel button — only for pending */}
+                        {b.status === 'pending' && (
+                          <button
+                            onClick={() => handleCancelBooking(b._id)}
+                            style={{ padding: '10px 14px', borderRadius: '10px', background: '#FEF2F2', border: '1.5px solid #FECACA', color: '#DC2626', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            ✕ {t('cancel')}
+                          </button>
+                        )}
+                        {(b.status === 'pending' || b.status === 'confirmed') && (
+                          <button onClick={() => handleCallFromBooking(b)} style={{ padding: '10px 14px', borderRadius: '10px', background: '#16A34A', border: 'none', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                            {t('callProvider')}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -666,7 +710,7 @@ export default function UserDashboard() {
 
       {/* Profile Tab */}
       {activeTab === 'profile' && (
-        <ProfileTab user={user} onLogout={handleLogout} onTabChange={setActiveTab} refreshUser={refreshUser} />
+        <ProfileTab user={user} onLogout={handleLogout} onTabChange={handleTabChange} refreshUser={refreshUser} />
       )}
 
       <BottomNav active={activeTab} onChange={setActiveTab} role="user" />

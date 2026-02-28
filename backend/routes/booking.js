@@ -139,6 +139,25 @@ router.patch('/:id/status', protect, async (req, res) => {
     }
 });
 
+// PATCH /api/booking/:id/cancel - user cancels their own pending booking
+router.patch('/:id/cancel', protect, async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id);
+        if (!booking) return res.status(404).json({ message: 'Booking not found' });
+        if (booking.userId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+        if (booking.status !== 'pending') {
+            return res.status(400).json({ message: 'Only pending bookings can be cancelled' });
+        }
+        booking.status = 'cancelled';
+        await booking.save();
+        res.json(booking);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // POST /api/booking/:id/review - user submits review after completion
 router.post('/:id/review', protect, async (req, res) => {
     try {

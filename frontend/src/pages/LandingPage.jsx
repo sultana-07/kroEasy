@@ -69,32 +69,30 @@ export default function LandingPage() {
           {/* Language toggle */}
           <button
             onClick={() => switchLang(lang === 'en' ? 'hi' : 'en')}
-            style={{ padding: '6px 10px', fontSize: '12px', fontWeight: '700', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}
+            style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '20px', color: 'white', cursor: 'pointer', letterSpacing: '0.5px' }}
           >
             {lang === 'en' ? '🇮🇳 HI' : '🌐 EN'}
           </button>
           {/* Share Button */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={handleShare}
-              style={{ padding: '8px 12px', fontSize: '13px', fontWeight: '700', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
-            >
-              📤 {t('share')}
-            </button>
-            {shareMsg && (
-              <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1E293B', color: 'white', fontSize: '11px', padding: '5px 10px', borderRadius: '8px', whiteSpace: 'nowrap', zIndex: 100, marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                {shareMsg}
-              </div>
-            )}
-          </div>
+          <button
+            onClick={handleShare}
+            style={{ padding: '5px 10px', fontSize: '11px', fontWeight: '700', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '20px', color: 'white', cursor: 'pointer' }}
+          >
+            📤 {t('share')}
+          </button>
+          {shareMsg && (
+            <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1E293B', color: 'white', fontSize: '11px', padding: '5px 10px', borderRadius: '8px', whiteSpace: 'nowrap', zIndex: 100, marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+              {shareMsg}
+            </div>
+          )}
           {/* Login / Dashboard button based on auth state */}
           {user ? (
             <Link to="/dashboard">
-              <button className="btn-outline" style={{ padding: '8px 14px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>{t('dashboard')} →</button>
+              <button style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '700', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '20px', color: 'white', cursor: 'pointer' }}>{t('dashboard')} →</button>
             </Link>
           ) : (
             <Link to="/login">
-              <button className="btn-outline" style={{ padding: '8px 14px', fontSize: '13px', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}>{t('login')}</button>
+              <button style={{ padding: '5px 12px', fontSize: '11px', fontWeight: '700', background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '20px', color: 'white', cursor: 'pointer' }}>{t('login')}</button>
             </Link>
           )}
         </div>
