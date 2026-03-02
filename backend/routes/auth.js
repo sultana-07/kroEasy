@@ -5,6 +5,9 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Labour = require('../models/Labour');
 const CarOwner = require('../models/CarOwner');
+const { upload } = require('../config/cloudinary');
+const { protect, loadUser } = require('../middleware/auth');
+
 
 // Embed role, city, and isSuspended into token so auth middleware can skip DB lookup
 const generateToken = (user) =>
@@ -66,6 +69,16 @@ router.post('/login', async (req, res) => {
         const isMatch = await user.matchPassword(password);
         if (!isMatch) return res.status(401).json({ message: 'Invalid phone or password' });
 
+        // Fetch approval status from the relevant profile model
+        let approvalStatus = null;
+        if (user.role === 'carowner') {
+            const profile = await CarOwner.findOne({ userId: user._id }).select('isApproved');
+            if (profile) approvalStatus = profile.isApproved ? 'approved' : 'pending';
+        } else if (user.role === 'labour') {
+            const profile = await Labour.findOne({ userId: user._id }).select('isApproved');
+            if (profile) approvalStatus = profile.isApproved ? 'approved' : 'pending';
+        }
+
         res.json({
             _id: user._id,
             name: user.name,
@@ -73,6 +86,7 @@ router.post('/login', async (req, res) => {
             role: user.role,
             city: user.city,
             avatar: user.avatar,
+            approvalStatus,
             token: generateToken(user),
         });
     } catch (error) {
@@ -80,9 +94,34 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// POST /api/auth/upload-avatar — needs full user doc
-const { upload } = require('../config/cloudinary');
-const { protect, loadUser } = require('../middleware/auth');
+// GET /api/auth/me — poll for fresh user data including approvalStatus (called by dashboards)
+router.get('/me', protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password -resetPasswordToken -resetPasswordExpiry');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        let approvalStatus = null;
+        if (user.role === 'carowner') {
+            const profile = await CarOwner.findOne({ userId: user._id }).select('isApproved');
+            if (profile) approvalStatus = profile.isApproved ? 'approved' : 'pending';
+        } else if (user.role === 'labour') {
+            const profile = await Labour.findOne({ userId: user._id }).select('isApproved');
+            if (profile) approvalStatus = profile.isApproved ? 'approved' : 'pending';
+        }
+
+        res.json({
+            _id: user._id,
+            name: user.name,
+            phone: user.phone,
+            role: user.role,
+            city: user.city,
+            avatar: user.avatar,
+            approvalStatus,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
 
 router.post('/upload-avatar', protect, loadUser, upload.single('image'), async (req, res) => {
     try {

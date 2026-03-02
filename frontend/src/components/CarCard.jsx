@@ -31,6 +31,7 @@ export default function CarCard({ car, userId }) {
 
         {/* Badges */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          {car.seats ? <span className="badge badge-blue">🪑 {car.seats} Seater</span> : null}
           <span className="badge badge-green">🧑‍✈️ With Driver</span>
           <span className={`badge ${car.availability ? 'badge-green' : 'badge-red'}`}>
             {car.availability ? '✅ Available' : '❌ Unavailable'}

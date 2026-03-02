@@ -9,6 +9,7 @@ const carSchema = new mongoose.Schema({
     basePrice: { type: Number, required: true },
     ac: { type: Boolean, default: false },
     driverIncluded: { type: Boolean, default: false },
+    seats: { type: Number },
     carImage: { type: String, default: '' },
     availability: { type: Boolean, default: true, index: true },
     leadCount: { type: Number, default: 0 },

@@ -19,9 +19,8 @@ router.get('/', async (req, res) => {
         const filter = { isApproved: true };
         if (city) filter.city = { $regex: city, $options: 'i' };
         const STANDARD_SKILLS = [
-            'Electrician', 'Plumber', 'Carpenter', 'Painter', 'Mason', 'Welder',
-            'Driver', 'Cleaner', 'Cook', 'Beautician', 'Gardener', 'Guard',
-            'AC Technician', 'Mehndi Artist', 'Helper',
+            'Electrician', 'Plumber', 'Carpenter', 'Mason',
+            'Beautician', 'AC Technician', 'Mehndi Artist', 'Helper',
         ];
         if (skills === '__other__') {
             // Workers whose skills contain NONE of the standard options

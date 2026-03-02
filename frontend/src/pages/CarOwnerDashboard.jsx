@@ -3,9 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { cache } from '../utils/apiCache';
 import toast from 'react-hot-toast';
 
-const emptyCarForm = { carName: '', numberPlate: '', modelYear: new Date().getFullYear(), basePrice: '' };
+const emptyCarForm = { carName: '', numberPlate: '', modelYear: new Date().getFullYear(), basePrice: '', seats: '' };
 const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#16A34A', cancelled: '#EF4444' };
 
 export default function CarOwnerDashboard() {
@@ -28,6 +29,23 @@ export default function CarOwnerDashboard() {
     fetchCars();
     fetchBookings();
   }, []);
+
+  // Poll /auth/me every 30s while pending so status updates without re-login
+  useEffect(() => {
+    if (user?.approvalStatus === 'approved' || user?.approvalStatus === 'rejected') return;
+    const poll = async () => {
+      try {
+        const { data } = await api.get('/auth/me');
+        if (data.approvalStatus !== user?.approvalStatus) {
+          const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+          localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, approvalStatus: data.approvalStatus }));
+          refreshUser();
+        }
+      } catch {}
+    };
+    const iv = setInterval(poll, 30000);
+    return () => clearInterval(iv);
+  }, [user?.approvalStatus]);
 
   // Auto-refresh bookings every 15 seconds when on bookings tab
   useEffect(() => {
@@ -92,6 +110,7 @@ export default function CarOwnerDashboard() {
       } else {
         const { data } = await api.post('/car', carForm);
         setCars([...cars, data]);
+        cache.bust('/cars'); // bust public listing cache so new car shows immediately
         toast.success('कार जोड़ी गई! 🚗');
       }
       setShowAddForm(false);
@@ -121,7 +140,7 @@ export default function CarOwnerDashboard() {
 
   const startEdit = (car) => {
     setEditingCar(car);
-    setCarForm({ carName: car.carName, numberPlate: car.numberPlate || '', modelYear: car.modelYear, basePrice: car.basePrice });
+    setCarForm({ carName: car.carName, numberPlate: car.numberPlate || '', modelYear: car.modelYear, basePrice: car.basePrice, seats: car.seats || '' });
     setShowAddForm(true);
   };
 
@@ -155,7 +174,10 @@ export default function CarOwnerDashboard() {
             if (!m) return null;
             return <div style={{ padding: '12px 14px', background: m.bg, border: `1px solid ${m.border}`, borderRadius: '12px', display: 'flex', gap: '10px', marginBottom: '14px', alignItems: 'flex-start' }}>
               <span style={{ fontSize: '20px' }}>{m.icon}</span>
-              <div><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
+              <div style={{ flex: 1 }}><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
+              {user?.approvalStatus === 'pending' && <button
+                onClick={async () => { try { const { data } = await api.get('/auth/me'); const s = JSON.parse(localStorage.getItem('kroeasy_user') || '{}'); localStorage.setItem('kroeasy_user', JSON.stringify({ ...s, approvalStatus: data.approvalStatus })); refreshUser(); } catch {} }}
+                style={{ background: '#F97316', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>🔄 Refresh</button>}
             </div>;
           })()}
           {/* Stats */}
@@ -208,6 +230,15 @@ export default function CarOwnerDashboard() {
                     <input className="input-field" type="number" placeholder="0" value={carForm.basePrice} onChange={e => setCarForm({ ...carForm, basePrice: e.target.value })} />
                   </div>
                 </div>
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>🪑 Seats / Seating Capacity</label>
+                  <select className="input-field" value={carForm.seats || ''} onChange={e => setCarForm({ ...carForm, seats: e.target.value ? Number(e.target.value) : '' })}>
+                    <option value="">-- Select Seats --</option>
+                    {[4, 5, 6, 7, 8].map(n => (
+                      <option key={n} value={n}>{n} Seater</option>
+                    ))}
+                  </select>
+                </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button className="btn-primary" onClick={saveCar} style={{ flex: 1, padding: '12px' }}>{t('saveCar')}</button>
                   <button className="btn-outline" onClick={() => { setShowAddForm(false); setEditingCar(null); }} style={{ flex: 1, padding: '12px' }}>{t('cancel')}</button>
@@ -232,15 +263,16 @@ export default function CarOwnerDashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                     <div>
                       <div style={{ fontSize: '16px', fontWeight: '700' }}>🚗 {car.carName}</div>
-                      <div style={{ fontSize: '13px', color: '#64748B' }}>{car.modelYear} • {car.priceType === 'per_day' ? 'Per Day' : 'Per KM'}</div>
+                      <div style={{ fontSize: '13px', color: '#64748B' }}>{car.modelYear} • Per KM</div>
                       {car.numberPlate && <div style={{ fontSize: '12px', fontWeight: '700', color: '#1E3A8A', background: '#EFF6FF', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', letterSpacing: '1px', marginTop: '3px', border: '1px solid #BFDBFE' }}>🚘 {car.numberPlate}</div>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '18px', fontWeight: '800', color: '#1E3A8A' }}>₹{car.basePrice}</div>
-                      <div style={{ fontSize: '11px', color: '#64748B' }}>{car.priceType === 'per_day' ? '/day' : '/km'}</div>
+                      <div style={{ fontSize: '11px', color: '#64748B' }}>/km</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                    {car.seats ? <span className="badge badge-blue">🪑 {car.seats} Seater</span> : null}
                     {car.ac && <span className="badge badge-blue">❄️ AC</span>}
                     {car.driverIncluded && <span className="badge badge-green">🧑‍✈️ Driver</span>}
                     <span className="badge badge-gray">📞 {car.leadCount} leads</span>
@@ -276,7 +308,10 @@ export default function CarOwnerDashboard() {
             if (!m) return null;
             return <div style={{ padding: '12px 14px', background: m.bg, border: `1px solid ${m.border}`, borderRadius: '12px', display: 'flex', gap: '10px', marginBottom: '14px', alignItems: 'flex-start' }}>
               <span style={{ fontSize: '20px' }}>{m.icon}</span>
-              <div><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
+              <div style={{ flex: 1 }}><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
+              {user?.approvalStatus === 'pending' && <button
+                onClick={async () => { try { const { data } = await api.get('/auth/me'); const s = JSON.parse(localStorage.getItem('kroeasy_user') || '{}'); localStorage.setItem('kroeasy_user', JSON.stringify({ ...s, approvalStatus: data.approvalStatus })); refreshUser(); } catch {} }}
+                style={{ background: '#F97316', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>🔄 Refresh</button>}
             </div>;
           })()}
           {bookings.length === 0 ? (
@@ -364,13 +399,16 @@ export default function CarOwnerDashboard() {
             return (
               <div style={{ padding: '14px 16px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: '14px', display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '16px', marginBottom: '4px' }}>
                 <span style={{ fontSize: '26px', flexShrink: 0 }}>{s.icon}</span>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '14px', fontWeight: '700', color: s.color }}>{s.title}</div>
                   <div style={{ fontSize: '12px', color: s.color, opacity: 0.8, lineHeight: '1.5', marginTop: '2px' }}>{s.text}</div>
                   {(user?.approvalStatus === 'rejected' || user?.approvalStatus === 'suspended') && (
                     <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: s.color, fontWeight: '700', marginTop: '6px', display: 'inline-block' }}>💬 Contact Support →</a>
                   )}
                 </div>
+                {user?.approvalStatus === 'pending' && <button
+                  onClick={async () => { try { const { data } = await api.get('/auth/me'); const st = JSON.parse(localStorage.getItem('kroeasy_user') || '{}'); localStorage.setItem('kroeasy_user', JSON.stringify({ ...st, approvalStatus: data.approvalStatus })); refreshUser(); } catch {} }}
+                  style={{ background: '#F97316', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>🔄 Refresh</button>}
               </div>
             );
           })()}

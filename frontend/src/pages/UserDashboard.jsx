@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import api from '../api';
+import { cache } from '../utils/apiCache';
 import toast from 'react-hot-toast';
 import BottomNav from '../components/BottomNav';
 import LabourCard from '../components/LabourCard';
@@ -352,31 +353,54 @@ export default function UserDashboard() {
     return () => clearInterval(interval);
   }, [activeTab]);
 
-  const fetchLabours = async (page = 1, append = false, skillOverride) => {
+  const fetchLabours = async (page = 1, append = false, skillOverride, bust = false) => {
+    const skill = skillOverride !== undefined ? skillOverride : filters.skills;
+    const params = { page, limit: 20 };
+    if (filters.city) params.city = filters.city;
+    if (skill) params.skills = skill;
+
+    // Only cache page-1 no-append requests; bypass cache on explicit user searches
+    const cacheKey = cache.key('/labours', params);
+    if (!append && !bust) {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setLabours(cached.data);
+        setLabourMeta({ page: cached.page, pages: cached.pages, total: cached.total });
+        return;
+      }
+    }
+
     append ? setLoadingMore(true) : setLoading(true);
     try {
-      const params = { page, limit: 20 };
-      if (filters.city) params.city = filters.city;
-      const skill = skillOverride !== undefined ? skillOverride : filters.skills;
-      if (skill) params.skills = skill;
       const { data } = await api.get('/labours', { params });
       setLabours(prev => append ? [...prev, ...data.data] : data.data);
       setLabourMeta({ page: data.page, pages: data.pages, total: data.total });
+      if (!append) cache.set(cacheKey, data);
     } catch { toast.error('Failed to load service providers'); }
     finally { append ? setLoadingMore(false) : setLoading(false); }
   };
 
-  const fetchCars = async (page = 1, append = false) => {
+  const fetchCars = async (page = 1, append = false, bust = false) => {
+    const params = { page, limit: 20 };
+    if (filters.city) params.city = filters.city;
+
+    // Cache page-1 car results for 5 min; bypass on explicit search
+    const cacheKey = cache.key('/cars', params);
+    if (!append && !bust) {
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        setCars(cached.data);
+        setCarMeta({ page: cached.page, pages: cached.pages, total: cached.total });
+        return;
+      }
+    }
+
     append ? setLoadingMore(true) : setLoading(true);
     try {
-      const params = { page, limit: 20 };
-      if (filters.city) params.city = filters.city;
-      if (filters.ac !== '') params.ac = filters.ac;
-      if (filters.driverIncluded !== '') params.driverIncluded = filters.driverIncluded;
-      if (filters.priceType) params.priceType = filters.priceType;
       const { data } = await api.get('/cars', { params });
       setCars(prev => append ? [...prev, ...data.data] : data.data);
       setCarMeta({ page: data.page, pages: data.pages, total: data.total });
+      if (!append) cache.set(cacheKey, data);
     } catch { toast.error('Failed to load cars'); }
     finally { append ? setLoadingMore(false) : setLoading(false); }
   };
@@ -494,15 +518,9 @@ export default function UserDashboard() {
                 { icon: '⚡', label: t('Electrician'), value: 'Electrician' },
                 { icon: '🔧', label: t('skillPlumber'), value: 'Plumber' },
                 { icon: '🪚', label: t('skillCarpenter'), value: 'Carpenter' },
-                { icon: '🎨', label: t('skillPainter'), value: 'Painter' },
                 { icon: '❄️', label: t('skillAcRepair'), value: 'AC Technician' },
                 { icon: '🧱', label: t('skillMason'), value: 'Mason' },
-                { icon: '🚗', label: t('skillDriver'), value: 'Driver' },
-                { icon: '🧹', label: t('skillCleaner'), value: 'Cleaner' },
-                { icon: '🍳', label: t('skillCook'), value: 'Cook' },
                 { icon: '💇', label: t('skillBeautician'), value: 'Beautician' },
-                { icon: '🌿', label: t('skillGardener'), value: 'Gardener' },
-                { icon: '🛡️', label: t('skillGuard'), value: 'Guard' },
                 { icon: '🌸', label: t('skillMehndi'), value: 'Mehndi Artist' },
                 { icon: '🤝', label: t('skillHelper'), value: 'Helper' },
               ].map(s => {
@@ -529,7 +547,7 @@ export default function UserDashboard() {
             </div>
             <div style={{ display: 'flex', gap: '8px', paddingBottom: '12px' }}>
               <input className="input-field" placeholder={t('filterByCity')} value={filters.city} onChange={e => setFilters({ ...filters, city: e.target.value })} style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }} />
-              <button className="btn-primary" onClick={() => fetchLabours()} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
+              <button className="btn-primary" onClick={() => fetchLabours(1, false, undefined, true)} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
             </div>
           </div>
           <div style={{ padding: '16px' }}>
@@ -568,7 +586,7 @@ export default function UserDashboard() {
                 onKeyDown={e => e.key === 'Enter' && fetchCars()}
                 style={{ padding: '8px 12px', fontSize: '13px', minWidth: '160px', flex: 1 }}
               />
-              <button className="btn-primary" onClick={() => fetchCars()} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
+              <button className="btn-primary" onClick={() => fetchCars(1, false, true)} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
             </div>
           </div>
           <div style={{ padding: '16px' }}>
@@ -653,10 +671,10 @@ export default function UserDashboard() {
                       ) : (
                         <>
                           <div style={{ fontWeight: '700', fontSize: '14px', color: '#0F172A', marginBottom: '4px' }}>🚗 {car?.carName || 'कार'} {car?.modelYear && `(${car.modelYear})`}</div>
-                          {car?.basePrice && <div style={{ fontSize: '13px', fontWeight: '700', color: '#F97316', marginBottom: '5px' }}>₹{car.basePrice} / {car?.priceType === 'per_day' ? t('dayLabel') : t('kmLabel')}</div>}
+                          {car?.basePrice && <div style={{ fontSize: '13px', fontWeight: '700', color: '#F97316', marginBottom: '5px' }}>₹{car.basePrice} / km</div>}
                           <div style={{ display: 'flex', gap: '5px', marginBottom: '5px', flexWrap: 'wrap' }}>
-                            {car?.ac && <span style={{ background: '#DBEAFE', color: '#1E3A8A', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>❄️ AC</span>}
-                            {car?.driverIncluded && <span style={{ background: '#DCFCE7', color: '#16A34A', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>🧑‍✈️ Driver</span>}
+                            {car?.seats && <span style={{ background: '#EFF6FF', color: '#1E3A8A', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>🪑 {car.seats} Seater</span>}
+                            <span style={{ background: '#DCFCE7', color: '#16A34A', borderRadius: '12px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>🧑‍✈️ With Driver</span>
                           </div>
                           {providerUser?.name && <div style={{ fontSize: '12px', color: '#64748B' }}>👤 {t('ownerLabel')}: {providerUser.name}</div>}
                         </>

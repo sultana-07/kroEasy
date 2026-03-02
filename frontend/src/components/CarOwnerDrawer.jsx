@@ -260,8 +260,8 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '14px', color: '#0F172A' }}>🔍 Car Features</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {[
-                { icon: car.ac ? '❄️' : '🌡️', label: car.ac ? 'AC' : 'Non-AC', ok: car.ac },
-                { icon: car.driverIncluded ? '🧑‍✈️' : '🚗', label: car.driverIncluded ? 'Driver Included' : 'Self Drive', ok: car.driverIncluded },
+                { icon: '🧑‍✈️', label: 'With Driver', ok: true },
+                ...(car.seats ? [{ icon: '🪑', label: `${car.seats} Seater`, ok: true }] : []),
               ].map((f, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
@@ -279,9 +279,9 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
             <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {[
                 { label: '📅 Model Year', value: car.modelYear },
-                { label: '💰 Price Type', value: car.priceType === 'per_day' ? 'Per Day' : 'Per KM' },
-                { label: '💵 Base Price', value: `₹${car.basePrice} / ${car.priceType === 'per_day' ? 'day' : 'km'}` },
+                { label: '💵 Base Price', value: `₹${car.basePrice} / km` },
                 ...(car.numberPlate ? [{ label: '🔢 Number Plate', value: car.numberPlate }] : []),
+                ...(car.seats ? [{ label: '🪑 Seating', value: `${car.seats} Seater` }] : []),
                 { label: '🏙️ City', value: car.city || owner?.city || '—' },
               ].map(({ label, value }) => (
                 <div key={label} style={{

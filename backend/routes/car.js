@@ -67,6 +67,7 @@ router.post('/', protect, authorize('carowner'), async (req, res) => {
         if (!owner) return res.status(404).json({ message: 'Car owner profile not found' });
         if (!owner.isApproved) return res.status(403).json({ message: 'Your account is pending approval' });
 
+        console.log(req.body);
         const car = await Car.create({ ...req.body, ownerId: owner._id, city: req.user.city });
         res.status(201).json(car);
     } catch (error) {
@@ -77,6 +78,7 @@ router.post('/', protect, authorize('carowner'), async (req, res) => {
 // PATCH /api/car/:id - update car
 router.patch('/:id', protect, authorize('carowner'), async (req, res) => {
     try {
+        console.log(req.body);
         const owner = await CarOwner.findOne({ userId: req.user._id });
         const car = await Car.findOne({ _id: req.params.id, ownerId: owner._id });
         if (!car) return res.status(404).json({ message: 'Car not found or not authorized' });

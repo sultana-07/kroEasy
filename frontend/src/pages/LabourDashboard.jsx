@@ -20,9 +20,16 @@ export default function LabourDashboard() {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
-  const skillOptions = ['Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason', 'Welder', 'Driver', 'Cleaner', 'Cook', 'Security Guard', 'Gardener', 'AC Technician'];
+  const skillOptions = ['Electrician', 'Plumber', 'Carpenter', 'Mason', 'Beautician', 'AC Technician', 'Mehndi Artist', 'Helper'];
 
   useEffect(() => { fetchProfile(); fetchBookings(); }, []);
+
+  // Auto-refresh profile every 30s while still pending, so worker sees approval without reloading
+  useEffect(() => {
+    if (!profile || profile.isApproved) return;
+    const interval = setInterval(fetchProfile, 30000);
+    return () => clearInterval(interval);
+  }, [profile?.isApproved]);
 
   useEffect(() => {
     if (activeTab !== 'bookings') return;
@@ -125,10 +132,14 @@ export default function LabourDashboard() {
       {profile && !profile.isApproved && (
         <div style={{ margin: '16px', padding: '14px 16px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '20px' }}>⏳</span>
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: '14px', fontWeight: '700', color: '#EA580C' }}>{t('pendingApprovalTitle')}</div>
             <div style={{ fontSize: '12px', color: '#9A3412' }}>{t('pendingApprovalText')}</div>
           </div>
+          <button
+            onClick={fetchProfile}
+            style={{ background: '#F97316', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}
+          >🔄 Refresh</button>
         </div>
       )}
 

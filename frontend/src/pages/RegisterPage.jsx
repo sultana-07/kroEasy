@@ -6,9 +6,8 @@ import api from '../api';
 import toast from 'react-hot-toast';
 
 const skillOptions = [
-  'Electrician', 'Plumber', 'Carpenter', 'Painter', 'Mason', 'Welder',
-  'Driver', 'Cleaner', 'Cook', 'Beautician', 'Gardener', 'Guard',
-  'AC Technician', 'Mehndi Artist', 'Helper',
+  'Electrician', 'Plumber', 'Carpenter', 'Mason',
+  'Beautician', 'AC Technician', 'Mehndi Artist', 'Helper',
 ];
 
 export default function RegisterPage() {
