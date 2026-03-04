@@ -634,9 +634,6 @@ const translations = {
     submittingReview: '⏳ सबमिट हो रहा है...',
     loginFailed: 'लॉगिन विफल',
     locationLabel: 'नौरोजाबाद एवं बिरसिंहपुर पाली',
-
-    tapPhotoToView: 'पूरा देखने के लिए फ़ोटो टैप करें',
-    myBookings: 'बुकिंग',
   },
 };
 

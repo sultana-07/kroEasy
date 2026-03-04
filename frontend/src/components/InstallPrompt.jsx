@@ -18,11 +18,20 @@ export default function InstallPrompt() {
     if (window.matchMedia('(display-mode: standalone)').matches) return;
     if (sessionStorage.getItem('install_dismissed')) return;
 
-    setShow(true);
+    // iOS Safari — show manual tip (only way on iOS)
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+    if (ios) {
+      setIsIOS(true);
+      setShow(true);
+      return;
+    }
 
+    // Chrome/Android — wait for beforeinstallprompt
+    // Only show the banner AFTER the event fires (so button ALWAYS works)
     const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      setShow(true); // show banner only now
     };
     window.addEventListener('beforeinstallprompt', handler);
 
@@ -46,23 +55,13 @@ export default function InstallPrompt() {
   };
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      // Chrome/Android: native prompt available
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-      if (outcome === 'accepted') {
-        recordInstall();
-        setShow(false);
-      }
-    } else {
-      // Fallback: show a brief tip message
-      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-      const msg = ios
-        ? '📱 Safari → Share ⬆ → "Add to Home Screen"'
-        : '🤖 Browser menu (⋮) → "Add to Home Screen" / "Install App"';
-      setTip(msg);
-      setTimeout(() => setTip(''), 4000);
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+    if (outcome === 'accepted') {
+      recordInstall();
+      setShow(false);
     }
   };
 
@@ -158,20 +157,29 @@ export default function InstallPrompt() {
           ))}
         </div>
 
-        {/* Single install button — always shown */}
-        <button
-          className="ip-btn"
-          onClick={handleInstall}
-          style={{
-            width: '100%', padding: '13px', fontSize: '15px', fontWeight: '800',
-            background: 'linear-gradient(135deg,#F97316,#EA580C)',
-            border: 'none', borderRadius: '12px', color: 'white',
-            cursor: 'pointer', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', gap: '8px',
-          }}
-        >
-          📲 Install KroEasy App
-        </button>
+        {/* CTA */}
+        {isIOS ? (
+          <div style={{
+            background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px',
+            padding: '10px 12px', fontSize: '13px', color: '#92400E', lineHeight: '1.7', fontWeight: '600',
+          }}>
+            📱 Safari → <strong>Share ⬆</strong> → <strong>"Add to Home Screen"</strong> चुनें
+          </div>
+        ) : (
+          <button
+            className="ip-btn"
+            onClick={handleInstall}
+            style={{
+              width: '100%', padding: '13px', fontSize: '15px', fontWeight: '800',
+              background: 'linear-gradient(135deg,#F97316,#EA580C)',
+              border: 'none', borderRadius: '12px', color: 'white',
+              cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', gap: '8px',
+            }}
+          >
+            📲 Install KroEasy App
+          </button>
+        )}
       </div>
     </div>
   );
