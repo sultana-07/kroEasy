@@ -1,185 +1,90 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 
-/**
- * InstallPrompt — shows a PWA install banner with a single button.
- *
- * - Always shows the button (unless already in standalone/PWA mode or dismissed).
- * - If browserinstallprompt is ready → one-tap native install on click.
- * - Otherwise → a small toast-style tip appears briefly instead of text.
- * - Records the install to the backend on success.
- */
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [show, setShow] = useState(false);
-  const [tip, setTip] = useState('');
+  const [show, setShow]     = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches) return;
     if (sessionStorage.getItem('install_dismissed')) return;
 
-    // iOS Safari — show manual tip (only way on iOS)
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-    if (ios) {
-      setIsIOS(true);
-      setShow(true);
-      return;
-    }
+    // Always show the banner
+    setShow(true);
 
-    // Chrome/Android — wait for beforeinstallprompt
-    // Only show the banner AFTER the event fires (so button ALWAYS works)
     const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setShow(true); // show banner only now
     };
     window.addEventListener('beforeinstallprompt', handler);
-
-    const onInstalled = () => {
-      recordInstall();
+    window.addEventListener('appinstalled', () => {
+      api.post('/pwa/install', { platform: /android/i.test(navigator.userAgent) ? 'android' : 'desktop' }).catch(() => {});
       setShow(false);
-    };
-    window.addEventListener('appinstalled', onInstalled);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
+    });
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const recordInstall = () => {
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const android = /android/i.test(navigator.userAgent);
-    const platform = ios ? 'ios' : android ? 'android' : 'desktop';
-    api.post('/pwa/install', { platform }).catch(() => {});
-  };
-
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt || installing) return;
+    setInstalling(true);
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     setDeferredPrompt(null);
-    if (outcome === 'accepted') {
-      recordInstall();
-      setShow(false);
-    }
-  };
-
-  const handleDismiss = () => {
-    sessionStorage.setItem('install_dismissed', '1');
-    setShow(false);
+    setInstalling(false);
+    if (outcome === 'accepted') setShow(false);
   };
 
   if (!show) return null;
 
   return (
-    <div style={{
-      margin: '0 16px 20px',
-      borderRadius: '18px',
-      overflow: 'visible',
-      boxShadow: '0 8px 32px rgba(249,115,22,0.25)',
-      position: 'relative',
-    }}>
+    <div style={{ margin: '0 16px 20px', borderRadius: '18px', overflow: 'hidden',
+      boxShadow: '0 8px 32px rgba(249,115,22,0.22)' }}>
       <style>{`
-        @keyframes install-pulse {
-          0%   { box-shadow: 0 0 0 0   rgba(249,115,22,0.5); }
-          70%  { box-shadow: 0 0 0 14px rgba(249,115,22,0);  }
-          100% { box-shadow: 0 0 0 0   rgba(249,115,22,0);   }
-        }
-        @keyframes install-bounce {
-          0%,100% { transform: translateY(0);   }
-          50%     { transform: translateY(-4px); }
-        }
-        @keyframes ip-tip-in {
-          from { opacity:0; transform: translateY(6px); }
-          to   { opacity:1; transform: translateY(0); }
-        }
-        .ip-icon { animation: install-bounce 2s ease-in-out infinite; display:inline-block; }
-        .ip-btn  { animation: install-pulse  2s infinite; }
+        @keyframes ip-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        @keyframes ip-glow   { 0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,.55)} 70%{box-shadow:0 0 0 16px rgba(249,115,22,0)} }
+        .ip-icon { animation: ip-bounce 2s ease-in-out infinite; display:inline-block; }
+        .ip-btn  { animation: ip-glow   2s infinite; }
+        .ip-btn:active { transform:scale(.97); }
       `}</style>
 
-      {/* ── Tip toast ── */}
-      {tip && (
-        <div style={{
-          position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, right: 0,
-          background: '#1E293B', color: 'white', borderRadius: '12px',
-          padding: '12px 14px', fontSize: '13px', fontWeight: '600',
-          lineHeight: '1.5', zIndex: 100, animation: 'ip-tip-in 0.25s ease',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-        }}>
-          {tip}
+      {/* Header */}
+      <div style={{ background:'linear-gradient(135deg,#F97316,#EA580C)', padding:'16px',
+        display:'flex', alignItems:'center', gap:'12px' }}>
+        <span className="ip-icon" style={{ fontSize:'36px', flexShrink:0 }}>📲</span>
+        <div style={{ flex:1, color:'white' }}>
+          <div style={{ fontSize:'15px', fontWeight:'800', marginBottom:'2px' }}>Install KroEasy App — Free!</div>
+          <div style={{ fontSize:'11px', opacity:.9 }}>Offline • Home screen icon • No App Store</div>
         </div>
-      )}
-
-      {/* ── Header ── */}
-      <div style={{
-        background: 'linear-gradient(135deg,#F97316,#EA580C)',
-        padding: '16px',
-        borderRadius: '18px 18px 0 0',
-        display: 'flex', alignItems: 'center', gap: '12px',
-      }}>
-        <span className="ip-icon" style={{ fontSize: '36px', flexShrink: 0 }}>📲</span>
-        <div style={{ flex: 1, color: 'white' }}>
-          <div style={{ fontSize: '15px', fontWeight: '800', marginBottom: '2px' }}>
-            Install KroEasy App — Free!
-          </div>
-          <div style={{ fontSize: '11px', opacity: 0.9 }}>
-            Works offline • Home screen icon • No App Store needed
-          </div>
-        </div>
-        <button
-          onClick={handleDismiss}
-          style={{
-            background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white',
-            width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer',
-            fontSize: '14px', flexShrink: 0, display: 'flex',
-            alignItems: 'center', justifyContent: 'center', fontWeight: '700',
-          }}
-        >✕</button>
+        <button onClick={() => { sessionStorage.setItem('install_dismissed','1'); setShow(false); }}
+          style={{ background:'rgba(255,255,255,.2)', border:'none', color:'white', width:'28px', height:'28px',
+            borderRadius:'50%', cursor:'pointer', fontSize:'14px', display:'flex', alignItems:'center',
+            justifyContent:'center', fontWeight:'700' }}>✕</button>
       </div>
 
-      {/* ── Body ── */}
-      <div style={{ background: '#FFF7ED', padding: '14px 16px', borderRadius: '0 0 18px 18px' }}>
-        {/* Feature pills */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-          {[
-            { icon: '⚡', text: 'Instant launch' },
-            { icon: '📴', text: 'Works offline'  },
-            { icon: '🔔', text: 'Notifications'  },
-            { icon: '🏠', text: 'Home screen icon'},
-          ].map((b, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              fontSize: '12px', fontWeight: '600', color: '#7C2D12',
-            }}>
-              <span>{b.icon}</span> {b.text}
+      {/* Body — just the install button */}
+      <div style={{ background:'#FFF7ED', padding:'14px 16px' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'14px' }}>
+          {[['⚡','Instant launch'],['📴','Works offline'],['🔔','Notifications'],['🏠','Home screen']].map(([icon,text],i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', fontWeight:'600', color:'#7C2D12' }}>
+              <span>{icon}</span>{text}
             </div>
           ))}
         </div>
 
-        {/* CTA */}
-        {isIOS ? (
-          <div style={{
-            background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px',
-            padding: '10px 12px', fontSize: '13px', color: '#92400E', lineHeight: '1.7', fontWeight: '600',
-          }}>
-            📱 Safari → <strong>Share ⬆</strong> → <strong>"Add to Home Screen"</strong> चुनें
-          </div>
-        ) : (
-          <button
-            className="ip-btn"
-            onClick={handleInstall}
-            style={{
-              width: '100%', padding: '13px', fontSize: '15px', fontWeight: '800',
-              background: 'linear-gradient(135deg,#F97316,#EA580C)',
-              border: 'none', borderRadius: '12px', color: 'white',
-              cursor: 'pointer', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', gap: '8px',
-            }}
-          >
-            📲 Install KroEasy App
-          </button>
-        )}
+        <button
+          className="ip-btn"
+          onClick={handleInstall}
+          style={{
+            width:'100%', padding:'14px', fontSize:'16px', fontWeight:'800',
+            background:'linear-gradient(135deg,#F97316,#EA580C)',
+            border:'none', borderRadius:'14px', color:'white',
+            cursor:'pointer', display:'flex', alignItems:'center',
+            justifyContent:'center', gap:'8px', transition:'transform .15s',
+          }}
+        >
+          {installing ? '⏳ Installing…' : '📲 Install KroEasy App'}
+        </button>
       </div>
     </div>
   );
