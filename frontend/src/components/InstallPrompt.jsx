@@ -2,41 +2,30 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 
 /**
- * InstallPrompt — shows a PWA install banner.
+ * InstallPrompt — shows a PWA install banner with a single button.
  *
- * Behaviour:
- *  • Always shows (unless already in standalone/PWA mode).
- *  • If beforeinstallprompt fires (Chrome/Edge/Android) → one-tap install button.
- *  • Otherwise → manual "Add to Home Screen" instructions for both Android & iOS.
- *  • On successful install (appinstalled event) → logs to backend + hides banner.
- *  • Dismiss (✕) hides for the session.
+ * - Always shows the button (unless already in standalone/PWA mode or dismissed).
+ * - If browserinstallprompt is ready → one-tap native install on click.
+ * - Otherwise → a small toast-style tip appears briefly instead of text.
+ * - Records the install to the backend on success.
  */
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [isIOS, setIsIOS] = useState(false);
   const [show, setShow] = useState(false);
+  const [tip, setTip] = useState('');
 
   useEffect(() => {
-    // Already running as installed PWA — never show
     if (window.matchMedia('(display-mode: standalone)').matches) return;
-    // Already dismissed this session
     if (sessionStorage.getItem('install_dismissed')) return;
 
-    // Detect iOS
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-    setIsIOS(ios);
-
-    // Always show the banner
     setShow(true);
 
-    // Chrome / Edge / Android: capture the native install prompt if available
     const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handler);
 
-    // Track installs via the browser appinstalled event
     const onInstalled = () => {
       recordInstall();
       setShow(false);
@@ -53,12 +42,12 @@ export default function InstallPrompt() {
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const android = /android/i.test(navigator.userAgent);
     const platform = ios ? 'ios' : android ? 'android' : 'desktop';
-    // Fire and forget — don't block UI
     api.post('/pwa/install', { platform }).catch(() => {});
   };
 
   const handleInstall = async () => {
     if (deferredPrompt) {
+      // Chrome/Android: native prompt available
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       setDeferredPrompt(null);
@@ -66,6 +55,14 @@ export default function InstallPrompt() {
         recordInstall();
         setShow(false);
       }
+    } else {
+      // Fallback: show a brief tip message
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const msg = ios
+        ? '📱 Safari → Share ⬆ → "Add to Home Screen"'
+        : '🤖 Browser menu (⋮) → "Add to Home Screen" / "Install App"';
+      setTip(msg);
+      setTimeout(() => setTip(''), 4000);
     }
   };
 
@@ -80,8 +77,9 @@ export default function InstallPrompt() {
     <div style={{
       margin: '0 16px 20px',
       borderRadius: '18px',
-      overflow: 'hidden',
+      overflow: 'visible',
       boxShadow: '0 8px 32px rgba(249,115,22,0.25)',
+      position: 'relative',
     }}>
       <style>{`
         @keyframes install-pulse {
@@ -93,14 +91,32 @@ export default function InstallPrompt() {
           0%,100% { transform: translateY(0);   }
           50%     { transform: translateY(-4px); }
         }
+        @keyframes ip-tip-in {
+          from { opacity:0; transform: translateY(6px); }
+          to   { opacity:1; transform: translateY(0); }
+        }
         .ip-icon { animation: install-bounce 2s ease-in-out infinite; display:inline-block; }
         .ip-btn  { animation: install-pulse  2s infinite; }
       `}</style>
+
+      {/* ── Tip toast ── */}
+      {tip && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, right: 0,
+          background: '#1E293B', color: 'white', borderRadius: '12px',
+          padding: '12px 14px', fontSize: '13px', fontWeight: '600',
+          lineHeight: '1.5', zIndex: 100, animation: 'ip-tip-in 0.25s ease',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        }}>
+          {tip}
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div style={{
         background: 'linear-gradient(135deg,#F97316,#EA580C)',
         padding: '16px',
+        borderRadius: '18px 18px 0 0',
         display: 'flex', alignItems: 'center', gap: '12px',
       }}>
         <span className="ip-icon" style={{ fontSize: '36px', flexShrink: 0 }}>📲</span>
@@ -124,7 +140,7 @@ export default function InstallPrompt() {
       </div>
 
       {/* ── Body ── */}
-      <div style={{ background: '#FFF7ED', padding: '14px 16px' }}>
+      <div style={{ background: '#FFF7ED', padding: '14px 16px', borderRadius: '0 0 18px 18px' }}>
         {/* Feature pills */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
           {[
@@ -142,42 +158,20 @@ export default function InstallPrompt() {
           ))}
         </div>
 
-        {/* CTA */}
-        {deferredPrompt ? (
-          /* Chrome/Android: one-tap native install */
-          <button
-            className="ip-btn"
-            onClick={handleInstall}
-            style={{
-              width: '100%', padding: '13px', fontSize: '15px', fontWeight: '800',
-              background: 'linear-gradient(135deg,#F97316,#EA580C)',
-              border: 'none', borderRadius: '12px', color: 'white',
-              cursor: 'pointer', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', gap: '8px',
-            }}
-          >
-            📲 Install KroEasy App
-          </button>
-        ) : isIOS ? (
-          /* iOS Safari manual tip */
-          <div style={{
-            background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px',
-            padding: '10px 12px', fontSize: '12px', color: '#92400E', lineHeight: '1.6',
-          }}>
-            📱 <strong>iPhone:</strong> Safari के <strong>Share ⬆</strong> button से{' '}
-            <strong>"Add to Home Screen"</strong> चुनें।
-          </div>
-        ) : (
-          /* Android/Desktop fallback — beforeinstallprompt not yet fired */
-          <div style={{
-            background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px',
-            padding: '10px 12px', fontSize: '12px', color: '#92400E', lineHeight: '1.6',
-          }}>
-            🤖 <strong>Android Chrome:</strong> Browser menu (⋮) से{' '}
-            <strong>"Add to Home Screen"</strong> या{' '}
-            <strong>"Install App"</strong> चुनें।
-          </div>
-        )}
+        {/* Single install button — always shown */}
+        <button
+          className="ip-btn"
+          onClick={handleInstall}
+          style={{
+            width: '100%', padding: '13px', fontSize: '15px', fontWeight: '800',
+            background: 'linear-gradient(135deg,#F97316,#EA580C)',
+            border: 'none', borderRadius: '12px', color: 'white',
+            cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', gap: '8px',
+          }}
+        >
+          📲 Install KroEasy App
+        </button>
       </div>
     </div>
   );

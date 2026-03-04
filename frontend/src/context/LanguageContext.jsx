@@ -159,8 +159,6 @@ const translations = {
     carOwnerCtaBtn: '🚗 Car Owner',
     finalCtaTitle: 'Try today — Free!',
     finalCtaDesc: 'No registration needed to browse. See and get work done!',
-    browseServices: '⚡ See Services — Now!',
-    registerFree: '✨ Free Register',
     installBannerTitle: 'Install KroEasy App — Free!',
     installBannerSub: 'Works offline • Home screen icon',
     trust1Title: 'Admin Verified', trust1Desc: 'Every worker checked by our team',
@@ -222,33 +220,6 @@ const translations = {
     passwordsNotMatch: 'Passwords do not match',
     resetSuccess: 'Password reset successful! You can now login.',
     resetBtn: '🔓 Reset Password',
-
-    // Landing — compare section
-    compareTitle: '😩 Old Way vs ⚡ KroEasy',
-    compareSub: 'See the difference',
-    compareOld1: '❌ Kisi se pucho, wait karo',
-    compareNew1: '✅ Instantly browse providers',
-    compareOld2: '❌ No guarantee of quality',
-    compareNew2: '✅ Verified & rated profiles',
-    compareOld3: '❌ Hidden charges, dalaal fees',
-    compareNew3: '✅ Direct contact, no middleman',
-    compareOld4: '❌ No history or record',
-    compareNew4: '✅ Booking history + call logs',
-
-    // Landing — footer
-    footerFeatures: 'Features',
-    footerSupportLegal: 'Support & Legal',
-    footerContact: 'Contact',
-    footerServiceProviders: '🔧 Service Providers',
-    footerCarBooking: '🚗 Car Booking',
-    footerRegisterFree: '👤 Register Free',
-    footerLoginLink: '🔒 Login',
-    footerHelp: '🛠️ Help & Support',
-    footerTerms: '📜 Terms & Conditions',
-    footerPrivacy: '🔒 Privacy Policy',
-    footerCopyright: '© 2025 KroEasy. Made with ❤️ for small-town India.',
-    footerRegion: 'Nowrozabad & Birshingpur Pali, MP',
-    linkCopied: '🔗 Link copied!',
 
     // Register page
     registerTitle: 'Create Account',
@@ -346,23 +317,6 @@ const translations = {
     submittingReview: '⏳ Submitting...',
     loginFailed: 'Login Failed',
     locationLabel: 'Nowrozabad & Birshingpur Pali',
-
-    // Car Owner Dashboard
-    carOwnerDashboard: '🚗 Car Owner Dashboard',
-    myCars: '🚗 My Cars',
-    totalCars: 'Total Cars',
-    myBookings: 'Bookings',
-    carName: 'Car Name',
-    numberPlate: 'Number Plate',
-    modelYear: 'Model Year',
-    basePrice: 'Price per km (₹) *',
-    saveCar: '💾 Save Car',
-    addNewCar: '➕ Add New Car',
-    editCar: '✏️ Edit',
-    deleteCar: '🗑️ Delete',
-    carOwnerBadge: '🚗 Car Owner',
-    tapPhotoToView: 'Tap photo to view full size',
-    accountSuspended: 'Account Suspended',
   },
 
   hi: {
@@ -552,10 +506,7 @@ const translations = {
     skillBeautician: 'ब्यूटीशियन',
     skillMehndi: 'मेहंदी कलाकार',
     skillHelper: 'सहायक',
-    skillMehndi: 'मेहंदी कलाकार',
-    skillHelper: 'सहायक',
 
-    // Car owner dashboard
     carOwnerDashboard: '🚗 कार मालिक डैशबोर्ड',
     myCars: '🚗 मेरी कारें',
     totalCars: 'कुल कारें',
@@ -586,33 +537,6 @@ const translations = {
     passwordsNotMatch: 'पासवर्ड मेल नहीं खाते',
     resetSuccess: 'पासवर्ड रीसेट सफल! अब आप लॉगिन कर सकते हैं।',
     resetBtn: '🔓 पासवर्ड रीसेट करें',
-
-    // Landing — compare section
-    compareTitle: '😩 पुराना तरीका vs ⚡ KroEasy',
-    compareSub: 'फर्क देखें',
-    compareOld1: '❌ किसी से पूछो, इंतजार करो',
-    compareNew1: '✅ तुरंत प्रदाता ब्राउज़ करें',
-    compareOld2: '❌ गुणवत्ता की कोई गारंटी नहीं',
-    compareNew2: '✅ सत्यापित और रेटेड प्रोफ़ाइल',
-    compareOld3: '❌ छिपे शुल्क, दलाल की फीस',
-    compareNew3: '✅ सीधा संपर्क, कोई बिचौलिया नहीं',
-    compareOld4: '❌ कोई इतिहास या रिकॉर्ड नहीं',
-    compareNew4: '✅ बुकिंग इतिहास + कॉल लॉग',
-
-    // Landing — footer
-    footerFeatures: 'सुविधाएं',
-    footerSupportLegal: 'सहायता और कानूनी',
-    footerContact: 'संपर्क',
-    footerServiceProviders: '🔧 सेवा प्रदाता',
-    footerCarBooking: '🚗 कार बुकिंग',
-    footerRegisterFree: '👤 मुफ़्त रजिस्टर करें',
-    footerLoginLink: '🔒 लॉगिन',
-    footerHelp: '🛠️ सहायता',
-    footerTerms: '📜 नियम और शर्तें',
-    footerPrivacy: '🔒 गोपनीयता नीति',
-    footerCopyright: '© 2025 KroEasy. ❤️ के साथ बनाया छोटे शहरों के लिए।',
-    footerRegion: 'नौरोजाबाद एवं बिरसिंहपुर पाली, MP',
-    linkCopied: '🔗 लिंक कॉपी हो गया!',
 
     // Register page
     registerTitle: 'खाता बनाएं',
@@ -711,10 +635,8 @@ const translations = {
     loginFailed: 'लॉगिन विफल',
     locationLabel: 'नौरोजाबाद एवं बिरसिंहपुर पाली',
 
-    // Extra keys for new pages
     tapPhotoToView: 'पूरा देखने के लिए फ़ोटो टैप करें',
     myBookings: 'बुकिंग',
-    basePrice: 'कीमत प्रति किमी (₹) *',
   },
 };
 
