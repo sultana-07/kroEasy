@@ -16,6 +16,12 @@ const STATUS_COLORS = {
   cancelled: '#EF4444',
 };
 
+// City suggestions — English value (sent to API) + Hindi label
+const CITIES = [
+  { en: 'Nowrozabad', hi: 'नौरोजाबाद' },
+  { en: 'Birshingpur Pali', hi: 'बिरसिंहपुर पाली' },
+];
+
 function ReviewModal({ booking, onClose, onSubmit }) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -309,6 +315,7 @@ export default function UserDashboard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [filters, setFilters] = useState({ city: '', skills: '', ac: '', driverIncluded: '', priceType: '' });
   const [reviewTarget, setReviewTarget] = useState(null);
+  const [showCitySugg, setShowCitySugg] = useState(false);
   const skipNextServicesFetch = useRef(false);
 
   useEffect(() => {
@@ -515,7 +522,7 @@ export default function UserDashboard() {
           <div style={{ padding: '12px 16px 0', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px', marginBottom: '10px' }}>
               {[
-                { icon: '⚡', label: t('Electrician'), value: 'Electrician' },
+                { icon: '⚡', label: t('skillElectrician'), value: 'Electrician' },
                 { icon: '🔧', label: t('skillPlumber'), value: 'Plumber' },
                 { icon: '🪚', label: t('skillCarpenter'), value: 'Carpenter' },
                 { icon: '❄️', label: t('skillAcRepair'), value: 'AC Technician' },
@@ -545,8 +552,45 @@ export default function UserDashboard() {
                 );
               })()}
             </div>
-            <div style={{ display: 'flex', gap: '8px', paddingBottom: '12px' }}>
-              <input className="input-field" placeholder={t('filterByCity')} value={filters.city} onChange={e => setFilters({ ...filters, city: e.target.value })} style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }} />
+            <div style={{ display: 'flex', gap: '8px', paddingBottom: '12px', position: 'relative' }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input
+                  className="input-field"
+                  placeholder={t('filterByCity')}
+                  value={filters.city}
+                  autoComplete="off"
+                  onChange={e => { setFilters({ ...filters, city: e.target.value }); setShowCitySugg(e.target.value.trim().length > 0); }}
+                  onFocus={() => { if (filters.city.trim().length > 0) setShowCitySugg(true); }}
+                  onBlur={() => setTimeout(() => setShowCitySugg(false), 150)}
+                  style={{ padding: '8px 12px', fontSize: '13px', width: '100%' }}
+                />
+                {showCitySugg && (() => {
+                  const filtered = CITIES.filter(c =>
+                    c.en.toLowerCase().includes(filters.city.toLowerCase()) ||
+                    c.hi.includes(filters.city)
+                  );
+                  if (!filtered.length) return null;
+                  return (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1.5px solid #E2E8F0', borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100, overflow: 'hidden', marginTop: '4px' }}>
+                      {filtered.map(c => (
+                        <div
+                          key={c.en}
+                          onMouseDown={() => { setFilters(prev => ({ ...prev, city: c.en })); setShowCitySugg(false); }}
+                          style={{ padding: '10px 14px', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #F1F5F9' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                        >
+                          <span>📍</span>
+                          <div>
+                            <div style={{ fontWeight: '600', color: '#0F172A' }}>{lang === 'hi' ? c.hi : c.en}</div>
+                            <div style={{ fontSize: '11px', color: '#94A3B8' }}>Madhya Pradesh</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
               <button className="btn-primary" onClick={() => fetchLabours(1, false, undefined, true)} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
             </div>
           </div>
@@ -578,14 +622,45 @@ export default function UserDashboard() {
         <div>
           <div style={{ padding: '12px 16px', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', alignItems: 'center' }}>
-              <input
-                className="input-field"
-                placeholder="🏙️ Search by city..."
-                value={filters.city || ''}
-                onChange={e => setFilters({ ...filters, city: e.target.value })}
-                onKeyDown={e => e.key === 'Enter' && fetchCars()}
-                style={{ padding: '8px 12px', fontSize: '13px', minWidth: '160px', flex: 1 }}
-              />
+              <div style={{ flex: 1, position: 'relative', minWidth: '160px' }}>
+                <input
+                  className="input-field"
+                  placeholder={lang === 'hi' ? '🏙️ शहर से खोजें' : '🏙️ Search by city...'}
+                  value={filters.city || ''}
+                  autoComplete="off"
+                  onChange={e => { setFilters({ ...filters, city: e.target.value }); setShowCitySugg(e.target.value.trim().length > 0); }}
+                  onFocus={() => { if ((filters.city || '').trim().length > 0) setShowCitySugg(true); }}
+                  onBlur={() => setTimeout(() => setShowCitySugg(false), 150)}
+                  onKeyDown={e => e.key === 'Enter' && fetchCars()}
+                  style={{ padding: '8px 12px', fontSize: '13px', width: '100%' }}
+                />
+                {showCitySugg && (() => {
+                  const filtered = CITIES.filter(c =>
+                    c.en.toLowerCase().includes((filters.city || '').toLowerCase()) ||
+                    c.hi.includes(filters.city || '')
+                  );
+                  if (!filtered.length) return null;
+                  return (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1.5px solid #E2E8F0', borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100, overflow: 'hidden', marginTop: '4px' }}>
+                      {filtered.map(c => (
+                        <div
+                          key={c.en}
+                          onMouseDown={() => { setFilters(prev => ({ ...prev, city: c.en })); setShowCitySugg(false); }}
+                          style={{ padding: '10px 14px', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #F1F5F9' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                        >
+                          <span>📍</span>
+                          <div>
+                            <div style={{ fontWeight: '600', color: '#0F172A' }}>{lang === 'hi' ? c.hi : c.en}</div>
+                            <div style={{ fontSize: '11px', color: '#94A3B8' }}>Madhya Pradesh</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
               <button className="btn-primary" onClick={() => fetchCars(1, false, true)} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
             </div>
           </div>

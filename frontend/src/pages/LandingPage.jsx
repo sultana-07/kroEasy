@@ -2,29 +2,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import InstallPrompt from '../components/InstallPrompt';
 
-/* ─── PWA install hook ─────────────────────────────────────────────────── */
-function useInstallPrompt() {
-  const [prompt, setPrompt] = useState(null);
-  const [installed, setInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-  useEffect(() => {
-    if (window.matchMedia('(display-mode: standalone)').matches) { setInstalled(true); return; }
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-    setIsIOS(ios);
-    const handler = (e) => { e.preventDefault(); setPrompt(e); };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-  const install = async () => {
-    if (!prompt) return;
-    prompt.prompt();
-    const { outcome } = await prompt.userChoice;
-    if (outcome === 'accepted') setInstalled(true);
-    setPrompt(null);
-  };
-  return { canInstall: !!prompt || isIOS, isIOS, installed, install };
-}
 
 /* ─── Animated counter ─────────────────────────────────────────────────── */
 function useCounter(end, duration = 1800) {
@@ -56,7 +35,7 @@ function useInView(ref) {
 }
 
 const SERVICES = [
-  { icon: '⚡', lk: 'Electrician', value: 'Electrician' },
+  { icon: '⚡', lk: 'skillElectrician', value: 'Electrician' },
   { icon: '🔧', lk: 'skillPlumber', value: 'Plumber' },
   { icon: '🪚', lk: 'skillCarpenter', value: 'Carpenter' },
   { icon: '❄️', lk: 'skillAcRepair', value: 'AC Technician' },
@@ -69,13 +48,10 @@ const SERVICES = [
 export default function LandingPage() {
   const [visible, setVisible] = useState(false);
   const [shareMsg, setShareMsg] = useState('');
-  const [iosHint, setIosHint] = useState(false);
-  const [installDismissed, setInstallDismissed] = useState(() => sessionStorage.getItem('install_dismissed') === '1');
   const [cycleIdx, setCycleIdx] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t, lang, switchLang } = useLanguage();
-  const { canInstall, isIOS, installed, install } = useInstallPrompt();
   const statsRef = useRef(null);
   const statsInView = useInView(statsRef);
 
@@ -86,10 +62,11 @@ export default function LandingPage() {
   useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
   useEffect(() => { if (statsInView) { startUsers(); startJobs(); startProviders(); } }, [statsInView]);
 
+
   // cycling hero subtitles — show service names one by one
   const cycleItems = [
     { icon: '🚗', text: t('heroCta2') },
-    { icon: '⚡', text: t('Electrician') || 'Electrician' },
+    { icon: '⚡', text: t('skillElectrician') },
     { icon: '🔧', text: t('skillPlumber') },
     { icon: '❄️', text: t('skillAcRepair') },
     { icon: '💇', text: t('skillBeautician') },
@@ -108,8 +85,6 @@ export default function LandingPage() {
       try { await navigator.clipboard.writeText(shareData.url); setShareMsg(t('linkCopied')); setTimeout(() => setShareMsg(''), 2500); } catch {}
     }
   };
-
-  const showInstallBanner = !installed && !installDismissed && canInstall;
 
   return (
     <div className="page-container" style={{ paddingBottom: 0, overflow: 'hidden' }}>
@@ -201,27 +176,7 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* Install CTA in hero */}
-          {!installed && (
-            <div style={{ maxWidth:'300px',margin:'0 auto' }}>
-              {isIOS ? (
-                <button onClick={() => setIosHint(v => !v)}
-                  style={{ width:'100%',padding:'11px',fontSize:'13px',fontWeight:'700',background:'rgba(255,255,255,.08)',border:'1.5px dashed rgba(255,255,255,.3)',borderRadius:'12px',color:'white',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }}>
-                  {t('heroInstallIos')}
-                </button>
-              ) : canInstall ? (
-                <button className="install-glow" onClick={() => install()}
-                  style={{ width:'100%',padding:'11px',fontSize:'13px',fontWeight:'700',background:'rgba(249,115,22,.25)',border:'1.5px solid rgba(249,115,22,.6)',borderRadius:'12px',color:'#FED7AA',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }}>
-                  <span className="bounce-icon">📲</span> {t('heroInstallAndroid')}
-                </button>
-              ) : null}
-              {iosHint && (
-                <div style={{ marginTop:'8px',background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.2)',borderRadius:'10px',padding:'10px 12px',fontSize:'12px',color:'white',lineHeight:'1.6',textAlign:'left' }}>
-                  {t('iosHintText')}
-                </div>
-              )}
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -384,31 +339,7 @@ export default function LandingPage() {
       </div>
 
       {/* ══ INSTALL BANNER ════════════════════════════════════════════════ */}
-      {showInstallBanner && (
-        <div style={{ margin:'0 16px 20px',borderRadius:'18px',overflow:'hidden',boxShadow:'0 8px 32px rgba(249,115,22,.3)' }}>
-          <div style={{ background:'linear-gradient(135deg,#F97316,#EA580C)',padding:'14px 16px',display:'flex',alignItems:'center',gap:'12px' }}>
-            <div className="bounce-icon" style={{ fontSize:'36px',flexShrink:0 }}>📲</div>
-            <div style={{ flex:1,color:'white' }}>
-              <div style={{ fontSize:'15px',fontWeight:'800',marginBottom:'2px' }}>{t('installBannerTitle')}</div>
-              <div style={{ fontSize:'11px',opacity:.9 }}>{t('installBannerSub')}</div>
-            </div>
-            <button onClick={() => { sessionStorage.setItem('install_dismissed','1'); setInstallDismissed(true); }}
-              style={{ background:'rgba(255,255,255,.2)',border:'none',color:'white',width:'28px',height:'28px',borderRadius:'50%',cursor:'pointer',fontSize:'14px',flexShrink:0,fontWeight:'700' }}>✕</button>
-          </div>
-          <div style={{ background:'#FFF7ED',padding:'12px 16px' }}>
-            {isIOS ? (
-              <div style={{ background:'#FEF3C7',border:'1px solid #FCD34D',borderRadius:'10px',padding:'10px 12px',fontSize:'12px',color:'#92400E',lineHeight:'1.6' }}>
-                {t('iosHintText')}
-              </div>
-            ) : (
-              <button className="install-glow" onClick={() => install()}
-                style={{ width:'100%',padding:'12px',fontSize:'15px',fontWeight:'800',background:'linear-gradient(135deg,#F97316,#EA580C)',border:'none',borderRadius:'12px',color:'white',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px' }}>
-                📲 {t('heroInstallAndroid')}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      <InstallPrompt />
 
       {/* ══ TRUST BADGES ══════════════════════════════════════════════════ */}
       <div style={{ padding:'0 16px 24px' }}>

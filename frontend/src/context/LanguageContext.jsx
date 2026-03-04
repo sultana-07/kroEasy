@@ -181,6 +181,7 @@ const translations = {
     // Other skill filter
     skillOther: 'Other',
     skillOtherFilter: '🎯 Other Skills',
+    skillElectrician: 'Electrician',
     skillPlumber: 'Plumber',
     skillCarpenter: 'Carpenter',
     skillWelder: 'Welder',
@@ -542,6 +543,7 @@ const translations = {
     // Other skill filter
     skillOther: 'अन्य',
     skillOtherFilter: '🎯 अन्य कौशल',
+    skillElectrician: 'बिजली मिस्त्री',
     skillPlumber: 'प्लंबर',
     skillCarpenter: 'बढ़ई',
     skillWelder: 'वेल्डर',

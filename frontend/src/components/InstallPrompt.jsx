@@ -1,25 +1,40 @@
 import { useState, useEffect } from 'react';
 
+/**
+ * InstallPrompt — shows a native PWA install banner.
+ *
+ * Behaviour:
+ *  • Captures the browser's `beforeinstallprompt` event (Chrome / Edge / Samsung Browser).
+ *  • On iOS Safari shows the standard "Add to Home Screen" tip.
+ *  • If neither condition applies (e.g. Firefox desktop, already installed,
+ *    or user already dismissed) → renders nothing.
+ *  • "Install" button triggers the browser's native install dialog automatically.
+ *  • "Dismiss" (✕) hides the banner for the session.
+ */
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
-    // Already installed as PWA → hide
+    // Already running as installed PWA — never show
     if (window.matchMedia('(display-mode: standalone)').matches) return;
+    // Already dismissed this session
     if (sessionStorage.getItem('install_dismissed')) return;
 
-    // iOS Safari detection
+    // iOS Safari can't use beforeinstallprompt — show manual tip instead
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-    setIsIOS(ios);
-    if (ios) { setShowPrompt(true); return; }
+    if (ios) {
+      setIsIOS(true);
+      setShow(true);
+      return;
+    }
 
+    // Chrome / Edge / Samsung Browser: wait for the native install prompt
     const handler = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShowPrompt(true);
+      e.preventDefault();       // stop the mini-infobar from showing
+      setDeferredPrompt(e);     // stash it so we can trigger it on button click
+      setShow(true);
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -27,19 +42,18 @@ export default function InstallPrompt() {
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
-    deferredPrompt.prompt();
+    deferredPrompt.prompt();                       // show native dialog
     const { outcome } = await deferredPrompt.userChoice;
     setDeferredPrompt(null);
-    setShowPrompt(false);
+    if (outcome === 'accepted') setShow(false);    // hide after accepted
   };
 
   const handleDismiss = () => {
     sessionStorage.setItem('install_dismissed', '1');
-    setDismissed(true);
-    setShowPrompt(false);
+    setShow(false);
   };
 
-  if (!showPrompt || dismissed) return null;
+  if (!show) return null;
 
   return (
     <div style={{
@@ -47,77 +61,90 @@ export default function InstallPrompt() {
       borderRadius: '18px',
       overflow: 'hidden',
       boxShadow: '0 8px 32px rgba(249,115,22,0.25)',
-      position: 'relative',
     }}>
-      {/* Attention ring animation */}
       <style>{`
         @keyframes install-pulse {
-          0% { box-shadow: 0 0 0 0 rgba(249,115,22,0.5); }
-          70% { box-shadow: 0 0 0 14px rgba(249,115,22,0); }
-          100% { box-shadow: 0 0 0 0 rgba(249,115,22,0); }
+          0%   { box-shadow: 0 0 0 0   rgba(249,115,22,0.5); }
+          70%  { box-shadow: 0 0 0 14px rgba(249,115,22,0);  }
+          100% { box-shadow: 0 0 0 0   rgba(249,115,22,0);   }
         }
         @keyframes install-bounce {
-          0%,100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
+          0%,100% { transform: translateY(0);   }
+          50%     { transform: translateY(-4px); }
         }
-        .install-icon { animation: install-bounce 2s ease-in-out infinite; }
-        .install-btn { animation: install-pulse 2s infinite; }
+        .ip-icon { animation: install-bounce 2s ease-in-out infinite; display:inline-block; }
+        .ip-btn  { animation: install-pulse  2s infinite; }
       `}</style>
 
-      {/* Header gradient */}
+      {/* ── Header ── */}
       <div style={{
-        background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
-        padding: '16px 16px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
+        background: 'linear-gradient(135deg,#F97316,#EA580C)',
+        padding: '16px',
+        display: 'flex', alignItems: 'center', gap: '12px',
       }}>
-        <div className="install-icon" style={{ fontSize: '38px', flexShrink: 0 }}>📲</div>
+        <span className="ip-icon" style={{ fontSize: '36px', flexShrink: 0 }}>📲</span>
         <div style={{ flex: 1, color: 'white' }}>
-          <div style={{ fontSize: '16px', fontWeight: '800', marginBottom: '2px' }}>
+          <div style={{ fontSize: '15px', fontWeight: '800', marginBottom: '2px' }}>
             Install KroEasy App — Free!
           </div>
-          <div style={{ fontSize: '12px', opacity: 0.9 }}>
-            Works offline • Opens instantly • No App Store!
+          <div style={{ fontSize: '11px', opacity: 0.9 }}>
+            Works offline • Home screen icon • No App Store needed
           </div>
         </div>
         <button
           onClick={handleDismiss}
-          style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', fontSize: '14px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}
+          style={{
+            background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white',
+            width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer',
+            fontSize: '14px', flexShrink: 0, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', fontWeight: '700',
+          }}
         >✕</button>
       </div>
 
-      {/* Benefits + CTA */}
+      {/* ── Body ── */}
       <div style={{ background: '#FFF7ED', padding: '14px 16px' }}>
+        {/* Feature pills */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
           {[
             { icon: '⚡', text: 'Instant launch' },
-            { icon: '📴', text: 'Works offline' },
-            { icon: '🔔', text: 'Quick notifications' },
-            { icon: '🏠', text: 'Home screen icon' },
+            { icon: '📴', text: 'Works offline'  },
+            { icon: '🔔', text: 'Notifications'  },
+            { icon: '🏠', text: 'Home screen icon'},
           ].map((b, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600', color: '#7C2D12' }}>
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              fontSize: '12px', fontWeight: '600', color: '#7C2D12',
+            }}>
               <span>{b.icon}</span> {b.text}
             </div>
           ))}
         </div>
 
+        {/* CTA */}
         {isIOS ? (
-          <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px', padding: '10px 12px', fontSize: '12px', color: '#92400E', lineHeight: '1.6' }}>
-            <strong>📱 iPhone users:</strong> Tap the <strong>Share ⬆</strong> button in Safari, then select <strong>"Add to Home Screen"</strong> to install KroEasy.
+          /* iOS: can't programmatically install, so show the one-liner tip */
+          <div style={{
+            background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px',
+            padding: '10px 12px', fontSize: '12px', color: '#92400E', lineHeight: '1.6',
+          }}>
+            📱 <strong>iPhone:</strong> Safari के <strong>Share ⬆</strong> button से{' '}
+            <strong>"Add to Home Screen"</strong> चुनें।
           </div>
         ) : (
+          /* Android / Desktop Chrome: one-tap native install */
           <button
-            className="install-btn"
+            className="ip-btn"
             onClick={handleInstall}
             style={{
               width: '100%', padding: '13px', fontSize: '15px', fontWeight: '800',
-              background: 'linear-gradient(135deg, #F97316, #EA580C)',
-              border: 'none', borderRadius: '12px', color: 'white', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              background: 'linear-gradient(135deg,#F97316,#EA580C)',
+              border: 'none', borderRadius: '12px', color: 'white',
+              cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', gap: '8px',
             }}
           >
-            📲 Install KroEasy App Now
+            📲 Install KroEasy App
           </button>
         )}
       </div>

@@ -218,7 +218,7 @@ export default function CarOwnerDashboard() {
                 </div>
                 <div>
                   <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('numberPlate')}</label>
-                  <input className="input-field" placeholder="e.g. MH12AB1234" value={carForm.numberPlate} onChange={e => setCarForm({ ...carForm, numberPlate: e.target.value.toUpperCase() })} style={{ textTransform: 'uppercase', letterSpacing: '1px' }} />
+                  <input className="input-field" placeholder="e.g. MH12AB1234" value={carForm.numberPlate} maxLength={10} onChange={e => setCarForm({ ...carForm, numberPlate: e.target.value.toUpperCase().slice(0, 10) })} style={{ textTransform: 'uppercase', letterSpacing: '1px' }} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div>
