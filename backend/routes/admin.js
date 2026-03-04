@@ -6,6 +6,7 @@ const CarOwner = require('../models/CarOwner');
 const Car = require('../models/Car');
 const Booking = require('../models/Booking');
 const CallLog = require('../models/CallLog');
+const PwaInstall = require('../models/PwaInstall');
 const { protect, authorize } = require('../middleware/auth');
 
 // Helper: parse pagination query params
@@ -16,18 +17,18 @@ const paginate = (query) => {
     return { page, limit, skip };
 };
 
-// GET /api/admin/stats
 router.get('/stats', protect, authorize('admin'), async (req, res) => {
     try {
-        const [users, labours, carOwners, cars, bookings, callLogs] = await Promise.all([
+        const [users, labours, carOwners, cars, bookings, callLogs, pwaInstalls] = await Promise.all([
             User.countDocuments({ role: 'user' }),
             Labour.countDocuments(),
             CarOwner.countDocuments(),
             Car.countDocuments(),
             Booking.countDocuments(),
             CallLog.countDocuments(),
+            PwaInstall.countDocuments(),
         ]);
-        res.json({ users, labours, carOwners, cars, bookings, callLogs });
+        res.json({ users, labours, carOwners, cars, bookings, callLogs, pwaInstalls });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

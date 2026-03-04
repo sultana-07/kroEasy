@@ -50,6 +50,7 @@ app.use('/api/car', require('./routes/car'));
 app.use('/api/booking', require('./routes/booking'));
 app.use('/api/call-log', require('./routes/callLog'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/pwa', require('./routes/pwa'));
 
 // Health check (also used by keep-alive)
 app.get('/api/health', (req, res) =>

@@ -4,6 +4,7 @@ import { useEffect, lazy, Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
+import InstagramFAB from './components/InstagramFAB';
 
 // Lazy-loaded pages — each page loads as its own JS chunk only when visited.
 // Cuts initial bundle by ~70%, improving cold-start time on free tier.
@@ -101,6 +102,7 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <AppRoutes />
           </Suspense>
+          <InstagramFAB />
         </BrowserRouter>
       </AuthProvider>
     </LanguageProvider>

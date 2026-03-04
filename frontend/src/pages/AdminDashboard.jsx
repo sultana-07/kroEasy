@@ -130,6 +130,7 @@ export default function AdminDashboard() {
     { name: 'Cars', value: stats.cars, fill: '#8B5CF6' },
     { name: 'Bookings', value: stats.bookings, fill: '#EC4899' },
     { name: 'Call Logs', value: stats.callLogs, fill: '#F59E0B' },
+    { name: 'Installs', value: stats.pwaInstalls, fill: '#0891B2' },
   ] : [];
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><div className="spinner" /></div>;
@@ -169,6 +170,7 @@ export default function AdminDashboard() {
               { label: 'Cars', value: stats?.cars, icon: '🚙', color: '#8B5CF6' },
               { label: 'Bookings', value: stats?.bookings, icon: '📋', color: '#EC4899' },
               { label: 'Call Logs', value: stats?.callLogs, icon: '📞', color: '#F59E0B' },
+              { label: 'PWA Installs', value: stats?.pwaInstalls, icon: '📲', color: '#0891B2' },
             ].map((s, i) => (
               <div key={i} className="stat-card" style={{ padding: '14px 8px' }}>
                 <div style={{ fontSize: '22px', marginBottom: '4px' }}>{s.icon}</div>

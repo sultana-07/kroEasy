@@ -79,7 +79,7 @@ export default function LandingPage() {
   }, [cycleItems.length]);
 
   const handleShare = async () => {
-    const shareData = { title: '⚡ KroEasy', text: 'Apne sheher ke verified workers aur cars ek app pe. Bilkul free!', url: 'https://kro-easy.vercel.app' };
+    const shareData = { title: '⚡ KroEasy', text: 'Apne sheher ke verified workers aur cars ek app pe. Bilkul free!', url: 'https://kroeasy.com' };
     if (navigator.share) { try { await navigator.share(shareData); } catch {} }
     else {
       try { await navigator.clipboard.writeText(shareData.url); setShareMsg(t('linkCopied')); setTimeout(() => setShareMsg(''), 2500); } catch {}

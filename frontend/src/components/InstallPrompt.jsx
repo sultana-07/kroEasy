@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
+import api from '../api';
 
 /**
- * InstallPrompt — shows a native PWA install banner.
+ * InstallPrompt — shows a PWA install banner.
  *
  * Behaviour:
- *  • Captures the browser's `beforeinstallprompt` event (Chrome / Edge / Samsung Browser).
- *  • On iOS Safari shows the standard "Add to Home Screen" tip.
- *  • If neither condition applies (e.g. Firefox desktop, already installed,
- *    or user already dismissed) → renders nothing.
- *  • "Install" button triggers the browser's native install dialog automatically.
- *  • "Dismiss" (✕) hides the banner for the session.
+ *  • Always shows (unless already in standalone/PWA mode).
+ *  • If beforeinstallprompt fires (Chrome/Edge/Android) → one-tap install button.
+ *  • Otherwise → manual "Add to Home Screen" instructions for both Android & iOS.
+ *  • On successful install (appinstalled event) → logs to backend + hides banner.
+ *  • Dismiss (✕) hides for the session.
  */
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -22,30 +22,51 @@ export default function InstallPrompt() {
     // Already dismissed this session
     if (sessionStorage.getItem('install_dismissed')) return;
 
-    // iOS Safari can't use beforeinstallprompt — show manual tip instead
+    // Detect iOS
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-    if (ios) {
-      setIsIOS(true);
-      setShow(true);
-      return;
-    }
+    setIsIOS(ios);
 
-    // Chrome / Edge / Samsung Browser: wait for the native install prompt
+    // Always show the banner
+    setShow(true);
+
+    // Chrome / Edge / Android: capture the native install prompt if available
     const handler = (e) => {
-      e.preventDefault();       // stop the mini-infobar from showing
-      setDeferredPrompt(e);     // stash it so we can trigger it on button click
-      setShow(true);
+      e.preventDefault();
+      setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+
+    // Track installs via the browser appinstalled event
+    const onInstalled = () => {
+      recordInstall();
+      setShow(false);
+    };
+    window.addEventListener('appinstalled', onInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
   }, []);
 
+  const recordInstall = () => {
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const android = /android/i.test(navigator.userAgent);
+    const platform = ios ? 'ios' : android ? 'android' : 'desktop';
+    // Fire and forget — don't block UI
+    api.post('/pwa/install', { platform }).catch(() => {});
+  };
+
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();                       // show native dialog
-    const { outcome } = await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    if (outcome === 'accepted') setShow(false);    // hide after accepted
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      setDeferredPrompt(null);
+      if (outcome === 'accepted') {
+        recordInstall();
+        setShow(false);
+      }
+    }
   };
 
   const handleDismiss = () => {
@@ -122,17 +143,8 @@ export default function InstallPrompt() {
         </div>
 
         {/* CTA */}
-        {isIOS ? (
-          /* iOS: can't programmatically install, so show the one-liner tip */
-          <div style={{
-            background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px',
-            padding: '10px 12px', fontSize: '12px', color: '#92400E', lineHeight: '1.6',
-          }}>
-            📱 <strong>iPhone:</strong> Safari के <strong>Share ⬆</strong> button से{' '}
-            <strong>"Add to Home Screen"</strong> चुनें।
-          </div>
-        ) : (
-          /* Android / Desktop Chrome: one-tap native install */
+        {deferredPrompt ? (
+          /* Chrome/Android: one-tap native install */
           <button
             className="ip-btn"
             onClick={handleInstall}
@@ -146,6 +158,25 @@ export default function InstallPrompt() {
           >
             📲 Install KroEasy App
           </button>
+        ) : isIOS ? (
+          /* iOS Safari manual tip */
+          <div style={{
+            background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px',
+            padding: '10px 12px', fontSize: '12px', color: '#92400E', lineHeight: '1.6',
+          }}>
+            📱 <strong>iPhone:</strong> Safari के <strong>Share ⬆</strong> button से{' '}
+            <strong>"Add to Home Screen"</strong> चुनें।
+          </div>
+        ) : (
+          /* Android/Desktop fallback — beforeinstallprompt not yet fired */
+          <div style={{
+            background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '10px',
+            padding: '10px 12px', fontSize: '12px', color: '#92400E', lineHeight: '1.6',
+          }}>
+            🤖 <strong>Android Chrome:</strong> Browser menu (⋮) से{' '}
+            <strong>"Add to Home Screen"</strong> या{' '}
+            <strong>"Install App"</strong> चुनें।
+          </div>
         )}
       </div>
     </div>
