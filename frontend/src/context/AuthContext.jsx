@@ -28,11 +28,22 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  // Re-reads the user from localStorage and updates React state.
-  // Call this after mutating kroeasy_user (e.g. after avatar upload).
-  const refreshUser = () => {
-    const stored = localStorage.getItem('kroeasy_user');
-    if (stored) setUser(JSON.parse(stored));
+  // Fetches the latest user data from the server and syncs localStorage + React state.
+  // Falls back to localStorage if the network call fails.
+  const refreshUser = async () => {
+    try {
+      const token = localStorage.getItem('kroeasy_token');
+      if (!token) return;
+      const { data } = await api.get('/auth/me');
+      const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+      const merged = { ...stored, ...data };
+      localStorage.setItem('kroeasy_user', JSON.stringify(merged));
+      setUser(merged);
+    } catch {
+      // fallback: at least sync from localStorage
+      const stored = localStorage.getItem('kroeasy_user');
+      if (stored) setUser(JSON.parse(stored));
+    }
   };
 
   return (

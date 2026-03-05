@@ -30,22 +30,29 @@ export default function CarOwnerDashboard() {
     fetchBookings();
   }, []);
 
-  // Poll /auth/me every 30s while pending so status updates without re-login
+  // Poll for approval status changes every 30s without re-login.
+  // Always fires once on mount (to fix stale status from localStorage),
+  // then stops itself after the server confirms a terminal status.
+  const pollRef = useRef(null);
   useEffect(() => {
-    if (user?.approvalStatus === 'approved' || user?.approvalStatus === 'rejected') return;
+    const TERMINAL = ['approved', 'rejected', 'suspended'];
     const poll = async () => {
       try {
-        const { data } = await api.get('/auth/me');
-        if (data.approvalStatus !== user?.approvalStatus) {
-          const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
-          localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, approvalStatus: data.approvalStatus }));
-          refreshUser();
+        // refreshUser now fetches /auth/me and syncs localStorage + React state
+        await refreshUser();
+        const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+        if (TERMINAL.includes(stored.approvalStatus) && pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
         }
       } catch {}
     };
-    const iv = setInterval(poll, 30000);
-    return () => clearInterval(iv);
-  }, [user?.approvalStatus]);
+    poll(); // fire immediately on mount
+    pollRef.current = setInterval(poll, 30000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-refresh bookings every 15 seconds when on bookings tab
   useEffect(() => {
@@ -176,7 +183,7 @@ export default function CarOwnerDashboard() {
               <span style={{ fontSize: '20px' }}>{m.icon}</span>
               <div style={{ flex: 1 }}><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
               {user?.approvalStatus === 'pending' && <button
-                onClick={async () => { try { const { data } = await api.get('/auth/me'); const s = JSON.parse(localStorage.getItem('kroeasy_user') || '{}'); localStorage.setItem('kroeasy_user', JSON.stringify({ ...s, approvalStatus: data.approvalStatus })); refreshUser(); } catch {} }}
+                onClick={() => refreshUser()}
                 style={{ background: '#F97316', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>🔄 Refresh</button>}
             </div>;
           })()}
@@ -310,7 +317,7 @@ export default function CarOwnerDashboard() {
               <span style={{ fontSize: '20px' }}>{m.icon}</span>
               <div style={{ flex: 1 }}><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
               {user?.approvalStatus === 'pending' && <button
-                onClick={async () => { try { const { data } = await api.get('/auth/me'); const s = JSON.parse(localStorage.getItem('kroeasy_user') || '{}'); localStorage.setItem('kroeasy_user', JSON.stringify({ ...s, approvalStatus: data.approvalStatus })); refreshUser(); } catch {} }}
+                onClick={() => refreshUser()}
                 style={{ background: '#F97316', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>🔄 Refresh</button>}
             </div>;
           })()}
@@ -407,7 +414,7 @@ export default function CarOwnerDashboard() {
                   )}
                 </div>
                 {user?.approvalStatus === 'pending' && <button
-                  onClick={async () => { try { const { data } = await api.get('/auth/me'); const st = JSON.parse(localStorage.getItem('kroeasy_user') || '{}'); localStorage.setItem('kroeasy_user', JSON.stringify({ ...st, approvalStatus: data.approvalStatus })); refreshUser(); } catch {} }}
+                  onClick={() => refreshUser()}
                   style={{ background: '#F97316', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>🔄 Refresh</button>}
               </div>
             );
