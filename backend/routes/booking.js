@@ -18,13 +18,6 @@ router.post('/', protect, async (req, res) => {
             notes,
         });
 
-        // Increment booking count — fire-and-forget (don't await; no need to block the response)
-        if (providerType === 'labour') {
-            Labour.findByIdAndUpdate(providerId, { $inc: { bookingCount: 1 } }).catch(() => { });
-        } else if (providerType === 'car') {
-            Car.findByIdAndUpdate(carId, { $inc: { bookingCount: 1 } }).catch(() => { });
-        }
-
         res.status(201).json(booking);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -133,6 +126,16 @@ router.patch('/:id/status', protect, async (req, res) => {
 
         booking.status = status;
         await booking.save();
+
+        // Only increment bookingCount once a job is fully completed
+        if (status === 'completed') {
+            if (req.user.role === 'labour') {
+                Labour.findByIdAndUpdate(profile._id, { $inc: { bookingCount: 1 } }).catch(() => { });
+            } else if (req.user.role === 'carowner' && booking.carId) {
+                Car.findByIdAndUpdate(booking.carId, { $inc: { bookingCount: 1 } }).catch(() => { });
+            }
+        }
+
         res.json(booking);
     } catch (error) {
         res.status(500).json({ message: error.message });
