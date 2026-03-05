@@ -10,7 +10,7 @@ const emptyCarForm = { carName: '', numberPlate: '', modelYear: new Date().getFu
 const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#16A34A', cancelled: '#EF4444' };
 
 export default function CarOwnerDashboard() {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [cars, setCars] = useState([]);
@@ -28,31 +28,25 @@ export default function CarOwnerDashboard() {
   useEffect(() => {
     fetchCars();
     fetchBookings();
+    fetchOwnerProfile();
   }, []);
 
-  // Poll for approval status changes every 30s without re-login.
-  // Always fires once on mount (to fix stale status from localStorage),
-  // then stops itself after the server confirms a terminal status.
-  const pollRef = useRef(null);
+  // Fetch the CarOwner document — this is the source of truth for isApproved.
+  // (Admin approval sets CarOwner.isApproved, never User.approvalStatus.)
+  const fetchOwnerProfile = async () => {
+    try {
+      const { data } = await api.get('/cars/owner-profile');
+      setOwnerProfile(data);
+    } catch {}
+  };
+
+  // Poll the CarOwner profile every 30s while not approved
+  // so status updates automatically without re-login (same as LabourDashboard).
   useEffect(() => {
-    const TERMINAL = ['approved', 'rejected', 'suspended'];
-    const poll = async () => {
-      try {
-        // refreshUser now fetches /auth/me and syncs localStorage + React state
-        await refreshUser();
-        const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
-        if (TERMINAL.includes(stored.approvalStatus) && pollRef.current) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-        }
-      } catch {}
-    };
-    poll(); // fire immediately on mount
-    pollRef.current = setInterval(poll, 30000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!ownerProfile || ownerProfile.isApproved) return;
+    const interval = setInterval(fetchOwnerProfile, 30000);
+    return () => clearInterval(interval);
+  }, [ownerProfile?.isApproved]);
 
   // Auto-refresh bookings every 15 seconds when on bookings tab
   useEffect(() => {
@@ -172,19 +166,17 @@ export default function CarOwnerDashboard() {
       {activeTab === 'cars' && (
         <div style={{ padding: '16px' }}>
           {/* Approval Status inline banner */}
-          {user?.approvalStatus !== 'approved' && (() => {
+          {ownerProfile && !ownerProfile.isApproved && (() => {
             const m = {
-              pending:   { bg: '#FFF7ED', border: '#FED7AA', icon: '⏳', title: t('pendingApprovalTitle'), msg: 'समीक्षाधीन — अनुमोदन के बाद कार जोड़ सकते हैं।', color: '#EA580C' },
-              rejected:  { bg: '#FEF2F2', border: '#FECACA', icon: '❌', title: t('rejectedTitle'), msg: 'अधिक जानकारी के लिए सहायता से संपर्क करें।', color: '#DC2626' },
-              suspended: { bg: '#FFF1F2', border: '#FECDD3', icon: '🚫', title: t('accountSuspended'), msg: 'समाधान के लिए सहायता से संपर्क करें।', color: '#BE123C' },
-            }[user?.approvalStatus];
+              pending: { bg: '#FFF7ED', border: '#FED7AA', icon: '⏳', title: t('pendingApprovalTitle'), msg: 'समीक्षाधीन — अनुमोदन के बाद कार जोड़ सकते हैं।', color: '#EA580C' },
+            }[ownerProfile.isApproved === false ? 'pending' : ''];
             if (!m) return null;
             return <div style={{ padding: '12px 14px', background: m.bg, border: `1px solid ${m.border}`, borderRadius: '12px', display: 'flex', gap: '10px', marginBottom: '14px', alignItems: 'flex-start' }}>
               <span style={{ fontSize: '20px' }}>{m.icon}</span>
               <div style={{ flex: 1 }}><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
-              {user?.approvalStatus === 'pending' && <button
-                onClick={() => refreshUser()}
-                style={{ background: '#F97316', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>🔄 Refresh</button>}
+              <button
+                onClick={fetchOwnerProfile}
+                style={{ background: '#F97316', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>🔄 Refresh</button>
             </div>;
           })()}
           {/* Stats */}
@@ -203,12 +195,12 @@ export default function CarOwnerDashboard() {
           </div>
 
           {/* Add Car Button — only shown to approved owners */}
-          {!showAddForm && user?.approvalStatus === 'approved' && (
+          {!showAddForm && ownerProfile?.isApproved && (
             <button className="btn-primary" onClick={() => { setShowAddForm(true); setEditingCar(null); setCarForm(emptyCarForm); }} style={{ width: '100%', padding: '13px', marginBottom: '16px' }}>
               {t('addNewCar')}
             </button>
           )}
-          {!showAddForm && user?.approvalStatus !== 'approved' && (
+          {!showAddForm && !ownerProfile?.isApproved && (
             <div style={{ padding: '14px 16px', background: '#FFF7ED', border: '1px dashed #FED7AA', borderRadius: '12px', textAlign: 'center', marginBottom: '16px', color: '#9A3412', fontSize: '13px' }}>
               ⏳ {t('pendingApprovalText')}
             </div>
@@ -306,21 +298,15 @@ export default function CarOwnerDashboard() {
       {activeTab === 'bookings' && (
         <div style={{ padding: '16px' }}>
           {/* Approval Status inline banner */}
-          {user?.approvalStatus !== 'approved' && (() => {
-            const m = {
-              pending:   { bg: '#FFF7ED', border: '#FED7AA', icon: '⏳', title: t('pendingApprovalTitle'), msg: 'समीक्षाधीन — अनुमोदन के बाद बुकिंग शुरू होगी।', color: '#EA580C' },
-              rejected:  { bg: '#FEF2F2', border: '#FECACA', icon: '❌', title: t('rejectedTitle'), msg: 'अधिक जानकारी के लिए सहायता से संपर्क करें।', color: '#DC2626' },
-              suspended: { bg: '#FFF1F2', border: '#FECDD3', icon: '🚫', title: t('accountSuspended'), msg: 'समाधान के लिए सहायता से संपर्क करें।', color: '#BE123C' },
-            }[user?.approvalStatus];
-            if (!m) return null;
-            return <div style={{ padding: '12px 14px', background: m.bg, border: `1px solid ${m.border}`, borderRadius: '12px', display: 'flex', gap: '10px', marginBottom: '14px', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '20px' }}>{m.icon}</span>
-              <div style={{ flex: 1 }}><div style={{ fontSize: '13px', fontWeight: '700', color: m.color }}>{m.title}</div><div style={{ fontSize: '12px', color: m.color, opacity: 0.8 }}>{m.msg}</div></div>
-              {user?.approvalStatus === 'pending' && <button
-                onClick={() => refreshUser()}
-                style={{ background: '#F97316', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>🔄 Refresh</button>}
-            </div>;
-          })()}
+          {ownerProfile && !ownerProfile.isApproved && (
+            <div style={{ padding: '12px 14px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '12px', display: 'flex', gap: '10px', marginBottom: '14px', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '20px' }}>⏳</span>
+              <div style={{ flex: 1 }}><div style={{ fontSize: '13px', fontWeight: '700', color: '#EA580C' }}>{t('pendingApprovalTitle')}</div><div style={{ fontSize: '12px', color: '#EA580C', opacity: 0.8 }}>समीक्षाधीन — अनुमोदन के बाद बुकिंग शुरू होगी।</div></div>
+              <button
+                onClick={fetchOwnerProfile}
+                style={{ background: '#F97316', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap', flexShrink: 0 }}>🔄 Refresh</button>
+            </div>
+          )}
           {bookings.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748B' }}>
               <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
@@ -402,7 +388,7 @@ export default function CarOwnerDashboard() {
               rejected:  { bg: '#FEF2F2', border: '#FECACA', icon: '❌', title: t('rejectedTitle'), text: t('rejectedText'), color: '#DC2626' },
               suspended: { bg: '#FFF1F2', border: '#FECDD3', icon: '🚫', title: t('accountSuspended'), text: 'आपका खाता निलंबित कर दिया गया है। इसे हल करने के लिए सहायता से संपर्क करें।', color: '#BE123C' },
             };
-            const s = statusMap[user?.approvalStatus] || statusMap.pending;
+            const s = statusMap[ownerProfile?.isApproved ? 'approved' : 'pending'];
             return (
               <div style={{ padding: '14px 16px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: '14px', display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '16px', marginBottom: '4px' }}>
                 <span style={{ fontSize: '26px', flexShrink: 0 }}>{s.icon}</span>
@@ -413,9 +399,9 @@ export default function CarOwnerDashboard() {
                     <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: s.color, fontWeight: '700', marginTop: '6px', display: 'inline-block' }}>💬 {t('contactSupport')}</a>
                   )}
                 </div>
-                {user?.approvalStatus === 'pending' && <button
-                  onClick={() => refreshUser()}
-                  style={{ background: '#F97316', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>🔄 Refresh</button>}
+                  {!ownerProfile?.isApproved && <button
+                    onClick={fetchOwnerProfile}
+                    style={{ background: '#F97316', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}>🔄 Refresh</button>}
               </div>
             );
           })()}

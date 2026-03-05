@@ -60,6 +60,18 @@ router.get('/my', protect, authorize('carowner'), async (req, res) => {
     }
 });
 
+// GET /api/cars/owner-profile - returns the CarOwner document for the logged-in user
+// Used by the dashboard to poll isApproved without relying on potentially stale localStorage
+router.get('/owner-profile', protect, authorize('carowner'), async (req, res) => {
+    try {
+        const owner = await CarOwner.findOne({ userId: req.user._id });
+        if (!owner) return res.status(404).json({ message: 'Car owner profile not found' });
+        res.json(owner);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // POST /api/car - add car
 router.post('/', protect, authorize('carowner'), async (req, res) => {
     try {
