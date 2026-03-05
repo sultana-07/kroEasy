@@ -226,16 +226,16 @@ export default function CarOwnerDashboard() {
                     <input className="input-field" type="number" value={carForm.modelYear} onChange={e => setCarForm({ ...carForm, modelYear: e.target.value })} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>{t('basePrice')}</label>
-                    <input className="input-field" type="number" placeholder="0" value={carForm.basePrice} onChange={e => setCarForm({ ...carForm, basePrice: e.target.value })} />
+                    <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>💰 {t('perKm')} (₹) *</label>
+                    <input className="input-field" type="number" placeholder="e.g. 12" value={carForm.basePrice} onChange={e => setCarForm({ ...carForm, basePrice: e.target.value })} />
                   </div>
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>🪑 Seats / Seating Capacity</label>
+                  <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '5px' }}>🪑 {t('seatingLabel')}</label>
                   <select className="input-field" value={carForm.seats || ''} onChange={e => setCarForm({ ...carForm, seats: e.target.value ? Number(e.target.value) : '' })}>
-                    <option value="">-- Select Seats --</option>
+                    <option value="">{t('selectSeats')}</option>
                     {[4, 5, 6, 7, 8].map(n => (
-                      <option key={n} value={n}>{n} Seater</option>
+                      <option key={n} value={n}>{n} {t('seater')}</option>
                     ))}
                   </select>
                 </div>
@@ -263,20 +263,20 @@ export default function CarOwnerDashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                     <div>
                       <div style={{ fontSize: '16px', fontWeight: '700' }}>🚗 {car.carName}</div>
-                      <div style={{ fontSize: '13px', color: '#64748B' }}>{car.modelYear} • Per KM</div>
+                      <div style={{ fontSize: '13px', color: '#64748B' }}>{car.modelYear} • {t('perKm')}</div>
                       {car.numberPlate && <div style={{ fontSize: '12px', fontWeight: '700', color: '#1E3A8A', background: '#EFF6FF', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', letterSpacing: '1px', marginTop: '3px', border: '1px solid #BFDBFE' }}>🚘 {car.numberPlate}</div>}
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '18px', fontWeight: '800', color: '#1E3A8A' }}>₹{car.basePrice}</div>
-                      <div style={{ fontSize: '11px', color: '#64748B' }}>/km</div>
+                      <div style={{ fontSize: '11px', color: '#64748B' }}>/{t('perKm')}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                    {car.seats ? <span className="badge badge-blue">🪑 {car.seats} Seater</span> : null}
+                    {car.seats ? <span className="badge badge-blue">🪑 {car.seats} {t('seater')}</span> : null}
                     {car.ac && <span className="badge badge-blue">❄️ AC</span>}
                     {car.driverIncluded && <span className="badge badge-green">🧑‍✈️ Driver</span>}
-                    <span className="badge badge-gray">📞 {car.leadCount} leads</span>
-                    <span className="badge badge-gray">📋 {car.bookingCount} bookings</span>
+                    <span className="badge badge-gray">📞 {car.leadCount} {t('leadsLabel')}</span>
+                    <span className="badge badge-gray">📋 {car.bookingCount} {t('bookingsLabel')}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <label className="toggle">
@@ -346,7 +346,7 @@ export default function CarOwnerDashboard() {
                   )}
                   {b.review?.rating && (
                     <div style={{ marginTop: '10px', padding: '10px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#16A34A', marginBottom: '4px' }}>{'⭐'.repeat(b.review.rating)} Customer Review</div>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#16A34A', marginBottom: '4px' }}>{'⭐'.repeat(b.review.rating)} {t('customerReviewLabel')}</div>
                       {b.review.comment && <p style={{ fontSize: '12px', color: '#64748B' }}>{b.review.comment}</p>}
                     </div>
                   )}
@@ -403,7 +403,7 @@ export default function CarOwnerDashboard() {
                   <div style={{ fontSize: '14px', fontWeight: '700', color: s.color }}>{s.title}</div>
                   <div style={{ fontSize: '12px', color: s.color, opacity: 0.8, lineHeight: '1.5', marginTop: '2px' }}>{s.text}</div>
                   {(user?.approvalStatus === 'rejected' || user?.approvalStatus === 'suspended') && (
-                    <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: s.color, fontWeight: '700', marginTop: '6px', display: 'inline-block' }}>💬 Contact Support →</a>
+                    <a href="https://wa.me/918878353787" style={{ fontSize: '12px', color: s.color, fontWeight: '700', marginTop: '6px', display: 'inline-block' }}>💬 {t('contactSupport')}</a>
                   )}
                 </div>
                 {user?.approvalStatus === 'pending' && <button

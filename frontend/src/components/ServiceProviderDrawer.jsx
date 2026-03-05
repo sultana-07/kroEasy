@@ -55,16 +55,16 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
   };
 
   const handleCall = async () => {
-    if (!userId) { toast.error('Please login to call'); navigate('/login'); return; }
+    if (!userId) { toast.error(t('loginToCall')); navigate('/login'); return; }
     try {
       await api.post('/call-log', { userId, targetId: labour._id, targetType: 'labour', phone: user?.phone });
     } catch {}
     window.open(`tel:${user?.phone}`, '_self');
-    toast.success('📞 Connecting...');
+    toast.success(t('connectingCall'));
   };
 
   const handleBook = async () => {
-    if (!userId) { toast.error('Please login to book'); navigate('/login'); return; }
+    if (!userId) { toast.error(t('loginToBook')); navigate('/login'); return; }
     setBooking(true);
     try {
       await api.post('/booking', { providerId: labour._id, providerType: 'labour' });
@@ -74,7 +74,7 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
         state: { fromBooking: true, providerName: user?.name }
       }), 350);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Booking failed');
+      toast.error(err.response?.data?.message || t('bookingFailed'));
     } finally { setBooking(false); }
   };
 
@@ -259,7 +259,7 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
                           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #1E3A8A, #2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '13px', fontWeight: '700' }}>
                             {r.userId?.name?.[0]?.toUpperCase() || 'U'}
                           </div>
-                          <span style={{ fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{r.userId?.name || 'Customer'}</span>
+                          <span style={{ fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{r.userId?.name || t('customerLabel')}</span>
                         </div>
                         <span style={{ fontSize: '11px', color: '#94A3B8' }}>{new Date(r.review.createdAt).toLocaleDateString('en-IN')}</span>
                       </div>

@@ -20,7 +20,6 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [customSkill, setCustomSkill] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
-  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const { login } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -130,46 +129,20 @@ export default function RegisterPage() {
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('passwordReq')}</label>
             <input id="reg-password" className="input-field" type="password" placeholder={t('passwordPlaceholder')} value={form.password} onChange={e => { setForm({ ...form, password: e.target.value }); setError(''); }} />
           </div>
-          <div style={{ position: 'relative' }}>
+          <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('cityReq')}</label>
-            <input
+            <select
               id="reg-city"
               className="input-field"
-              placeholder={t('cityPlaceholder')}
               value={form.city}
-              autoComplete="off"
-              onChange={e => {
-                const val = e.target.value;
-                setForm({ ...form, city: val });
-                setError('');
-                setShowCitySuggestions(val.trim().length > 0);
-              }}
-              onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
-              onFocus={() => { if (form.city.trim().length > 0) setShowCitySuggestions(true); }}
-            />
-            {showCitySuggestions && (() => {
-              const filtered = CITIES.filter(c => c.toLowerCase().includes(form.city.toLowerCase()));
-              if (filtered.length === 0) return null;
-              return (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1.5px solid #E2E8F0', borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100, overflow: 'hidden', marginTop: '4px' }}>
-                  {filtered.map(city => (
-                    <div
-                      key={city}
-                      onMouseDown={() => { setForm(prev => ({ ...prev, city })); setShowCitySuggestions(false); setError(''); }}
-                      style={{ padding: '12px 14px', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #F1F5F9' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'white'}
-                    >
-                      <span style={{ fontSize: '16px' }}>📍</span>
-                      <div>
-                        <div style={{ fontWeight: '600', color: '#0F172A' }}>{city}</div>
-                        <div style={{ fontSize: '11px', color: '#94A3B8' }}>Madhya Pradesh</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
+              onChange={e => { setForm({ ...form, city: e.target.value }); setError(''); }}
+              style={{ appearance: 'auto' }}
+            >
+              <option value="">{t('cityPlaceholder') || '-- शहर चुनें --'}</option>
+              {CITIES.map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
           </div>
 
           {/* Labour-specific fields */}

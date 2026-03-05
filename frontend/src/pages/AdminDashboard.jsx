@@ -123,6 +123,36 @@ export default function AdminDashboard() {
     } catch { toast.error('Failed to update'); }
   };
 
+  const deleteUser = async (id, name) => {
+    if (!window.confirm(`"${name}" को डेटाबेस से हटाएं? यह क्रिया पूर्ववत नहीं हो सकती।`)) return;
+    try {
+      await api.delete(`/admin/delete-user/${id}`);
+      setUsers(users.filter(u => u._id !== id));
+      setUserTotal(prev => prev - 1);
+      toast.success('User permanently deleted');
+    } catch { toast.error('Failed to delete user'); }
+  };
+
+  const deleteLabour = async (id, name) => {
+    if (!window.confirm(`"${name}" को डेटाबेस से हटाएं? उनका यूज़र अकाउंट भी हट जाएगा।`)) return;
+    try {
+      await api.delete(`/admin/delete-labour/${id}`);
+      setLabours(labours.filter(l => l._id !== id));
+      setLabourTotal(prev => prev - 1);
+      toast.success('Provider permanently deleted');
+    } catch { toast.error('Failed to delete provider'); }
+  };
+
+  const deleteCarOwner = async (id, name) => {
+    if (!window.confirm(`"${name}" को डेटाबेस से हटाएं? उनकी सभी कारें और यूज़र अकाउंट भी हट जाएंगे।`)) return;
+    try {
+      await api.delete(`/admin/delete-carowner/${id}`);
+      setCarOwners(carOwners.filter(o => o._id !== id));
+      setCarOwnerTotal(prev => prev - 1);
+      toast.success('Car owner permanently deleted');
+    } catch { toast.error('Failed to delete car owner'); }
+  };
+
   const chartData = stats ? [
     { name: 'Users', value: stats.users, fill: '#1E3A8A' },
     { name: 'Providers', value: stats.labours, fill: '#F97316' },
@@ -229,11 +259,15 @@ export default function AdminDashboard() {
                       </div>
                       <span className={`badge ${l.isApproved ? 'badge-green' : 'badge-orange'}`}>{l.isApproved ? '✅ Approved' : '⏳ Pending'}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button className="btn-success" onClick={() => approveLabour(l._id, true)}
                         style={{ opacity: l.isApproved ? 1 : 0.5, fontWeight: l.isApproved ? '800' : '400' }}>✅ Approve</button>
                       <button className="btn-danger" onClick={() => approveLabour(l._id, false)}
                         style={{ opacity: !l.isApproved ? 1 : 0.5, fontWeight: !l.isApproved ? '800' : '400' }}>❌ Reject</button>
+                      <button
+                        onClick={() => deleteLabour(l._id, l.userId?.name)}
+                        style={{ padding: '6px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', background: '#FEF2F2', color: '#DC2626' }}
+                      >Delete</button>
                     </div>
                   </div>
                 ))}
@@ -309,11 +343,15 @@ export default function AdminDashboard() {
                       </div>
                       <span className={`badge ${o.isApproved ? 'badge-green' : 'badge-orange'}`}>{o.isApproved ? '✅ Approved' : '⏳ Pending'}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button className="btn-success" onClick={() => approveCarOwner(o._id, true)}
                         style={{ opacity: o.isApproved ? 1 : 0.5, fontWeight: o.isApproved ? '800' : '400' }}>✅ Approve</button>
                       <button className="btn-danger" onClick={() => approveCarOwner(o._id, false)}
                         style={{ opacity: !o.isApproved ? 1 : 0.5, fontWeight: !o.isApproved ? '800' : '400' }}>❌ Reject</button>
+                      <button
+                        onClick={() => deleteCarOwner(o._id, o.userId?.name)}
+                        style={{ padding: '6px 10px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', background: '#FEF2F2', color: '#DC2626' }}
+                      >Delete</button>
                     </div>
                   </div>
                 ))}
@@ -375,10 +413,16 @@ export default function AdminDashboard() {
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                       <span className={`badge ${u.isSuspended ? 'badge-red' : 'badge-green'}`}>{u.isSuspended ? '⛔ Suspended' : '✅ Active'}</span>
                       {u.role !== 'admin' && (
-                        <button
-                          onClick={() => suspendUser(u._id, !u.isSuspended)}
-                          style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: u.isSuspended ? '#F0FDF4' : '#FEF2F2', color: u.isSuspended ? '#16A34A' : '#DC2626', fontWeight: '600' }}
-                        >{u.isSuspended ? 'Unsuspend' : 'Suspend'}</button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => suspendUser(u._id, !u.isSuspended)}
+                            style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: u.isSuspended ? '#F0FDF4' : '#FEF2F2', color: u.isSuspended ? '#16A34A' : '#DC2626', fontWeight: '600' }}
+                          >{u.isSuspended ? 'Unsuspend' : 'Suspend'}</button>
+                          <button
+                            onClick={() => deleteUser(u._id, u.name)}
+                            style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#FEF2F2', color: '#DC2626', fontWeight: '700' }}
+                          >Delete</button>
+                        </div>
                       )}
                     </div>
                   </div>

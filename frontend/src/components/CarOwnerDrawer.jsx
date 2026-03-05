@@ -54,16 +54,16 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
   };
 
   const handleCall = async () => {
-    if (!userId) { toast.error('Please login to call'); navigate('/login'); return; }
+    if (!userId) { toast.error(t('loginToCall')); navigate('/login'); return; }
     try {
       await api.post('/call-log', { userId, targetId: car._id, targetType: 'car', phone: owner?.phone });
     } catch {}
     window.open(`tel:${owner?.phone}`, '_self');
-    toast.success('📞 Connecting...');
+    toast.success(t('connectingCall'));
   };
 
   const handleBook = async () => {
-    if (!userId) { toast.error('Please login to book'); navigate('/login'); return; }
+    if (!userId) { toast.error(t('loginToBook')); navigate('/login'); return; }
     setBooking(true);
     try {
       await api.post('/booking', { providerId: car.ownerId?._id, providerType: 'car', carId: car._id });
@@ -73,7 +73,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
         state: { fromBooking: true, providerName: car.carName }
       }), 350);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Booking failed');
+      toast.error(err.response?.data?.message || t('bookingFailed'));
     } finally { setBooking(false); }
   };
 
@@ -136,7 +136,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
           {/* Availability badge */}
           <div style={{ marginBottom: '18px' }}>
             <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: '20px', background: car.availability ? 'rgba(22,163,74,0.8)' : 'rgba(239,68,68,0.8)', fontSize: '12px', fontWeight: '700' }}>
-              {car.availability ? t('availableNow') : '❌ Not Available'}
+              {car.availability ? t('availableNow') : `❌ ${t('notAvailableText')}`}
             </span>
           </div>
 
@@ -193,7 +193,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '22px', marginBottom: '2px' }}>💬</div>
               <div style={{ fontSize: '22px', fontWeight: '800', color: '#16A34A' }}>{reviews.length}</div>
-              <div style={{ fontSize: '11px', color: '#64748B' }}>Reviews</div>
+              <div style={{ fontSize: '11px', color: '#64748B' }}>{t('reviews')}</div>
             </div>
           </div>
         </div>
@@ -203,7 +203,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
 
           {/* OWNER PROFILE CARD */}
           <div className="card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '16px', color: '#0F172A' }}>👤 Owner Details</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '16px', color: '#0F172A' }}>👤 {t('ownerDetails')}</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               {/* Profile photo */}
               <div
@@ -228,15 +228,15 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
                   {owner?.name || 'Car Owner'}
                 </div>
                 <div style={{ fontSize: '13px', color: '#64748B', marginBottom: '6px' }}>
-                  🏙️ {car.city || owner?.city || 'Location not set'}
+                  🏙️ {car.city || owner?.city || t('locationNotSet')}
                 </div>
-                <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', background: '#EFF6FF', color: '#1E3A8A', fontSize: '11px', fontWeight: '700' }}>🚗 Verified Car Owner</span>
+                <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', background: '#EFF6FF', color: '#1E3A8A', fontSize: '11px', fontWeight: '700' }}>🚗 {t('verifiedCarOwner')}</span>
               </div>
             </div>
 
             {owner?.avatar && (
               <p style={{ marginTop: '10px', fontSize: '11px', color: '#94A3B8', textAlign: 'center' }}>
-                Tap photo to view full size
+                {t('tapPhotoToView')}
               </p>
             )}
 
@@ -257,11 +257,11 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
 
           {/* CAR FEATURES */}
           <div className="card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '14px', color: '#0F172A' }}>🔍 Car Features</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '14px', color: '#0F172A' }}>🔍 {t('carFeatures')}</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {[
-                { icon: '🧑‍✈️', label: 'With Driver', ok: true },
-                ...(car.seats ? [{ icon: '🪑', label: `${car.seats} Seater`, ok: true }] : []),
+                { icon: '🧑‍✈️', label: t('withDriver'), ok: true },
+                ...(car.seats ? [{ icon: '🪑', label: `${car.seats} ${t('seater')}`, ok: true }] : []),
               ].map((f, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
@@ -278,11 +278,11 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
             {/* Spec table */}
             <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {[
-                { label: '📅 Model Year', value: car.modelYear },
-                { label: '💵 Base Price', value: `₹${car.basePrice} / km` },
-                ...(car.numberPlate ? [{ label: '🔢 Number Plate', value: car.numberPlate }] : []),
-                ...(car.seats ? [{ label: '🪑 Seating', value: `${car.seats} Seater` }] : []),
-                { label: '🏙️ City', value: car.city || owner?.city || '—' },
+                { label: t('modelYearLabel'), value: car.modelYear },
+                { label: t('basePriceLabel'), value: `₹${car.basePrice} / ${t('perKm')}` },
+                ...(car.numberPlate ? [{ label: t('numberPlateLabel'), value: car.numberPlate }] : []),
+                ...(car.seats ? [{ label: t('seatingLabel'), value: `${car.seats} ${t('seater')}` }] : []),
+                { label: t('cityLabel'), value: car.city || owner?.city || '—' },
               ].map(({ label, value }) => (
                 <div key={label} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -319,7 +319,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
                           <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #0F172A, #1E3A8A)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '13px', fontWeight: '700' }}>
                             {r.userId?.name?.[0]?.toUpperCase() || 'U'}
                           </div>
-                          <span style={{ fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{r.userId?.name || 'Customer'}</span>
+                          <span style={{ fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{r.userId?.name || t('customerLabel')}</span>
                         </div>
                         <span style={{ fontSize: '11px', color: '#94A3B8' }}>{new Date(r.review.createdAt).toLocaleDateString('en-IN')}</span>
                       </div>
@@ -366,7 +366,7 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
               style={{ maxWidth: '88vw', maxHeight: '74vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 8px 48px rgba(0,0,0,0.6)', border: '3px solid rgba(255,255,255,0.15)' }}
             />
             <div style={{ marginTop: '12px', color: 'white', fontSize: '14px', fontWeight: '600' }}>{owner.name}</div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>🚗 Car Owner</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>🚗 {t('carOwnerLabel')}</div>
           </div>
         </div>
       )}

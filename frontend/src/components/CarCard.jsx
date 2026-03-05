@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import CarOwnerDrawer from './CarOwnerDrawer';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function CarCard({ car, userId }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { t } = useLanguage();
   const owner = car.ownerId?.userId;
 
   return (
@@ -20,21 +22,21 @@ export default function CarCard({ car, userId }) {
           <div>
             <div style={{ fontSize: '17px', fontWeight: '700', color: '#0F172A' }}>🚗 {car.carName}</div>
             <div style={{ fontSize: '13px', color: '#64748B' }}>
-              {car.modelYear} • {owner?.name || 'Owner'} • 🏙️ {car.city || owner?.city}
+              {car.modelYear} • {owner?.name || t('ownerDetails')} • 🏙️ {car.city || owner?.city}
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#1E3A8A' }}>₹{car.basePrice}</div>
-            <div style={{ fontSize: '11px', color: '#64748B' }}>per km</div>
+            <div style={{ fontSize: '11px', color: '#64748B' }}>{t('perKm')}</div>
           </div>
         </div>
 
         {/* Badges */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
-          {car.seats ? <span className="badge badge-blue">🪑 {car.seats} Seater</span> : null}
-          <span className="badge badge-green">🧑‍✈️ With Driver</span>
+          {car.seats ? <span className="badge badge-blue">🪑 {car.seats} {t('seater')}</span> : null}
+          <span className="badge badge-green">🧑‍✈️ {t('withDriver')}</span>
           <span className={`badge ${car.availability ? 'badge-green' : 'badge-red'}`}>
-            {car.availability ? '✅ Available' : '❌ Unavailable'}
+            {car.availability ? `✅ ${t('availableText')}` : `❌ ${t('unavailableText')}`}
           </span>
           {car.numberPlate && (
             <span style={{
@@ -58,12 +60,12 @@ export default function CarCard({ car, userId }) {
                 <span key={i} style={{ fontSize: '13px', color: i <= Math.round(car.rating || 0) ? '#F59E0B' : '#D1D5DB' }}>★</span>
               ))}
               <span style={{ fontSize: '12px', color: '#64748B', marginLeft: '3px' }}>
-                {car.reviewCount > 0 ? `${(car.rating || 0).toFixed(1)} (${car.reviewCount})` : <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>New</span>}
+                {car.reviewCount > 0 ? `${(car.rating || 0).toFixed(1)} (${car.reviewCount})` : <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>{t('newLabel')}</span>}
               </span>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '12px', color: '#94A3B8' }}>View details</span>
+            <span style={{ fontSize: '12px', color: '#94A3B8' }}>{t('viewDetails')}</span>
             <span style={{ fontSize: '18px', color: '#2563EB' }}>›</span>
           </div>
         </div>

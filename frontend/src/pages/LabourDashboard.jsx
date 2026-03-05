@@ -24,10 +24,22 @@ export default function LabourDashboard() {
 
   useEffect(() => { fetchProfile(); fetchBookings(); }, []);
 
-  // Auto-refresh profile every 30s while still pending, so worker sees approval without reloading
+  // Auto-refresh profile every 30 s while pending so worker sees approval without re-login
   useEffect(() => {
     if (!profile || profile.isApproved) return;
-    const interval = setInterval(fetchProfile, 30000);
+    const poll = async () => {
+      try {
+        // Update Labour profile
+        const { data: labourData } = await api.get('/labours/my');
+        setProfile(labourData);
+        // Also sync AuthContext user from /auth/me so the banner and role checks update
+        const { data: meData } = await api.get('/auth/me');
+        const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+        localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, approvalStatus: meData.approvalStatus }));
+        refreshUser();
+      } catch {}
+    };
+    const interval = setInterval(poll, 30000);
     return () => clearInterval(interval);
   }, [profile?.isApproved]);
 
@@ -128,16 +140,26 @@ export default function LabourDashboard() {
         ))}
       </div>
 
-      {/* Approval Banner */}
+      {/* Approval Banner — shown while not yet approved */}
       {profile && !profile.isApproved && (
         <div style={{ margin: '16px', padding: '14px 16px', background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '20px' }}>⏳</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '14px', fontWeight: '700', color: '#EA580C' }}>{t('pendingApprovalTitle')}</div>
             <div style={{ fontSize: '12px', color: '#9A3412' }}>{t('pendingApprovalText')}</div>
+            <div style={{ fontSize: '11px', color: '#B45309', marginTop: '3px' }}>स्वचालित रूप से अपडेट होगा — लॉगआउट की जरूरत नहीं</div>
           </div>
           <button
-            onClick={fetchProfile}
+            onClick={async () => {
+              try {
+                const { data: labourData } = await api.get('/labours/my');
+                setProfile(labourData);
+                const { data: meData } = await api.get('/auth/me');
+                const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+                localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, approvalStatus: meData.approvalStatus }));
+                refreshUser();
+              } catch {}
+            }}
             style={{ background: '#F97316', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap' }}
           >🔄 Refresh</button>
         </div>

@@ -298,4 +298,43 @@ router.get('/password-resets', protect, authorize('admin'), async (req, res) => 
     }
 });
 
+// DELETE /api/admin/delete-user/:id — permanently remove a regular user
+router.delete('/delete-user/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// DELETE /api/admin/delete-labour/:id — remove a service provider + their User account
+router.delete('/delete-labour/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const labour = await Labour.findById(req.params.id);
+        if (!labour) return res.status(404).json({ message: 'Provider not found' });
+        // Delete the linked User account too
+        await User.findByIdAndDelete(labour.userId);
+        await Labour.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Provider and user account deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// DELETE /api/admin/delete-carowner/:id — remove a car owner + their cars + their User account
+router.delete('/delete-carowner/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const owner = await CarOwner.findById(req.params.id);
+        if (!owner) return res.status(404).json({ message: 'Car owner not found' });
+        // Also delete all cars belonging to this owner
+        await Car.deleteMany({ ownerId: req.params.id });
+        await User.findByIdAndDelete(owner.userId);
+        await CarOwner.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Car owner, their cars, and user account deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 module.exports = router;

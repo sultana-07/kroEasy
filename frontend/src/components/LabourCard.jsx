@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import ServiceProviderDrawer from './ServiceProviderDrawer';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function LabourCard({ labour, userId }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { t } = useLanguage();
   const user = labour.userId;
   const rating = labour.rating || 0;
 
@@ -32,7 +34,7 @@ export default function LabourCard({ labour, userId }) {
                 <div style={{ fontSize: '12px', color: '#64748B' }}>🏙️ {user?.city || labour.city}</div>
               </div>
               <span className={`badge ${labour.availability ? 'badge-green' : 'badge-gray'}`}>
-                {labour.availability ? '✅ Available' : '⏸️ Busy'}
+                {labour.availability ? t('availableNow') : t('currentlyBusy')}
               </span>
             </div>
           </div>
@@ -46,14 +48,14 @@ export default function LabourCard({ labour, userId }) {
 
         {/* Info row */}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px', fontSize: '13px', color: '#374151' }}>
-          <span>💼 {labour.experience || 0} yrs exp</span>
+          <span>💼 {labour.experience || 0} {t('years')} {t('experience').replace('💼 ', '')}</span>
           {rating > 0 && <span>⭐ {rating}/5 ({labour.reviewCount || 0})</span>}
-          <span>✅ {labour.bookingCount || 0} completed</span>
+          <span>✅ {labour.bookingCount || 0} {t('bookingsCompleted')}</span>
         </div>
 
         {/* Tap hint */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '12px', color: '#94A3B8' }}>Tap to view full profile & reviews</span>
+          <span style={{ fontSize: '12px', color: '#94A3B8' }}>{t('viewDetails')}</span>
           <span style={{ fontSize: '18px', color: '#2563EB' }}>›</span>
         </div>
       </div>
