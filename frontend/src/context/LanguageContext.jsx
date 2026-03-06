@@ -63,6 +63,8 @@ const translations = {
     updating: 'Updating...',
     passwordChanged: 'Password changed!',
     profileUpdated: 'Profile updated!',
+    editPersonalInfo: '✏️ Edit Name / City',
+    selectCity: '-- Select City --',
 
     // Login
     welcomeBack: 'Welcome Back!',
@@ -407,6 +409,8 @@ const translations = {
     updating: 'अपडेट हो रहा है...',
     passwordChanged: 'पासवर्ड बदल गया!',
     profileUpdated: 'प्रोफ़ाइल अपडेट हो गई!',
+    editPersonalInfo: '✏️ नाम / शहर बदलें',
+    selectCity: '-- शहर चुनें --',
 
     // Login
     welcomeBack: 'वापस स्वागत है!',

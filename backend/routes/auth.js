@@ -97,7 +97,7 @@ router.post('/login', async (req, res) => {
 // GET /api/auth/me — poll for fresh user data including approvalStatus (called by dashboards)
 router.get('/me', protect, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('-password -resetPasswordToken -resetPasswordExpiry');
+        const user = await User.findById(req.user._id).select('-password -resetPasswordToken -resetPasswordExpiry');
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         let approvalStatus = null;
@@ -198,7 +198,7 @@ router.put('/profile', protect, async (req, res) => {
         if (city !== undefined) updates.city = city.trim();
 
         const user = await User.findByIdAndUpdate(
-            req.user.id,
+            req.user._id,
             updates,
             { new: true }
         ).select('-password -resetPasswordToken -resetPasswordExpiry');

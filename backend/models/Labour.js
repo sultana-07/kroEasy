@@ -15,6 +15,7 @@ const labourSchema = new mongoose.Schema({
     bookingCount: { type: Number, default: 0 },
     leadCount: { type: Number, default: 0 },
     isApproved: { type: Boolean, default: false, index: true },
+    profileViews: [{ date: { type: Date, required: true } }],
 }, { timestamps: true });
 
 // Compound index for the most common public listing query: approved labours by city

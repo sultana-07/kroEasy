@@ -72,6 +72,41 @@ router.get('/owner-profile', protect, authorize('carowner'), async (req, res) =>
     }
 });
 
+// PATCH /api/cars/owner-profile - update CarOwner city
+router.patch('/owner-profile', protect, authorize('carowner'), async (req, res) => {
+    try {
+        const { city } = req.body;
+        const owner = await CarOwner.findOneAndUpdate(
+            { userId: req.user._id },
+            { city: city?.trim() || '' },
+            { new: true }
+        );
+        if (!owner) return res.status(404).json({ message: 'Car owner profile not found' });
+        res.json(owner);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET /api/cars/owner-stats - profile view stats for the logged-in car owner
+router.get('/owner-stats', protect, authorize('carowner'), async (req, res) => {
+    try {
+        const owner = await CarOwner.findOne({ userId: req.user._id }).select('profileViews');
+        if (!owner) return res.status(404).json({ message: 'Car owner profile not found' });
+
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const todayViews = owner.profileViews.filter(v => new Date(v.date) >= todayStart).length;
+        const monthlyViews = owner.profileViews.filter(v => new Date(v.date) >= monthStart).length;
+
+        res.json({ todayViews, monthlyViews });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // POST /api/car - add car
 router.post('/', protect, authorize('carowner'), async (req, res) => {
     try {
@@ -119,6 +154,12 @@ router.get('/:id/reviews', async (req, res) => {
                 .limit(limit),
             Booking.countDocuments(filter),
         ]);
+        // Record a view on the car owner's profile (fire-and-forget)
+        Car.findById(req.params.id).select('ownerId').then(car => {
+            if (car?.ownerId) {
+                CarOwner.findByIdAndUpdate(car.ownerId, { $push: { profileViews: { date: new Date() } } }).catch(() => { });
+            }
+        }).catch(() => { });
         res.json({ data: reviews, total, page, pages: Math.ceil(total / limit) });
     } catch (error) {
         res.status(500).json({ message: error.message });

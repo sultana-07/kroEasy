@@ -4,12 +4,13 @@ import { useLanguage } from '../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
+import CITIES from '../utils/cities';
 
 const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#16A34A', cancelled: '#EF4444' };
 
 export default function LabourDashboard() {
   const { user, logout, refreshUser } = useAuth();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -19,10 +20,41 @@ export default function LabourDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
+  const [viewStats, setViewStats] = useState({ todayViews: 0, monthlyViews: 0 });
+  const [editNameOpen, setEditNameOpen] = useState(false);
+  const [editNameForm, setEditNameForm] = useState({ name: '', city: '' });
+  const [editNameLoading, setEditNameLoading] = useState(false);
 
   const skillOptions = ['Electrician', 'Plumber', 'Carpenter', 'Mason', 'Beautician', 'AC Technician', 'Mehndi Artist', 'Helper'];
 
-  useEffect(() => { fetchProfile(); fetchBookings(); }, []);
+  useEffect(() => { fetchProfile(); fetchBookings(); fetchViewStats(); }, []);
+
+  const fetchViewStats = async () => {
+    try {
+      const { data } = await api.get('/labours/my/stats');
+      setViewStats(data);
+    } catch {}
+  };
+
+  const saveEditName = async () => {
+    if (!editNameForm.name.trim()) { toast.error(t('name') + ' खाली नहीं हो सकता'); return; }
+    setEditNameLoading(true);
+    try {
+      const { data } = await api.put('/auth/profile', { name: editNameForm.name.trim(), city: editNameForm.city });
+      const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+      localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, name: data.name, city: data.city }));
+      refreshUser();
+      // Also update Labour.city so worker appears in correct city search results
+      if (profile?._id && editNameForm.city) {
+        await api.patch(`/labour/${profile._id}`, { city: editNameForm.city });
+        setProfile(prev => prev ? ({ ...prev, city: editNameForm.city, userId: { ...prev.userId, city: editNameForm.city } }) : prev);
+      }
+      setEditNameOpen(false);
+      toast.success(t('profileUpdated') + ' ✅');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'अपडेट विफल');
+    } finally { setEditNameLoading(false); }
+  };
 
   // Auto-refresh profile every 30 s while pending so worker sees approval without re-login
   useEffect(() => {
@@ -174,6 +206,8 @@ export default function LabourDashboard() {
               { label: t('totalLeads'), value: profile?.leadCount || 0, icon: '📞', color: '#F97316' },
               { label: t('rating'), value: `${profile?.rating || 0}/5`, icon: '⭐', color: '#F59E0B' },
               { label: t('reviews'), value: profile?.reviewCount || 0, icon: '💬', color: '#16A34A' },
+              { label: 'आज के व्यूज', value: viewStats.todayViews, icon: '👁️', color: '#8B5CF6' },
+              { label: 'माहवारी व्यूज', value: viewStats.monthlyViews, icon: '📊', color: '#0891B2' },
             ].map((stat, i) => (
               <div key={i} className="stat-card">
                 <div style={{ fontSize: '28px', marginBottom: '6px' }}>{stat.icon}</div>
@@ -263,7 +297,54 @@ export default function LabourDashboard() {
                 <div>⭐ {t('rating')}: <strong>{profile?.rating || 0}/5</strong> ({profile?.reviewCount || 0} {t('reviews')})</div>
                 {profile?.description && <div style={{ marginTop: '8px', color: '#64748B' }}>{profile.description}</div>}
               </div>
-              <button className="btn-primary" onClick={() => setEditing(true)} style={{ width: '100%', marginTop: '16px', padding: '12px' }}>{t('editProfileBtn')}</button>
+              {/* Edit Personal Info Section */}
+              <div style={{ marginTop: '16px', borderTop: '1px solid #E2E8F0', paddingTop: '14px' }}>
+                <button
+                  onClick={() => { setEditNameOpen(!editNameOpen); setEditNameForm({ name: user?.name || '', city: profile?.userId?.city || user?.city || '' }); }}
+                  style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>✏️</span>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{t('editPersonalInfo')}</span>
+                  </div>
+                  <span style={{ fontSize: '18px', color: '#94A3B8', transform: editNameOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>›</span>
+                </button>
+                {editNameOpen && (
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('name')}</label>
+                      <input
+                        className="input-field"
+                        value={editNameForm.name}
+                        onChange={e => setEditNameForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="अपना नाम"
+                        style={{ padding: '10px 12px', fontSize: '14px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('city')}</label>
+                      <select
+                        className="input-field"
+                        value={editNameForm.city}
+                        onChange={e => setEditNameForm(f => ({ ...f, city: e.target.value }))}
+                        style={{ padding: '10px 12px', fontSize: '14px' }}
+                      >
+                        <option value="">{t('selectCity')}</option>
+                        {CITIES.map(c => (
+                          <option key={c.en} value={c.en}>{lang === 'hi' ? c.hi : c.en}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => setEditNameOpen(false)} className="btn-outline" style={{ flex: 1, padding: '10px', fontSize: '13px' }}>{t('cancel')}</button>
+                      <button onClick={saveEditName} className="btn-primary" disabled={editNameLoading} style={{ flex: 1, padding: '10px', fontSize: '13px', opacity: editNameLoading ? 0.7 : 1 }}>
+                        {editNameLoading ? t('updating') : t('saveBtn')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button className="btn-primary" onClick={() => setEditing(true)} style={{ width: '100%', marginTop: '12px', padding: '12px' }}>{t('editProfileBtn')}</button>
             </div>
           ) : (
             <div className="card" style={{ padding: '20px' }}>

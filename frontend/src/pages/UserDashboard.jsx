@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import BottomNav from '../components/BottomNav';
 import LabourCard from '../components/LabourCard';
 import CarCard from '../components/CarCard';
+import CITIES from '../utils/cities';
 
 const STATUS_COLORS = {
   pending: '#F97316',
@@ -16,11 +17,7 @@ const STATUS_COLORS = {
   cancelled: '#EF4444',
 };
 
-// City suggestions — English value (sent to API) + Hindi label
-const CITIES = [
-  { en: 'Nowrozabad', hi: 'नौरोजाबाद' },
-  { en: 'Birshingpur Pali', hi: 'बिरसिंहपुर पाली' },
-];
+
 
 function ReviewModal({ booking, onClose, onSubmit }) {
   const [rating, setRating] = useState(0);
@@ -228,7 +225,17 @@ function ProfileTab({ user, onLogout, onTabChange, refreshUser }) {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('city')}</label>
-              <input className="input-field" value={editForm.city} onChange={e => setEditForm({ ...editForm, city: e.target.value })} placeholder="Enter your city" style={{ padding: '10px 12px', fontSize: '14px' }} />
+              <select
+                className="input-field"
+                value={editForm.city}
+                onChange={e => setEditForm({ ...editForm, city: e.target.value })}
+                style={{ padding: '10px 12px', fontSize: '14px' }}
+              >
+                <option value="">{t('selectCity')}</option>
+                {CITIES.map(c => (
+                  <option key={c.en} value={c.en}>{lang === 'hi' ? c.hi : c.en}</option>
+                ))}
+              </select>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setEditOpen(false)} className="btn-outline" style={{ flex: 1, padding: '10px', fontSize: '13px' }}>{t('cancel')}</button>

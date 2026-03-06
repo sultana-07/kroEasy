@@ -63,11 +63,32 @@ router.get('/my', protect, authorize('labour'), async (req, res) => {
     }
 });
 
+// GET /api/labours/my/stats - get profile view stats for the logged-in labour
+router.get('/my/stats', protect, authorize('labour'), async (req, res) => {
+    try {
+        const labour = await Labour.findOne({ userId: req.user._id }).select('profileViews');
+        if (!labour) return res.status(404).json({ message: 'Profile not found' });
+
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const todayViews = labour.profileViews.filter(v => new Date(v.date) >= todayStart).length;
+        const monthlyViews = labour.profileViews.filter(v => new Date(v.date) >= monthStart).length;
+
+        res.json({ todayViews, monthlyViews });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // GET /api/labour/:id - get public labour profile by id
 router.get('/:id', async (req, res) => {
     try {
         const labour = await Labour.findById(req.params.id).populate('userId', 'name phone city');
         if (!labour) return res.status(404).json({ message: 'Labour not found' });
+        // Record this profile view (fire-and-forget)
+        Labour.findByIdAndUpdate(req.params.id, { $push: { profileViews: { date: new Date() } } }).catch(() => { });
         res.json(labour);
     } catch (error) {
         res.status(500).json({ message: error.message });

@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Allow: /services
+Allow: /register
+Allow: /login
+Allow: /terms
+Allow: /privacy
+Allow: /support
+
+# Block dashboard/private pages from indexing
+Disallow: /admin
+Disallow: /labour-dashboard
+Disallow: /carowner-dashboard
+Disallow: /dashboard
+Disallow: /booking-success
+Disallow: /reset-password/
+
+# Sitemap location
+Sitemap: https://kroeasy.com/sitemap.xml

@@ -17,9 +17,9 @@ export default defineConfig({
       includeAssets: ['pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         id: '/',               // Required for Chrome's install eligibility check
-        name: 'KroEasy',
+        name: 'KroEasy – Nowrozabad & Birshingpur Pali Services',
         short_name: 'KroEasy',
-        description: 'KroEasy – Apne Shehar Ki Har Service',
+        description: 'KroEasy – Nowrozabad aur Birshingpur Pali mein Electrician, Plumber, Beautician, AC Technician, Car Booking. Apne shehar ki har service ek app mein.',
         theme_color: '#F97316',
         background_color: '#0F172A',
         display: 'standalone',

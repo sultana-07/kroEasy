@@ -165,12 +165,12 @@ export default function LandingPage() {
           {/* Main CTAs */}
           <div style={{ display:'flex',flexDirection:'column',gap:'10px',maxWidth:'300px',margin:'0 auto 16px' }}>
             <Link to="/services" style={{ textDecoration:'none' }}>
-              <button className="shimmer-btn" style={{ width:'100%',padding:'16px',fontSize:'17px',fontWeight:'800',border:'none',borderRadius:'14px',color:'white',cursor:'pointer',boxShadow:'0 6px 24px rgba(249,115,22,.45)' }}>
+              <button className="shimmer-btn" aria-label="Book electrician, plumber, beautician, AC technician in Nowrozabad" style={{ width:'100%',padding:'16px',fontSize:'17px',fontWeight:'800',border:'none',borderRadius:'14px',color:'white',cursor:'pointer',boxShadow:'0 6px 24px rgba(249,115,22,.45)' }}>
                 {t('heroCta1')}
               </button>
             </Link>
             <Link to="/services?tab=cars" style={{ textDecoration:'none' }}>
-              <button style={{ width:'100%',padding:'14px',fontSize:'15px',fontWeight:'700',background:'rgba(255,255,255,.1)',backdropFilter:'blur(10px)',border:'1.5px solid rgba(255,255,255,.25)',borderRadius:'12px',color:'white',cursor:'pointer' }}>
+              <button aria-label="Book car taxi in Nowrozabad and Birshingpur Pali" style={{ width:'100%',padding:'14px',fontSize:'15px',fontWeight:'700',background:'rgba(255,255,255,.1)',backdropFilter:'blur(10px)',border:'1.5px solid rgba(255,255,255,.25)',borderRadius:'12px',color:'white',cursor:'pointer' }}>
                 {t('heroCta2')}
               </button>
             </Link>
@@ -386,6 +386,24 @@ export default function LandingPage() {
         </div>
         <div style={{ borderTop:'1px solid rgba(255,255,255,.1)',paddingTop:'16px',textAlign:'center' }}>
           <p style={{ fontSize:'12px',opacity:.5 }}>{t('footerCopyright')}</p>
+        </div>
+
+        {/* ── SEO keyword block – visible to Google, subtle for users ─── */}
+        <div style={{ marginTop:'16px', paddingTop:'14px', borderTop:'1px solid rgba(255,255,255,.06)', fontSize:'10px', color:'rgba(255,255,255,.28)', lineHeight:'1.9', textAlign:'center' }}>
+          <p style={{ margin:'0 0 4px' }}>
+            <strong style={{ color:'rgba(255,255,255,.35)' }}>Nowrozabad Services:</strong>{' '}
+            Electrician Nowrozabad · Plumber Nowrozabad · Beautician Nowrozabad · AC Technician Nowrozabad ·
+            Carpenter Nowrozabad · Mason Nowrozabad · Mehndi Artist Nowrozabad · Car Booking Nowrozabad
+          </p>
+          <p style={{ margin:'0 0 4px' }}>
+            <strong style={{ color:'rgba(255,255,255,.35)' }}>Birshingpur Pali Services:</strong>{' '}
+            Electrician Birshingpur Pali · Plumber Birshingpur Pali · Beautician Birshingpur Pali ·
+            AC Repair Birshingpur Pali · Car Rental Birshingpur Pali · Labour Service Birshingpur Pali
+          </p>
+          <p style={{ margin:0 }}>
+            बिजलीवाला नौरोजाबाद · प्लंबर नौरोजाबाद · ब्यूटीशियन नौरोजाबाद · एसी टेक्नीशियन नौरोजाबाद ·
+            कारपेंटर नौरोजाबाद · कार बुकिंग नौरोजाबाद · मेसन नौरोजाबाद · मेहंदी आर्टिस्ट नौरोजाबाद
+          </p>
         </div>
       </div>
     </div>

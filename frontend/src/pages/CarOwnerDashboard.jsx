@@ -5,13 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { cache } from '../utils/apiCache';
 import toast from 'react-hot-toast';
+import CITIES from '../utils/cities';
 
 const emptyCarForm = { carName: '', numberPlate: '', modelYear: new Date().getFullYear(), basePrice: '', seats: '' };
 const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#16A34A', cancelled: '#EF4444' };
 
 export default function CarOwnerDashboard() {
-  const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  const { user, logout, refreshUser } = useAuth();
+  const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,12 +25,42 @@ export default function CarOwnerDashboard() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileImgOpen, setProfileImgOpen] = useState(false);
   const fileRef = useRef();
+  const [viewStats, setViewStats] = useState({ todayViews: 0, monthlyViews: 0 });
+  const [editNameOpen, setEditNameOpen] = useState(false);
+  const [editNameForm, setEditNameForm] = useState({ name: '', city: '' });
+  const [editNameLoading, setEditNameLoading] = useState(false);
 
   useEffect(() => {
     fetchCars();
     fetchBookings();
     fetchOwnerProfile();
+    fetchViewStats();
   }, []);
+
+  const fetchViewStats = async () => {
+    try {
+      const { data } = await api.get('/cars/owner-stats');
+      setViewStats(data);
+    } catch {}
+  };
+
+  const saveEditName = async () => {
+    if (!editNameForm.name.trim()) { toast.error(t('name') + ' खाली नहीं हो सकता'); return; }
+    setEditNameLoading(true);
+    try {
+      const { data } = await api.put('/auth/profile', { name: editNameForm.name.trim(), city: editNameForm.city });
+      const stored = JSON.parse(localStorage.getItem('kroeasy_user') || '{}');
+      localStorage.setItem('kroeasy_user', JSON.stringify({ ...stored, name: data.name, city: data.city }));
+      refreshUser();
+      if (editNameForm.city) {
+        await api.patch('/cars/owner-profile', { city: editNameForm.city });
+      }
+      setEditNameOpen(false);
+      toast.success(t('profileUpdated') + ' ✅');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'अपडेट विफल');
+    } finally { setEditNameLoading(false); }
+  };
 
   // Fetch the CarOwner document — this is the source of truth for isApproved.
   // (Admin approval sets CarOwner.isApproved, never User.approvalStatus.)
@@ -180,11 +211,13 @@ export default function CarOwnerDashboard() {
             </div>;
           })()}
           {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
             {[
               { label: t('totalCars'), value: cars.length, icon: '🚗' },
               { label: t('totalLeads'), value: cars.reduce((a, c) => a + (c.leadCount || 0), 0), icon: '📞' },
               { label: t('myBookings'), value: cars.reduce((a, c) => a + (c.bookingCount || 0), 0), icon: '📋' },
+              { label: 'आज के व्यूज', value: viewStats.todayViews, icon: '👁️' },
+              { label: 'माहवारी व्यूज', value: viewStats.monthlyViews, icon: '📊' },
             ].map((s, i) => (
               <div key={i} className="stat-card" style={{ padding: '14px 10px' }}>
                 <div style={{ fontSize: '22px', marginBottom: '4px' }}>{s.icon}</div>
@@ -379,6 +412,54 @@ export default function CarOwnerDashboard() {
             <p style={{ color: '#64748B', fontSize: '14px' }}>📱 {user?.phone}</p>
             <p style={{ color: '#64748B', fontSize: '14px' }}>🏙️ {user?.city}</p>
             <span className="badge badge-orange" style={{ marginTop: '8px' }}>{t('carOwnerBadge')}</span>
+          </div>
+
+          {/* Edit Profile Section */}
+          <div className="card" style={{ padding: '16px', marginTop: '12px' }}>
+            <button
+              onClick={() => { setEditNameOpen(!editNameOpen); setEditNameForm({ name: user?.name || '', city: ownerProfile?.city || user?.city || '' }); }}
+              style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '20px' }}>✏️</span>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{t('editPersonalInfo')}</span>
+              </div>
+              <span style={{ fontSize: '18px', color: '#94A3B8', transform: editNameOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>›</span>
+            </button>
+            {editNameOpen && (
+              <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('name')}</label>
+                  <input
+                    className="input-field"
+                    value={editNameForm.name}
+                    onChange={e => setEditNameForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="अपना नाम"
+                    style={{ padding: '10px 12px', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('city')}</label>
+                  <select
+                    className="input-field"
+                    value={editNameForm.city}
+                    onChange={e => setEditNameForm(f => ({ ...f, city: e.target.value }))}
+                    style={{ padding: '10px 12px', fontSize: '14px' }}
+                  >
+                    <option value="">{t('selectCity')}</option>
+                    {CITIES.map(c => (
+                      <option key={c.en} value={c.en}>{lang === 'hi' ? c.hi : c.en}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setEditNameOpen(false)} className="btn-outline" style={{ flex: 1, padding: '10px', fontSize: '13px' }}>{t('cancel')}</button>
+                  <button onClick={saveEditName} className="btn-primary" disabled={editNameLoading} style={{ flex: 1, padding: '10px', fontSize: '13px', opacity: editNameLoading ? 0.7 : 1 }}>
+                    {editNameLoading ? t('updating') : t('saveBtn')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           {/* Approval Status Card */}
           {(() => {

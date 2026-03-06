@@ -5,7 +5,8 @@ import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
 import toast from 'react-hot-toast';
 
-const CITIES = ['Nowrozabad', 'Birshingpur Pali'];
+import CITIES from '../utils/cities';
+
 
 const skillOptions = [
   'Electrician', 'Plumber', 'Carpenter', 'Mason',
@@ -21,7 +22,7 @@ export default function RegisterPage() {
   const [customSkill, setCustomSkill] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const { login } = useAuth();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const navigate = useNavigate();
 
   const roles = [
@@ -138,9 +139,9 @@ export default function RegisterPage() {
               onChange={e => { setForm({ ...form, city: e.target.value }); setError(''); }}
               style={{ appearance: 'auto' }}
             >
-              <option value="">{t('cityPlaceholder') || '-- शहर चुनें --'}</option>
-              {CITIES.map(city => (
-                <option key={city} value={city}>{city}</option>
+              <option value="">{t('selectCity')}</option>
+              {CITIES.map(c => (
+                <option key={c.en} value={c.en}>{lang === 'hi' ? c.hi : c.en}</option>
               ))}
             </select>
           </div>
