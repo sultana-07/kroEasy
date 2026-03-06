@@ -12,7 +12,7 @@ const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#1
 
 export default function CarOwnerDashboard() {
   const { user, logout, refreshUser } = useAuth();
-  const { t, lang } = useLanguage();
+  const { t, lang, switchLang } = useLanguage();
   const navigate = useNavigate();
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -216,8 +216,8 @@ export default function CarOwnerDashboard() {
               { label: t('totalCars'), value: cars.length, icon: '🚗' },
               { label: t('totalLeads'), value: cars.reduce((a, c) => a + (c.leadCount || 0), 0), icon: '📞' },
               { label: t('myBookings'), value: cars.reduce((a, c) => a + (c.bookingCount || 0), 0), icon: '📋' },
-              { label: 'आज के व्यूज', value: viewStats.todayViews, icon: '👁️' },
-              { label: 'माहवारी व्यूज', value: viewStats.monthlyViews, icon: '📊' },
+              { label: t('todayViews'), value: viewStats.todayViews, icon: '👁️' },
+              { label: t('monthlyViews'), value: viewStats.monthlyViews, icon: '📊' },
             ].map((s, i) => (
               <div key={i} className="stat-card" style={{ padding: '14px 10px' }}>
                 <div style={{ fontSize: '22px', marginBottom: '4px' }}>{s.icon}</div>
@@ -489,6 +489,20 @@ export default function CarOwnerDashboard() {
           <button onClick={() => { logout(); navigate('/'); }} className="btn-danger" style={{ width: '100%', padding: '14px', fontSize: '15px', justifyContent: 'center', marginTop: '16px' }}>
             🚪 {t('logout')}
           </button>
+
+          {/* Language toggle */}
+          <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>🌐</span>
+              <span style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{t('changeLanguage')}</span>
+            </div>
+            <button
+              onClick={() => switchLang(lang === 'en' ? 'hi' : 'en')}
+              style={{ padding: '6px 16px', background: '#F97316', color: 'white', border: 'none', borderRadius: '20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              {lang === 'en' ? '🇮🇳 हिंदी' : '🇬🇧 English'}
+            </button>
+          </div>
         </div>
       )}
 

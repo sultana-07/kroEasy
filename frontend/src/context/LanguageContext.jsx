@@ -317,6 +317,8 @@ const translations = {
     submitReview: '✅ Submit Review',
     submittingReview: '⏳ Submitting...',
     loginFailed: 'Login Failed',
+    todayViews: "Today's Views",
+    monthlyViews: 'Monthly Views',
     locationLabel: 'Nowrozabad & Birshingpur Pali',
     // Car card / drawer strings
     seater: 'Seater',
@@ -662,6 +664,8 @@ const translations = {
     submitReview: '✅ समीक्षा सबमिट करें',
     submittingReview: '⏳ सबमिट हो रहा है...',
     loginFailed: '\u0932\u0949\u0917\u093f\u0928 \u0935\u093f\u092b\u0932',
+    todayViews: '\u0906\u091c \u0915\u0947 \u0935\u094d\u092f\u0942\u091c',
+    monthlyViews: '\u092e\u093e\u0939\u0935\u093e\u0930\u0940 \u0935\u094d\u092f\u0942\u091c',
     locationLabel: '\u0928\u094c\u0930\u094b\u091c\u093e\u092c\u093e\u0926 \u090f\u0935\u0902 \u092c\u093f\u0930\u0938\u093f\u0902\u0939\u092a\u0941\u0930 \u092a\u093e\u0932\u0940',
     // Car card / drawer strings
     seater: '\u0938\u0940\u091f\u0930',

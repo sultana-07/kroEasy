@@ -25,6 +25,8 @@ export default function CarOwnerDrawer({ car, userId, onClose }) {
     fetchReviews();
     checkExistingBooking();
     document.body.style.overflow = 'hidden';
+    // Increment view count for this car listing
+    api.post(`/car/${car._id}/view`).catch(() => {});
     return () => { document.body.style.overflow = ''; };
   }, []);
 

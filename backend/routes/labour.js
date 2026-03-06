@@ -154,4 +154,14 @@ router.post('/:id/upload-image', protect, authorize('labour'), upload.single('im
     }
 });
 
+// POST /api/labour/:id/view - record a profile view (called when drawer opens)
+router.post('/:id/view', async (req, res) => {
+    try {
+        await Labour.findByIdAndUpdate(req.params.id, { $push: { profileViews: { date: new Date() } } });
+        res.json({ ok: true });
+    } catch {
+        res.status(500).json({ ok: false });
+    }
+});
+
 module.exports = router;

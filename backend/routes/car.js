@@ -179,4 +179,17 @@ router.delete('/:id', protect, authorize('carowner'), async (req, res) => {
     }
 });
 
+// POST /api/car/:id/view - record a view when the car drawer opens
+router.post('/:id/view', async (req, res) => {
+    try {
+        const car = await Car.findById(req.params.id).select('ownerId').lean();
+        if (car?.ownerId) {
+            await CarOwner.findByIdAndUpdate(car.ownerId, { $push: { profileViews: { date: new Date() } } });
+        }
+        res.json({ ok: true });
+    } catch {
+        res.status(500).json({ ok: false });
+    }
+});
+
 module.exports = router;

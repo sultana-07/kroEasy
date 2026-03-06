@@ -10,7 +10,7 @@ const STATUS_COLORS = { pending: '#F97316', confirmed: '#3B82F6', completed: '#1
 
 export default function LabourDashboard() {
   const { user, logout, refreshUser } = useAuth();
-  const { t, lang } = useLanguage();
+  const { t, lang, switchLang } = useLanguage();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -206,8 +206,8 @@ export default function LabourDashboard() {
               { label: t('totalLeads'), value: profile?.leadCount || 0, icon: '📞', color: '#F97316' },
               { label: t('rating'), value: `${profile?.rating || 0}/5`, icon: '⭐', color: '#F59E0B' },
               { label: t('reviews'), value: profile?.reviewCount || 0, icon: '💬', color: '#16A34A' },
-              { label: 'आज के व्यूज', value: viewStats.todayViews, icon: '👁️', color: '#8B5CF6' },
-              { label: 'माहवारी व्यूज', value: viewStats.monthlyViews, icon: '📊', color: '#0891B2' },
+              { label: t('todayViews'), value: viewStats.todayViews, icon: '👁️', color: '#8B5CF6' },
+              { label: t('monthlyViews'), value: viewStats.monthlyViews, icon: '📊', color: '#0891B2' },
             ].map((stat, i) => (
               <div key={i} className="stat-card">
                 <div style={{ fontSize: '28px', marginBottom: '6px' }}>{stat.icon}</div>
@@ -345,6 +345,20 @@ export default function LabourDashboard() {
                 )}
               </div>
               <button className="btn-primary" onClick={() => setEditing(true)} style={{ width: '100%', marginTop: '12px', padding: '12px' }}>{t('editProfileBtn')}</button>
+
+              {/* Language toggle */}
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderTop: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>🌐</span>
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{t('changeLanguage')}</span>
+                </div>
+                <button
+                  onClick={() => switchLang(lang === 'en' ? 'hi' : 'en')}
+                  style={{ padding: '6px 16px', background: '#1E3A8A', color: 'white', border: 'none', borderRadius: '20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  {lang === 'en' ? '🇮🇳 हिंदी' : '🇬🇧 English'}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="card" style={{ padding: '20px' }}>

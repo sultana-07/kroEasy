@@ -26,6 +26,8 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
     fetchReviews();
     checkExistingBooking();
     document.body.style.overflow = 'hidden';
+    // Increment view count for this labour profile
+    api.post(`/labour/${labour._id}/view`).catch(() => {});
     return () => { document.body.style.overflow = ''; };
   }, []);
 
