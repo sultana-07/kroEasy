@@ -74,9 +74,14 @@ export default function RegisterPage() {
 
   return (
     <div className="page-container" style={{ paddingBottom: '32px' }}>
-      <div className="app-header">
-        <Link to="/" style={{ textDecoration: 'none', color: 'white' }}>
-          <div style={{ fontSize: '20px', fontWeight: '800' }}>⚡ KroEasy</div>
+      {/* Header — light theme */}
+      <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Link to="/" style={{ textDecoration: 'none' }}>
+          <div style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.5px' }}>⚡ KroEasy</div>
+          <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '500' }}>{t('registerTitle')}</div>
+        </Link>
+        <Link to="/login" style={{ textDecoration: 'none', padding: '7px 14px', background: '#EEF2FF', border: '1.5px solid #C7D2FE', color: '#4338CA', borderRadius: '10px', fontSize: '12px', fontWeight: '700' }}>
+          {t('loginBtn') || 'Login'}
         </Link>
       </div>
 

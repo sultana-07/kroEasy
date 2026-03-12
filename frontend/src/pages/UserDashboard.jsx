@@ -330,6 +330,12 @@ export default function UserDashboard() {
       setActiveTab(location.state.openTab);
       window.history.replaceState({}, '');
     }
+    // Also handle navigation from landing page profile tab
+    const storedTab = sessionStorage.getItem('openTab');
+    if (storedTab) {
+      setActiveTab(storedTab);
+      sessionStorage.removeItem('openTab');
+    }
   }, [location.state]);
 
   useEffect(() => {
@@ -465,11 +471,11 @@ export default function UserDashboard() {
     }
   };
 
+  // Top tabs — Profile is in the bottom nav, not here
   const TABS = [
     { key: 'services', label: t('services') },
     { key: 'cars', label: t('cars') },
     { key: 'bookings', label: t('myBookings') },
-    { key: 'profile', label: t('profile') },
   ];
 
   const handleTabChange = (tab, statusFilter) => {
@@ -481,42 +487,42 @@ export default function UserDashboard() {
 
   return (
     <div className="page-container" style={{ paddingBottom: '80px' }}>
-      {/* Header */}
+      {/* Header — light premium theme */}
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: '18px', fontWeight: '800' }}>{t('appName')}</div>
-          <div style={{ fontSize: '12px', opacity: 0.8 }}>{user ? `${t('hello')}, ${user.name} 👋` : t('browseServices')}</div>
+          <div style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.5px' }}>{t('appName')}</div>
+          <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '500' }}>{user ? `${t('hello')}, ${user.name} 👋` : t('browseServices')}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {/* Language toggle in header */}
+          {/* Language toggle */}
           <button
             onClick={() => switchLang(lang === 'en' ? 'hi' : 'en')}
-            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+            style={{ width: '33px', height: '33px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9', border: '1.5px solid #E2E8F0', color: '#374151', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: '700' }}
           >
-            {lang === 'en' ? '🇮🇳 HI' : '🌐 EN'}
+            {lang === 'en' ? '🇮🇳' : 'EN'}
           </button>
           {user ? (
-            <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>{t('logout')}</button>
+            <button onClick={handleLogout} style={{ padding: '7px 14px', background: '#FEE2E2', border: '1.5px solid #FECACA', color: '#DC2626', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}>{t('logout')}</button>
           ) : (
             <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={() => navigate('/login')} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>{t('login')}</button>
-              <button onClick={() => navigate('/register')} style={{ background: '#F97316', border: 'none', color: 'white', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>{t('register')}</button>
+              <button onClick={() => navigate('/login')} style={{ padding: '7px 14px', background: '#EEF2FF', border: '1.5px solid #C7D2FE', color: '#4338CA', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: '700' }}>{t('login')}</button>
+              <button onClick={() => navigate('/register')} style={{ padding: '7px 14px', background: 'linear-gradient(135deg,#F97316,#EF4444)', border: 'none', color: 'white', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', boxShadow: '0 2px 8px rgba(249,115,22,.3)' }}>{t('register')}</button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: '64px', zIndex: 30, overflowX: 'auto' }}>
+      {/* Top Tab Navigation — Services / Cars / My Bookings only */}
+      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: '57px', zIndex: 30, overflowX: 'auto' }}>
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              flex: 1, padding: '14px 8px', border: 'none', background: 'none', cursor: 'pointer',
+              flex: 1, padding: '13px 8px', border: 'none', background: 'none', cursor: 'pointer',
               fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap',
-              color: activeTab === tab.key ? '#1E3A8A' : '#64748B',
-              borderBottom: activeTab === tab.key ? '3px solid #1E3A8A' : '3px solid transparent',
+              color: activeTab === tab.key ? '#4F46E5' : '#64748B',
+              borderBottom: activeTab === tab.key ? '3px solid #4F46E5' : '3px solid transparent',
               transition: 'all 0.2s',
             }}
           >{tab.label}</button>
@@ -805,12 +811,24 @@ export default function UserDashboard() {
         </div>
       )}
 
-      {/* Profile Tab */}
+      {/* Profile Tab — rendered when bottom nav Profile is tapped */}
       {activeTab === 'profile' && (
-        <ProfileTab user={user} onLogout={handleLogout} onTabChange={handleTabChange} refreshUser={refreshUser} />
+        user
+          ? <ProfileTab user={user} onLogout={handleLogout} onTabChange={handleTabChange} refreshUser={refreshUser} />
+          : (
+            <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: '60px', marginBottom: '16px' }}>🔒</div>
+              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A', marginBottom: '8px' }}>{t('login')} / {t('register')}</h2>
+              <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '24px', lineHeight: '1.6' }}>Please log in to view your profile and bookings.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '260px', margin: '0 auto' }}>
+                <button onClick={() => navigate('/login')} style={{ padding: '14px', background: 'linear-gradient(135deg,#4F46E5,#6366F1)', border: 'none', borderRadius: '14px', color: 'white', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 14px rgba(79,70,229,.3)' }}>{t('login')}</button>
+                <button onClick={() => navigate('/register')} style={{ padding: '14px', background: 'linear-gradient(135deg,#F97316,#EF4444)', border: 'none', borderRadius: '14px', color: 'white', fontSize: '15px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 14px rgba(249,115,22,.3)' }}>{t('register')}</button>
+              </div>
+            </div>
+          )
       )}
 
-      <BottomNav active={activeTab} onChange={setActiveTab} role="user" />
+      <BottomNav activeTab={activeTab} onTabClick={handleTabChange} />
 
       {/* Review Modal */}
       {reviewTarget && (

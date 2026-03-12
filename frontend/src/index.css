@@ -304,15 +304,16 @@ body {
   position: relative;
 }
 
-/* Header */
+/* Header — light premium theme */
 .app-header {
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: white;
-  padding: 16px 20px;
+  background: white;
+  color: #0F172A;
+  padding: 14px 20px;
   position: sticky;
   top: 0;
   z-index: 40;
-  box-shadow: 0 2px 12px rgba(30, 58, 138, 0.3);
+  box-shadow: 0 1px 0 #E2E8F0, 0 2px 12px rgba(0,0,0,.06);
+  border-bottom: 1px solid #F1F5F9;
 }
 
 /* Stats card */

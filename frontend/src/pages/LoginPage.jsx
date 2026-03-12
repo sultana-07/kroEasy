@@ -54,10 +54,10 @@ export default function LoginPage() {
 
   return (
     <div className="page-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
+      {/* Header — light theme */}
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link to="/" style={{ textDecoration: 'none', color: 'white' }}>
-          <div style={{ fontSize: '20px', fontWeight: '800' }}>{t('appName')}</div>
+        <Link to="/" style={{ textDecoration: 'none' }}>
+          <div style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.5px' }}> {t('appName')}</div>
         </Link>
         {/* Language toggle */}
         <div style={{ display: 'flex', gap: '4px' }}>
@@ -66,10 +66,11 @@ export default function LoginPage() {
               key={l}
               onClick={() => switchLang(l)}
               style={{
-                padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
-                border: 'none', cursor: 'pointer',
-                background: lang === l ? 'white' : 'rgba(255,255,255,0.2)',
-                color: lang === l ? '#1E3A8A' : 'white',
+                padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
+                border: '1.5px solid', cursor: 'pointer',
+                background: lang === l ? '#4F46E5' : 'white',
+                borderColor: lang === l ? '#4F46E5' : '#E2E8F0',
+                color: lang === l ? 'white' : '#374151',
               }}
             >
               {l === 'en' ? '🌐 EN' : '🇮🇳 HI'}

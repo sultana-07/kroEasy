@@ -6,6 +6,7 @@ const translations = {
     // General
     appName: '⚡ KroEasy',
     hello: 'Hello',
+    home: 'Home',
     browseServices: 'Browse Services',
     logout: 'Logout',
     login: 'Login',
@@ -347,12 +348,16 @@ const translations = {
     loginToCall: 'Please login to call',
     loginToBook: 'Please login to book',
     bookingFailed: 'Booking failed',
+    loginToViewProfile: 'Login / Register',
+    loginToViewProfileSub: 'Please log in to view your profile and bookings.',
+    noServiceProvidersYet: 'No service providers registered yet',
   },
 
   hi: {
     // General
     appName: '⚡ KroEasy',
     hello: 'नमस्ते',
+    home: 'होम',
     browseServices: 'सेवाएं देखें',
     logout: 'लॉगआउट',
     login: 'लॉगिन',
