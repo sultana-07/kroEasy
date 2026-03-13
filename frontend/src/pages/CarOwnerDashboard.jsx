@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import { cache } from "../utils/apiCache";
 import toast from "react-hot-toast";
@@ -25,6 +25,7 @@ export default function CarOwnerDashboard() {
   const { user, logout, refreshUser } = useAuth();
   const { t, lang, switchLang } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const [cars, setCars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -43,6 +44,20 @@ export default function CarOwnerDashboard() {
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [editNameForm, setEditNameForm] = useState({ name: "", city: "" });
   const [editNameLoading, setEditNameLoading] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState('');
+
+  // Open the correct tab when navigated from BottomNav with { state: { openTab } }
+  useEffect(() => {
+    const tab = location.state?.openTab;
+    if (tab) {
+      setActiveTab(tab);
+      // Clear the state so back-navigation or refresh doesn't re-apply it
+      window.history.replaceState({}, '');
+    }
+  }, []);
 
   useEffect(() => {
     fetchCars();
@@ -50,6 +65,26 @@ export default function CarOwnerDashboard() {
     fetchOwnerProfile();
     fetchViewStats();
   }, []);
+
+  const handlePasswordChange = async () => {
+    setPwError('');
+    if (!pwForm.oldPassword) { setPwError('Please enter your current password'); return; }
+    if (!pwForm.newPassword) { setPwError('Please enter a new password'); return; }
+    if (!pwForm.confirm) { setPwError('Please confirm your new password'); return; }
+    if (pwForm.newPassword.length < 6) { setPwError('New password must be at least 6 characters'); return; }
+    if (pwForm.newPassword !== pwForm.confirm) { setPwError('New passwords do not match'); return; }
+    if (pwForm.oldPassword === pwForm.newPassword) { setPwError('New password must be different from current password'); return; }
+    setPwLoading(true);
+    try {
+      await api.put('/auth/change-password', { oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword });
+      toast.success('✅ Password changed successfully!');
+      setPwOpen(false);
+      setPwForm({ oldPassword: '', newPassword: '', confirm: '' });
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to change password. Please try again.';
+      setPwError(msg);
+    } finally { setPwLoading(false); }
+  };
 
   const fetchViewStats = async () => {
     try {
@@ -947,474 +982,168 @@ export default function CarOwnerDashboard() {
 
       {/* Profile Tab */}
       {activeTab === "profile" && (
-        <div style={{ padding: "24px 16px" }}>
-          <div
-            className="card"
-            style={{ padding: "24px", textAlign: "center" }}
-          >
-            <div
-              style={{
-                position: "relative",
-                display: "inline-block",
-                marginBottom: "12px",
-              }}
-            >
+        <div style={{ padding: "24px 16px", paddingBottom: "100px" }}>
+          {/* 1. Avatar / Info Card */}
+          <div className="card" style={{ padding: "24px", textAlign: "center", marginBottom: "16px" }}>
+            <div style={{ position: "relative", display: "inline-block", marginBottom: "12px" }}>
               {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt="Profile"
-                  onClick={() => setProfileImgOpen(true)}
-                  style={{
-                    width: "80px",
-                    height: "80px",
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    border: "3px solid #E2E8F0",
-                    cursor: "pointer",
-                  }}
-                />
+                <img src={user.avatar} alt="Profile" onClick={() => setProfileImgOpen(true)}
+                  style={{ width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover", border: "3px solid #E2E8F0", cursor: "pointer" }} />
               ) : (
-                <div
-                  style={{
-                    width: "80px",
-                    height: "80px",
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #F97316, #FB923C)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "32px",
-                    color: "white",
-                    fontWeight: "700",
-                  }}
-                >
+                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "linear-gradient(135deg, #F97316, #FB923C)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px", color: "white", fontWeight: "700" }}>
                   {user?.name?.[0]?.toUpperCase()}
                 </div>
               )}
-              <button
-                onClick={() => fileRef.current?.click()}
-                style={{
-                  position: "absolute",
-                  bottom: "0",
-                  right: "-4px",
-                  background: "#F97316",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: "26px",
-                  height: "26px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-              >
+              <button onClick={() => fileRef.current?.click()}
+                style={{ position: "absolute", bottom: "0", right: "-4px", background: "#F97316", border: "none", borderRadius: "50%", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "12px" }}>
                 📷
               </button>
             </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={handleAvatarUpload}
-            />
-            {avatarUploading && (
-              <p
-                style={{
-                  fontSize: "12px",
-                  color: "#F97316",
-                  marginBottom: "8px",
-                }}
-              >
-                ⏳ {t("uploading")}
-              </p>
-            )}
-            {user?.avatar && (
-              <p
-                style={{
-                  fontSize: "11px",
-                  color: "#94A3B8",
-                  marginBottom: "6px",
-                }}
-              >
-                {t("tapPhotoToView")}
-              </p>
-            )}
-            <h2
-              style={{
-                fontSize: "20px",
-                fontWeight: "700",
-                marginBottom: "4px",
-              }}
-            >
-              {user?.name}
-            </h2>
-            <p style={{ color: "#64748B", fontSize: "14px" }}>
-              📱 {user?.phone}
-            </p>
-            <p style={{ color: "#64748B", fontSize: "14px" }}>
-              🏙️ {user?.city}
-            </p>
-            <span className="badge badge-orange" style={{ marginTop: "8px" }}>
-              {t("carOwnerBadge")}
-            </span>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
+            {avatarUploading && <p style={{ fontSize: "12px", color: "#F97316", marginBottom: "8px" }}>⏳ {t("uploading")}</p>}
+            {user?.avatar && <p style={{ fontSize: "11px", color: "#94A3B8", marginBottom: "6px" }}>{t("tapPhotoToView")}</p>}
+            <h2 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "4px" }}>{user?.name}</h2>
+            <p style={{ color: "#64748B", fontSize: "14px" }}>📱 {user?.phone}</p>
+            <p style={{ color: "#64748B", fontSize: "14px" }}>🏙️ {user?.city}</p>
+            <span className="badge badge-orange" style={{ marginTop: "8px" }}>{t("carOwnerBadge")}</span>
           </div>
 
-          {/* Edit Profile Section */}
-          <div className="card" style={{ padding: "16px", marginTop: "12px" }}>
-            <button
-              onClick={() => {
-                setEditNameOpen(!editNameOpen);
-                setEditNameForm({
-                  name: user?.name || "",
-                  city: ownerProfile?.city || user?.city || "",
-                });
-              }}
-              style={{
-                width: "100%",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <span style={{ fontSize: "20px" }}></span>
-                <span
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: "700",
-                    color: "#0F172A",
-                  }}
-                >
-                  {t("editPersonalInfo")}
-                </span>
-              </div>
-              <span
-                style={{
-                  fontSize: "18px",
-                  color: "#94A3B8",
-                  transform: editNameOpen ? "rotate(90deg)" : "none",
-                  transition: "transform 0.2s",
-                }}
-              >
-                ›
-              </span>
-            </button>
-            {editNameOpen && (
-              <div
-                style={{
-                  marginTop: "14px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      color: "#374151",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    {t("name")}
-                  </label>
-                  <input
-                    className="input-field"
-                    value={editNameForm.name}
-                    onChange={(e) =>
-                      setEditNameForm((f) => ({ ...f, name: e.target.value }))
-                    }
-                    placeholder="अपना नाम"
-                    style={{ padding: "10px 12px", fontSize: "14px" }}
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      color: "#374151",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    {t("city")}
-                  </label>
-                  <select
-                    className="input-field"
-                    value={editNameForm.city}
-                    onChange={(e) =>
-                      setEditNameForm((f) => ({ ...f, city: e.target.value }))
-                    }
-                    style={{ padding: "10px 12px", fontSize: "14px" }}
-                  >
-                    <option value="">{t("selectCity")}</option>
-                    {CITIES.map((c) => (
-                      <option key={c.en} value={c.en}>
-                        {lang === "hi" ? c.hi : c.en}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    onClick={() => setEditNameOpen(false)}
-                    className="btn-outline"
-                    style={{ flex: 1, padding: "10px", fontSize: "13px" }}
-                  >
-                    {t("cancel")}
-                  </button>
-                  <button
-                    onClick={saveEditName}
-                    className="btn-primary"
-                    disabled={editNameLoading}
-                    style={{
-                      flex: 1,
-                      padding: "10px",
-                      fontSize: "13px",
-                      opacity: editNameLoading ? 0.7 : 1,
-                    }}
-                  >
-                    {editNameLoading ? t("updating") : t("saveBtn")}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          {/* Approval Status Card */}
+          {/* 2. Approval Status — shown prominently at top */}
           {(() => {
             const statusMap = {
-              pending: {
-                bg: "#FFF7ED",
-                border: "#FED7AA",
-                icon: "⏳",
-                title: t("pendingApprovalTitle"),
-                text: t("pendingApprovalText"),
-                color: "#EA580C",
-              },
-              approved: {
-                bg: "#F0FDF4",
-                border: "#BBF7D0",
-                icon: "✅",
-                title: t("approvedTitle"),
-                text: t("approvedText"),
-                color: "#16A34A",
-              },
-              rejected: {
-                bg: "#FEF2F2",
-                border: "#FECACA",
-                icon: "❌",
-                title: t("rejectedTitle"),
-                text: t("rejectedText"),
-                color: "#DC2626",
-              },
-              suspended: {
-                bg: "#FFF1F2",
-                border: "#FECDD3",
-                icon: "🚫",
-                title: t("accountSuspended"),
-                text: "आपका खाता निलंबित कर दिया गया है। इसे हल करने के लिए सहायता से संपर्क करें।",
-                color: "#BE123C",
-              },
+              pending: { bg: "#FFF7ED", border: "#FED7AA", icon: "⏳", title: t("pendingApprovalTitle"), text: t("pendingApprovalText"), color: "#EA580C" },
+              approved: { bg: "#F0FDF4", border: "#BBF7D0", icon: "✅", title: t("approvedTitle"), text: t("approvedText"), color: "#16A34A" },
+              rejected: { bg: "#FEF2F2", border: "#FECACA", icon: "❌", title: t("rejectedTitle"), text: t("rejectedText"), color: "#DC2626" },
+              suspended: { bg: "#FFF1F2", border: "#FECDD3", icon: "🚫", title: t("accountSuspended"), text: "आपका खाता निलंबित कर दिया गया है। इसे हल करने के लिए सहायता से संपर्क करें।", color: "#BE123C" },
             };
-            const s =
-              statusMap[ownerProfile?.isApproved ? "approved" : "pending"];
+            const s = statusMap[ownerProfile?.isApproved ? "approved" : "pending"];
             return (
-              <div
-                style={{
-                  padding: "14px 16px",
-                  background: s.bg,
-                  border: `1px solid ${s.border}`,
-                  borderRadius: "14px",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "12px",
-                  marginTop: "16px",
-                  marginBottom: "4px",
-                }}
-              >
-                <span style={{ fontSize: "26px", flexShrink: 0 }}>
-                  {s.icon}
-                </span>
+              <div style={{ padding: "14px 16px", background: s.bg, border: `1px solid ${s.border}`, borderRadius: "14px", display: "flex", alignItems: "flex-start", gap: "12px", marginBottom: "12px" }}>
+                <span style={{ fontSize: "26px", flexShrink: 0 }}>{s.icon}</span>
                 <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: "700",
-                      color: s.color,
-                    }}
-                  >
-                    {s.title}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      color: s.color,
-                      opacity: 0.8,
-                      lineHeight: "1.5",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {s.text}
-                  </div>
-                  {(user?.approvalStatus === "rejected" ||
-                    user?.approvalStatus === "suspended") && (
-                    <a
-                      href="https://wa.me/918878353787"
-                      style={{
-                        fontSize: "12px",
-                        color: s.color,
-                        fontWeight: "700",
-                        marginTop: "6px",
-                        display: "inline-block",
-                      }}
-                    >
-                      💬 {t("contactSupport")}
-                    </a>
+                  <div style={{ fontSize: "14px", fontWeight: "700", color: s.color }}>{s.title}</div>
+                  <div style={{ fontSize: "12px", color: s.color, opacity: 0.8, lineHeight: "1.5", marginTop: "2px" }}>{s.text}</div>
+                  {(user?.approvalStatus === "rejected" || user?.approvalStatus === "suspended") && (
+                    <a href="https://wa.me/918878353787" style={{ fontSize: "12px", color: s.color, fontWeight: "700", marginTop: "6px", display: "inline-block" }}>💬 {t("contactSupport")}</a>
                   )}
                 </div>
                 {!ownerProfile?.isApproved && (
-                  <button
-                    onClick={fetchOwnerProfile}
-                    style={{
-                      background: "#F97316",
-                      border: "none",
-                      color: "white",
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                      fontWeight: "700",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <button onClick={fetchOwnerProfile}
+                    style={{ background: "#F97316", border: "none", color: "white", padding: "6px 12px", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: "700", whiteSpace: "nowrap" }}>
                     🔄 Refresh
                   </button>
                 )}
               </div>
             );
           })()}
-          <button
-            onClick={() => {
-              logout();
-              navigate("/");
-            }}
-            className="btn-danger"
-            style={{
-              width: "100%",
-              padding: "14px",
-              fontSize: "15px",
-              justifyContent: "center",
-              marginTop: "16px",
-            }}
-          >
+
+          {/* 3. Language Selector — EN/HI two-button style matching customer */}
+          <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: "14px", fontWeight: "700", color: "#0F172A" }}>🌐 {t("language")}</div>
+                <div style={{ fontSize: "12px", color: "#64748B", marginTop: "2px" }}>{lang === "en" ? "English" : "हिंदी"}</div>
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {["en", "hi"].map((l) => (
+                  <button key={l} onClick={() => switchLang(l)}
+                    style={{ padding: "7px 16px", borderRadius: "20px", fontSize: "13px", fontWeight: "700", border: "2px solid", cursor: "pointer", borderColor: lang === l ? "#F97316" : "#E2E8F0", background: lang === l ? "#F97316" : "white", color: lang === l ? "white" : "#64748B", transition: "all 0.15s" }}>
+                    {l === "en" ? "🌐 EN" : "🇮🇳 HI"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Edit Name / City */}
+          <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
+            <button onClick={() => { setEditNameOpen(!editNameOpen); setEditNameForm({ name: user?.name || "", city: ownerProfile?.city || user?.city || "" }); }}
+              style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "20px" }}>✏️</span>
+                <span style={{ fontSize: "14px", fontWeight: "700", color: "#0F172A" }}>{t("editPersonalInfo")}</span>
+              </div>
+              <span style={{ fontSize: "18px", color: "#94A3B8", transform: editNameOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>›</span>
+            </button>
+            {editNameOpen && (
+              <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#374151", marginBottom: "5px" }}>{t("name")}</label>
+                  <input className="input-field" value={editNameForm.name} onChange={(e) => setEditNameForm((f) => ({ ...f, name: e.target.value }))} placeholder="अपना नाम" style={{ padding: "10px 12px", fontSize: "14px" }} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#374151", marginBottom: "5px" }}>{t("city")}</label>
+                  <select className="input-field" value={editNameForm.city} onChange={(e) => setEditNameForm((f) => ({ ...f, city: e.target.value }))} style={{ padding: "10px 12px", fontSize: "14px" }}>
+                    <option value="">{t("selectCity")}</option>
+                    {CITIES.map((c) => (<option key={c.en} value={c.en}>{lang === "hi" ? c.hi : c.en}</option>))}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={() => setEditNameOpen(false)} className="btn-outline" style={{ flex: 1, padding: "10px", fontSize: "13px" }}>{t("cancel")}</button>
+                  <button onClick={saveEditName} className="btn-primary" disabled={editNameLoading} style={{ flex: 1, padding: "10px", fontSize: "13px", opacity: editNameLoading ? 0.7 : 1 }}>
+                    {editNameLoading ? t("updating") : t("saveBtn")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 5. Change Password */}
+          <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
+            <button onClick={() => { setPwOpen(!pwOpen); setPwForm({ oldPassword: "", newPassword: "", confirm: "" }); setPwError(""); }}
+              style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "20px" }}>🔒</span>
+                <span style={{ fontSize: "14px", fontWeight: "700", color: "#0F172A" }}>{t("changePassword")}</span>
+              </div>
+              <span style={{ fontSize: "18px", color: "#94A3B8", transform: pwOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>›</span>
+            </button>
+            {pwOpen && (
+              <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+                {[
+                  { key: "oldPassword", label: t("currentPassword"), ph: "Enter current password" },
+                  { key: "newPassword", label: t("newPassword"), ph: "Min 6 characters" },
+                  { key: "confirm", label: t("confirmNewPassword"), ph: "Re-enter new password" },
+                ].map(({ key, label, ph }) => (
+                  <div key={key}>
+                    <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#374151", marginBottom: "5px" }}>{label}</label>
+                    <input className="input-field" type="password" placeholder={ph}
+                      value={pwForm[key]} onChange={(e) => { setPwForm({ ...pwForm, [key]: e.target.value }); setPwError(""); }}
+                      style={{ padding: "10px 12px", fontSize: "14px" }} />
+                  </div>
+                ))}
+                {pwError && (
+                  <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DC2626" }}>❌ {pwError}</div>
+                )}
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={() => setPwOpen(false)} className="btn-outline" style={{ flex: 1, padding: "10px", fontSize: "13px" }}>{t("cancel")}</button>
+                  <button onClick={handlePasswordChange} className="btn-primary" disabled={pwLoading} style={{ flex: 1, padding: "10px", fontSize: "13px", opacity: pwLoading ? 0.7 : 1 }}>
+                    {pwLoading ? t("updating") : t("changePassword")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 6. Logout — at bottom */}
+          <button onClick={() => { logout(); navigate("/"); }} className="btn-danger"
+            style={{ width: "100%", padding: "14px", fontSize: "15px", justifyContent: "center", marginTop: "8px" }}>
             🚪 {t("logout")}
           </button>
 
-          {/* Language toggle */}
-          <div
-            style={{
-              marginTop: "12px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "14px 16px",
-              background: "white",
-              borderRadius: "14px",
-              border: "1px solid #E2E8F0",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "18px" }}>🌐</span>
-              <span
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "700",
-                  color: "#0F172A",
-                }}
-              >
-                {t("changeLanguage")}
-              </span>
+          {/* Profile Image Full-Size Modal */}
+          {profileImgOpen && user?.avatar && (
+            <div onClick={() => setProfileImgOpen(false)}
+              style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <button onClick={() => setProfileImgOpen(false)}
+                style={{ position: "absolute", top: "20px", right: "20px", background: "rgba(255,255,255,0.15)", border: "none", color: "white", width: "40px", height: "40px", borderRadius: "50%", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700" }}>✕</button>
+              <img src={user.avatar} alt="Profile" onClick={(e) => e.stopPropagation()}
+                style={{ maxWidth: "90vw", maxHeight: "80vh", borderRadius: "16px", objectFit: "contain", boxShadow: "0 8px 48px rgba(0,0,0,0.6)", border: "3px solid rgba(255,255,255,0.15)" }} />
             </div>
-            <button
-              onClick={() => switchLang(lang === "en" ? "hi" : "en")}
-              style={{
-                padding: "6px 16px",
-                background: "#F97316",
-                color: "white",
-                border: "none",
-                borderRadius: "20px",
-                fontSize: "13px",
-                fontWeight: "700",
-                cursor: "pointer",
-              }}
-            >
-              {lang === "en" ? "🇮🇳 हिंदी" : "🇬🇧 English"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Profile Image Full-Size Modal */}
-      {profileImgOpen && user?.avatar && (
-        <div
-          onClick={() => setProfileImgOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 2000,
-            background: "rgba(0,0,0,0.92)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <button
-            onClick={() => setProfileImgOpen(false)}
-            style={{
-              position: "absolute",
-              top: "20px",
-              right: "20px",
-              background: "rgba(255,255,255,0.15)",
-              border: "none",
-              color: "white",
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              fontSize: "20px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: "700",
-            }}
-          >
-            ✕
-          </button>
-          <img
-            src={user.avatar}
-            alt="Profile"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "90vw",
-              maxHeight: "80vh",
-              borderRadius: "16px",
-              objectFit: "contain",
-              boxShadow: "0 8px 48px rgba(0,0,0,0.6)",
-              border: "3px solid rgba(255,255,255,0.15)",
-            }}
-          />
+          )}
         </div>
       )}
     </div>
   );
 }
+

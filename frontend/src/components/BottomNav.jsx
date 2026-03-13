@@ -94,12 +94,14 @@ export default function BottomNav({ activeTab, onTabClick }) {
         </Link>
       )}
 
-      {/* Profile — always "Profile". If not logged in → show login/register panel inline */}
+      {/* Profile — role check FIRST so labour/carowner never land on the customer Profile tab */}
       <button style={tab(isProfile)} onClick={() => {
-        if (onTabClick) {
+        if (user?.role === 'labour') {
+          navigate('/labour-dashboard', { state: { openTab: 'profile' } });
+        } else if (user?.role === 'carowner') {
+          navigate('/carowner-dashboard', { state: { openTab: 'profile' } });
+        } else if (onTabClick) {
           onTabClick('profile');
-        } else if (user) {
-          navigate('/services?tab=profile');
         } else {
           navigate('/services?tab=profile');
         }

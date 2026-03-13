@@ -217,7 +217,7 @@ router.put('/profile', protect, async (req, res) => {
 });
 
 // PUT /api/auth/change-password — Verify old password then set new password
-router.put('/change-password', protect, loadUser, async (req, res) => {
+router.put('/change-password', protect, async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
 
@@ -227,17 +227,27 @@ router.put('/change-password', protect, loadUser, async (req, res) => {
         if (newPassword.length < 6) {
             return res.status(400).json({ message: 'New password must be at least 6 characters' });
         }
+        if (oldPassword === newPassword) {
+            return res.status(400).json({ message: 'New password must be different from current password' });
+        }
 
-        const user = req.user;
+        // Must fetch the user WITH password field — loadUser excludes it via .select('-password')
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ message: 'User account not found' });
+        }
+
         const isMatch = await user.matchPassword(oldPassword);
-        if (!isMatch) return res.status(401).json({ message: 'Current password is incorrect' });
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Current password is incorrect. Please try again.' });
+        }
 
         user.password = newPassword;
         await user.save();
 
         res.json({ message: 'Password changed successfully' });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ message: 'An error occurred. Please try again.' });
     }
 });
 

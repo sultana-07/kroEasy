@@ -112,17 +112,21 @@ function ProfileTab({ user, onLogout, onTabChange, refreshUser }) {
 
   const handlePasswordChange = async () => {
     setPwError('');
-    if (!pwForm.oldPassword || !pwForm.newPassword) { setPwError('All fields are required'); return; }
+    if (!pwForm.oldPassword) { setPwError('Please enter your current password'); return; }
+    if (!pwForm.newPassword) { setPwError('Please enter a new password'); return; }
+    if (!pwForm.confirm) { setPwError('Please confirm your new password'); return; }
     if (pwForm.newPassword.length < 6) { setPwError('New password must be at least 6 characters'); return; }
-    if (pwForm.newPassword !== pwForm.confirm) { setPwError(t('passwordsNotMatch')); return; }
+    if (pwForm.newPassword !== pwForm.confirm) { setPwError('New passwords do not match'); return; }
+    if (pwForm.oldPassword === pwForm.newPassword) { setPwError('New password must be different from current password'); return; }
     setPwLoading(true);
     try {
       await api.put('/auth/change-password', { oldPassword: pwForm.oldPassword, newPassword: pwForm.newPassword });
-      toast.success(t('passwordChanged'));
+      toast.success('✅ Password changed successfully!');
       setPwOpen(false);
       setPwForm({ oldPassword: '', newPassword: '', confirm: '' });
     } catch (err) {
-      setPwError(err.response?.data?.message || 'Password change failed');
+      const msg = err.response?.data?.message || 'Failed to change password. Please try again.';
+      setPwError(msg);
     } finally { setPwLoading(false); }
   };
 
