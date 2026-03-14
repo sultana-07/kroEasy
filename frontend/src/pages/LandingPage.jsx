@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import InstallPrompt from "../components/InstallPrompt";
 import BottomNav from "../components/BottomNav";
+import api from "../api";
 
 /* ─── Animated counter ─────────────────────────────────────────────────── */
 function useCounter(end, duration = 1800) {
@@ -194,6 +195,7 @@ export default function LandingPage() {
   const [visible, setVisible] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const [cycleIdx, setCycleIdx] = useState(0);
+  const [carouselWorkers, setCarouselWorkers] = useState([]);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t, lang, switchLang } = useLanguage();
@@ -206,6 +208,11 @@ export default function LandingPage() {
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 50);
+    // Fetch workers for carousel
+    api.get("/labours?limit=20").then((res) => {
+      const list = res.data?.data || res.data?.workers || res.data?.labours || [];
+      if (Array.isArray(list) && list.length > 0) setCarouselWorkers(list);
+    }).catch(() => {});
   }, []);
   useEffect(() => {
     if (statsInView) {
@@ -269,6 +276,7 @@ export default function LandingPage() {
         @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
         @keyframes float { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-8px)} }
         @keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        @keyframes marqueeRTL { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
         .lp-body { font-family:'Inter',sans-serif; }
         .lp-section-title { font-size:19px; font-weight:800; color:#0F172A; letter-spacing:-0.3px; }
         .lp-section-sub { font-size:12px; color:#94A3B8; font-weight:500; margin-top:2px; }
@@ -306,6 +314,17 @@ export default function LandingPage() {
         .lp-tab-item:active { opacity:.7; }
         .lp-tab-icon { font-size:20px; line-height:1; }
         .lp-tab-indicator { width:20px; height:3px; background:#4F46E5; border-radius:3px; margin-top:2px; }
+        /* Workers Carousel */
+        .workers-marquee-wrap { overflow:hidden; position:relative; }
+        .workers-marquee-wrap::before, .workers-marquee-wrap::after { content:''; position:absolute; top:0; bottom:0; width:50px; z-index:2; pointer-events:none; }
+        .workers-marquee-wrap::before { left:0; background:linear-gradient(to right,#F0F4FF,transparent); }
+        .workers-marquee-wrap::after { right:0; background:linear-gradient(to left,#F0F4FF,transparent); }
+        .workers-marquee-track { display:flex; gap:16px; width:max-content; animation:marqueeRTL 32s linear infinite; padding:6px 2px 14px; }
+        .workers-marquee-track:hover { animation-play-state:paused; }
+        .worker-carousel-card { flex-shrink:0; width:182px; height:260px; border-radius:24px; border:none; padding:18px 16px 14px; cursor:pointer; transition:transform .25s cubic-bezier(.16,1,.3,1), box-shadow .25s; position:relative; overflow:hidden; display:flex; flex-direction:column; }
+        .worker-carousel-card:hover { transform:translateY(-5px) scale(1.02); }
+        @keyframes availPulse { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.5)} 70%{box-shadow:0 0 0 5px rgba(16,185,129,0)} }
+        .avail-dot-pulse { animation: availPulse 2s ease-in-out infinite; }
       `}</style>
 
       <div className="lp-body">
@@ -440,6 +459,10 @@ export default function LandingPage() {
               opacity: visible ? 1 : 0,
               transform: visible ? "translateY(0)" : "translateY(24px)",
               transition: "all .7s cubic-bezier(.16,1,.3,1)",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
             }}
           >
             {/* Live badge */}
@@ -506,7 +529,9 @@ export default function LandingPage() {
                 display: "flex",
                 flexDirection: "column",
                 gap: "10px",
+                width: "100%",
                 maxWidth: "320px",
+                margin: "0 auto",
               }}
             >
               <Link to="/services" style={{ textDecoration: "none" }}>
@@ -545,6 +570,8 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
+
+
 
         {/* ══ STATS BAR ═══════════════════════════════════════════════════════ */}
         <div
@@ -614,6 +641,141 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
+
+        {/* ══ WORKERS CAROUSEL ══════════════════════════════════════════════ */}
+        {(() => {
+          const FALLBACK_WORKERS = [
+            { _id: "f1", userId: { name: "Ramesh Kumar" }, skills: ["Electrician"], city: "Nowrozabad", availability: true, experience: 5, rating: 4.8, reviewCount: 32 },
+            { _id: "f2", userId: { name: "Sunita Devi" }, skills: ["Beautician", "Mehndi Artist"], city: "Nowrozabad", availability: true, experience: 3, rating: 4.6, reviewCount: 19 },
+            { _id: "f3", userId: { name: "Anil Sharma" }, skills: ["Plumber"], city: "Nowrozabad", availability: false, experience: 7, rating: 4.5, reviewCount: 44 },
+            { _id: "f4", userId: { name: "Priya Yadav" }, skills: ["Helper"], city: "Nowrozabad", availability: true, experience: 2, rating: 4.7, reviewCount: 11 },
+            { _id: "f5", userId: { name: "Vikram Singh" }, skills: ["AC Technician"], city: "Nowrozabad", availability: true, experience: 6, rating: 4.9, reviewCount: 58 },
+            { _id: "f6", userId: { name: "Meena Bai" }, skills: ["Mehndi Artist"], city: "Nowrozabad", availability: true, experience: 4, rating: 4.7, reviewCount: 27 },
+            { _id: "f7", userId: { name: "Raju Vishwakarma" }, skills: ["Carpenter", "Mason"], city: "Nowrozabad", availability: false, experience: 9, rating: 4.4, reviewCount: 63 },
+            { _id: "f8", userId: { name: "Kavita Patel" }, skills: ["Beautician"], city: "Nowrozabad", availability: true, experience: 5, rating: 4.8, reviewCount: 36 },
+          ];
+          const SKILL_META = {
+            "Electrician":  { bg: "linear-gradient(135deg,#FFF3E0,#FFE0B2)", accent: "#FF8F00", cardGrad: "linear-gradient(145deg,#FFFBF0,#FFF3E0)", icon: "⚡" },
+            "Plumber":      { bg: "linear-gradient(135deg,#E3F2FD,#BBDEFB)", accent: "#1565C0", cardGrad: "linear-gradient(145deg,#F0F8FF,#E3F2FD)", icon: "🔧" },
+            "Carpenter":    { bg: "linear-gradient(135deg,#FBE9E7,#FFCCBC)", accent: "#BF360C", cardGrad: "linear-gradient(145deg,#FFF5F3,#FBE9E7)", icon: "🪚" },
+            "AC Technician":{ bg: "linear-gradient(135deg,#E0F7FA,#B2EBF2)", accent: "#00838F", cardGrad: "linear-gradient(145deg,#F0FFFE,#E0F7FA)", icon: "❄️" },
+            "Mason":        { bg: "linear-gradient(135deg,#F3E5F5,#E1BEE7)", accent: "#6A1B9A", cardGrad: "linear-gradient(145deg,#FAF5FF,#F3E5F5)", icon: "🧱" },
+            "Beautician":   { bg: "linear-gradient(135deg,#FCE4EC,#F8BBD9)", accent: "#AD1457", cardGrad: "linear-gradient(145deg,#FFF5F8,#FCE4EC)", icon: "💇" },
+            "Mehndi Artist":{ bg: "linear-gradient(135deg,#F9FBE7,#F0F4C3)", accent: "#558B2F", cardGrad: "linear-gradient(145deg,#FDFFF0,#F9FBE7)", icon: "🌸" },
+            "Helper":       { bg: "linear-gradient(135deg,#E8F5E9,#C8E6C9)", accent: "#2E7D32", cardGrad: "linear-gradient(145deg,#F3FFF4,#E8F5E9)", icon: "🤝" },
+          };
+          const AVATAR_GRADIENTS = [
+            "linear-gradient(135deg,#667eea,#764ba2)",
+            "linear-gradient(135deg,#f093fb,#f5576c)",
+            "linear-gradient(135deg,#4facfe,#00f2fe)",
+            "linear-gradient(135deg,#43e97b,#38f9d7)",
+            "linear-gradient(135deg,#fa709a,#fee140)",
+            "linear-gradient(135deg,#a18cd1,#fbc2eb)",
+            "linear-gradient(135deg,#ff9a9e,#fecfef)",
+            "linear-gradient(135deg,#a1c4fd,#c2e9fb)",
+          ];
+          const workers = carouselWorkers.length > 0 ? carouselWorkers : FALLBACK_WORKERS;
+          const doubled = [...workers, ...workers];
+          return (
+            <div style={{ background: "linear-gradient(180deg,#F0F4FF 0%,#F8FAFF 100%)", padding: "26px 0 28px", marginTop: "8px" }}>
+              {/* Section header */}
+              <div style={{ padding: "0 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "20px" }}>
+                <div>
+                  <div style={{ fontSize: "20px", fontWeight: "900", color: "#0F172A", letterSpacing: "-0.4px", lineHeight: 1.2 }}>👷 Meet Our Workers</div>
+                  <div style={{ fontSize: "12px", color: "#64748B", fontWeight: "500", marginTop: "3px" }}>Verified professionals · Auto-scrolling</div>
+                </div>
+                <Link to="/services" style={{ textDecoration: "none" }}>
+                  <div style={{ fontSize: "11px", fontWeight: "800", color: "white", background: "linear-gradient(135deg,#4F46E5,#6366F1)", padding: "6px 14px", borderRadius: "20px", boxShadow: "0 3px 10px rgba(79,70,229,.3)" }}>See All →</div>
+                </Link>
+              </div>
+              {/* Marquee */}
+              <div className="workers-marquee-wrap">
+                <div className="workers-marquee-track">
+                  {doubled.map((w, idx) => {
+                    const name = w.userId?.name || w.name || "Worker";
+                    const skills = w.skills || [];
+                    const rawSkill = skills[0] || "Helper";
+                    // Normalise: if the skill is too long to be a standard label, treat as unknown
+                    const KNOWN_SKILLS = ["Electrician","Plumber","Carpenter","AC Technician","Mason","Beautician","Mehndi Artist","Helper"];
+                    const primarySkill = KNOWN_SKILLS.includes(rawSkill) ? rawSkill : "Helper";
+                    // Display label truncated to keep pill compact
+                    const skillLabel = rawSkill.length > 14 ? rawSkill.slice(0, 13) + "…" : rawSkill;
+                    const sm = SKILL_META[primarySkill] || SKILL_META["Helper"];
+                    const grad = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
+                    const initials = name.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+                    const isAvail = w.availability !== false;
+                    const rating = typeof w.rating === "number" ? w.rating : 0;
+                    const exp = w.experience || 0;
+                    const stars = Math.round(rating);
+                    return (
+                      <div
+                        key={`${w._id}-${idx}`}
+                        className="worker-carousel-card"
+                        style={{ background: sm.cardGrad, boxShadow: `0 6px 24px ${sm.accent}18` }}
+                        onClick={() => navigate("/services")}
+                      >
+                        {/* Decorative blob */}
+                        <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "80px", height: "80px", borderRadius: "50%", background: sm.accent, opacity: 0.07, pointerEvents: "none" }} />
+                        {/* Availability badge - top right */}
+                        <div style={{ position: "absolute", top: "12px", right: "12px", display: "flex", alignItems: "center", gap: "4px", background: isAvail ? "#ECFDF5" : "#F8FAFC", border: `1px solid ${isAvail ? "#A7F3D0" : "#E2E8F0"}`, borderRadius: "20px", padding: "3px 8px 3px 5px" }}>
+                          <span className={isAvail ? "avail-dot-pulse" : ""} style={{ width: "6px", height: "6px", borderRadius: "50%", background: isAvail ? "#10B981" : "#CBD5E1", display: "inline-block", flexShrink: 0 }} />
+                          <span style={{ fontSize: "9px", fontWeight: "700", color: isAvail ? "#059669" : "#94A3B8", lineHeight: 1 }}>{isAvail ? "Free" : "Busy"}</span>
+                        </div>
+                        {/* Avatar */}
+                        <div style={{ position: "relative", width: "56px", height: "56px", marginBottom: "12px" }}>
+                          <div style={{ position: "absolute", inset: "-3px", borderRadius: "50%", background: sm.bg, zIndex: 0 }} />
+                          {w.profileImage ? (
+                            <img src={w.profileImage} alt={name} style={{ position: "relative", zIndex: 1, width: "56px", height: "56px", borderRadius: "50%", objectFit: "cover", border: "2.5px solid white" }} />
+                          ) : (
+                            <div style={{ position: "relative", zIndex: 1, width: "56px", height: "56px", borderRadius: "50%", background: grad, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: "900", color: "white", border: "2.5px solid white", boxShadow: "0 3px 10px rgba(0,0,0,.18)" }}>
+                              {initials}
+                            </div>
+                          )}
+                          {/* Skill icon badge */}
+                          <div style={{ position: "absolute", bottom: "-4px", right: "-4px", width: "22px", height: "22px", borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", boxShadow: "0 2px 6px rgba(0,0,0,.15)", zIndex: 2 }}>
+                            {sm.icon}
+                          </div>
+                        </div>
+                        {/* Name */}
+                        <div style={{ fontSize: "14px", fontWeight: "800", color: "#0F172A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: "2px", paddingRight: "32px" }}>{name}</div>
+                        {/* City */}
+                        <div style={{ fontSize: "10px", color: "#94A3B8", fontWeight: "500", marginBottom: "10px", display: "flex", alignItems: "center", gap: "3px" }}>
+                          <span style={{ color: sm.accent }}>📍</span> {w.userId?.city || w.city || "Nowrozabad"}
+                        </div>
+                        {/* Skill pill — fixed height container so card height never varies */}
+                        <div style={{ height: "30px", display: "flex", gap: "4px", alignItems: "center", marginBottom: "10px", overflow: "hidden" }}>
+                          <span style={{ display: "inline-block", background: sm.accent + "18", color: sm.accent, fontSize: "10px", fontWeight: "800", padding: "4px 10px", borderRadius: "20px", border: `1px solid ${sm.accent}30`, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "120px" }}>
+                            {skillLabel}
+                          </span>
+                          {skills.length > 1 && (
+                            <span style={{ display: "inline-block", background: "#F1F5F9", color: "#64748B", fontSize: "10px", fontWeight: "600", padding: "4px 7px", borderRadius: "20px", flexShrink: 0 }}>+{skills.length - 1}</span>
+                          )}
+                        </div>
+                        {/* Stars + exp */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                          <div style={{ display: "flex", gap: "1px" }}>
+                            {[1,2,3,4,5].map(s => (
+                              <span key={s} style={{ fontSize: "11px", color: s <= stars ? "#F59E0B" : "#E2E8F0" }}>★</span>
+                            ))}
+                            {rating > 0 && <span style={{ fontSize: "10px", color: "#64748B", fontWeight: "700", marginLeft: "3px" }}>{rating.toFixed(1)}</span>}
+                          </div>
+                          <span style={{ fontSize: "10px", color: "#64748B", fontWeight: "600", background: "rgba(255,255,255,.8)", padding: "2px 7px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                            {exp}y exp
+                          </span>
+                        </div>
+                        {/* Book CTA — pushed to bottom via flex-grow spacer */}
+                        <div style={{ flex: 1 }} />
+                        <div style={{ background: `linear-gradient(135deg,${sm.accent},${sm.accent}CC)`, color: "white", fontSize: "11px", fontWeight: "800", textAlign: "center", padding: "7px", borderRadius: "12px", boxShadow: `0 3px 10px ${sm.accent}40`, letterSpacing: "0.2px", flexShrink: 0 }}>
+                          Book Now →
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ══ HIGHLIGHTS (horizontal scroll) ════════════════════════════════ */}
         <div
