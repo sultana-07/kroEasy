@@ -307,6 +307,24 @@
 
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
+  <script>
+    // Skip splash on repeat visits within the same session
+    (function () {
+      var splash = document.getElementById('splash-screen');
+      if (!splash) return;
+      if (sessionStorage.getItem('_ke_visited')) {
+        // Already visited this session — hide splash immediately, no animation
+        splash.style.display = 'none';
+      } else {
+        sessionStorage.setItem('_ke_visited', '1');
+        // Normal first-visit animation — hide after 2.2s
+        setTimeout(function () {
+          splash.classList.add('hide');
+          setTimeout(function () { splash.style.display = 'none'; }, 500);
+        }, 2200);
+      }
+    })();
+  </script>
 </body>
 
 </html>
