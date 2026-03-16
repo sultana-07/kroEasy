@@ -40,6 +40,13 @@
   </url>
 
   <url>
+    <loc>https://kroeasy.com/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+    <lastmod>2026-03-16</lastmod>
+  </url>
+
+  <url>
     <loc>https://kroeasy.com/support</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>

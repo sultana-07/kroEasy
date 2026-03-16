@@ -20,6 +20,7 @@ const PrivacyPage        = lazy(() => import('./pages/PrivacyPage'));
 const SupportPage        = lazy(() => import('./pages/SupportPage'));
 const BookingSuccessPage = lazy(() => import('./pages/BookingSuccessPage'));
 const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
+const AboutPage          = lazy(() => import('./pages/AboutPage'));
 
 const PageLoader = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -68,6 +69,7 @@ const AppRoutes = () => {
       <Route path="/support" element={<SupportPage />} />
       <Route path="/booking-success" element={<BookingSuccessPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+      <Route path="/about" element={<AboutPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

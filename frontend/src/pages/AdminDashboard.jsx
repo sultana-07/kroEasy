@@ -305,6 +305,22 @@ export default function AdminDashboard() {
                         </div>
                       ))}
                     </div>
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#7C3AED', marginBottom: '6px' }}>👁️ Profile Views</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '6px' }}>
+                        {[
+                          { label: 'Total', val: l.totalViews || 0 },
+                          { label: 'Today', val: l.todayViews || 0 },
+                          { label: 'Week', val: l.weekViews || 0 },
+                          { label: 'Month', val: l.monthViews || 0 },
+                        ].map((v, i) => (
+                          <div key={i} style={{ background: '#F5F3FF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center', border: '1px solid #DDD6FE' }}>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#7C3AED' }}>{v.val}</div>
+                            <div style={{ fontSize: '9px', color: '#6D28D9', marginTop: '2px' }}>{v.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 ))
               )}
@@ -385,6 +401,22 @@ export default function AdminDashboard() {
                           <div style={{ fontSize: '10px', color: '#64748B', whiteSpace: 'pre-line', lineHeight: '1.3', marginTop: '3px' }}>{s.label}</div>
                         </div>
                       ))}
+                    </div>
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#7C3AED', marginBottom: '6px' }}>👁️ Profile Views</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '6px' }}>
+                        {[
+                          { label: 'Total', val: o.totalViews || 0 },
+                          { label: 'Today', val: o.todayViews || 0 },
+                          { label: 'Week', val: o.weekViews || 0 },
+                          { label: 'Month', val: o.monthViews || 0 },
+                        ].map((v, i) => (
+                          <div key={i} style={{ background: '#F5F3FF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center', border: '1px solid #DDD6FE' }}>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: '#7C3AED' }}>{v.val}</div>
+                            <div style={{ fontSize: '9px', color: '#6D28D9', marginTop: '2px' }}>{v.label}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))

@@ -243,41 +243,55 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
             return total;
         };
 
-        const labourStats = labours.map(l => ({
-            _id: l._id,
-            name: l.userId?.name,
-            phone: l.userId?.phone,
-            city: l.userId?.city,
-            skills: l.skills,
-            isApproved: l.isApproved,
-            weekBookings: weekBookMap[l._id.toString()] || 0,
-            monthBookings: monthBookMap[l._id.toString()] || 0,
-            totalBookings: totalBookMap[l._id.toString()] || 0,
-            completedBookings: completedBookMap[l._id.toString()] || 0,
-            todayCalls: todayCallMap[l._id.toString()] || 0,
-            weekCalls: weekCallMap[l._id.toString()] || 0,
-            monthCalls: monthCallMap[l._id.toString()] || 0,
-        }));
+        const labourStats = labours.map(l => {
+            const views = l.profileViews || [];
+            return {
+                _id: l._id,
+                name: l.userId?.name,
+                phone: l.userId?.phone,
+                city: l.userId?.city,
+                skills: l.skills,
+                isApproved: l.isApproved,
+                weekBookings: weekBookMap[l._id.toString()] || 0,
+                monthBookings: monthBookMap[l._id.toString()] || 0,
+                totalBookings: totalBookMap[l._id.toString()] || 0,
+                completedBookings: completedBookMap[l._id.toString()] || 0,
+                todayCalls: todayCallMap[l._id.toString()] || 0,
+                weekCalls: weekCallMap[l._id.toString()] || 0,
+                monthCalls: monthCallMap[l._id.toString()] || 0,
+                totalViews: views.length,
+                todayViews: views.filter(v => new Date(v.date) >= todayStart).length,
+                weekViews: views.filter(v => new Date(v.date) >= weekAgo).length,
+                monthViews: views.filter(v => new Date(v.date) >= monthAgo).length,
+            };
+        });
 
         // Build call count maps keyed by car._id for car-type logs
         const todayCarCallMapByCar = toMap(todayCalls.filter(x => x.targetType === 'car'));
         const weekCarCallMapByCar = toMap(weekCalls.filter(x => x.targetType === 'car'));
         const monthCarCallMapByCar = toMap(monthCalls.filter(x => x.targetType === 'car'));
 
-        const carOwnerStats = carOwners.map(o => ({
-            _id: o._id,
-            name: o.userId?.name,
-            phone: o.userId?.phone,
-            city: o.userId?.city,
-            isApproved: o.isApproved,
-            weekBookings: weekBookMap[o._id.toString()] || 0,
-            monthBookings: monthBookMap[o._id.toString()] || 0,
-            totalBookings: totalBookMap[o._id.toString()] || 0,
-            completedBookings: completedBookMap[o._id.toString()] || 0,
-            todayCalls: sumCarCalls(todayCarCallMapByCar, o._id.toString()),
-            weekCalls: sumCarCalls(weekCarCallMapByCar, o._id.toString()),
-            monthCalls: sumCarCalls(monthCarCallMapByCar, o._id.toString()),
-        }));
+        const carOwnerStats = carOwners.map(o => {
+            const views = o.profileViews || [];
+            return {
+                _id: o._id,
+                name: o.userId?.name,
+                phone: o.userId?.phone,
+                city: o.userId?.city,
+                isApproved: o.isApproved,
+                weekBookings: weekBookMap[o._id.toString()] || 0,
+                monthBookings: monthBookMap[o._id.toString()] || 0,
+                totalBookings: totalBookMap[o._id.toString()] || 0,
+                completedBookings: completedBookMap[o._id.toString()] || 0,
+                todayCalls: sumCarCalls(todayCarCallMapByCar, o._id.toString()),
+                weekCalls: sumCarCalls(weekCarCallMapByCar, o._id.toString()),
+                monthCalls: sumCarCalls(monthCarCallMapByCar, o._id.toString()),
+                totalViews: views.length,
+                todayViews: views.filter(v => new Date(v.date) >= todayStart).length,
+                weekViews: views.filter(v => new Date(v.date) >= weekAgo).length,
+                monthViews: views.filter(v => new Date(v.date) >= monthAgo).length,
+            };
+        });
 
         res.json({ labourStats, carOwnerStats });
     } catch (error) {
