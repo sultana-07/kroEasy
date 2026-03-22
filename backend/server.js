@@ -4,6 +4,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
+require('./config/firebase'); // Initialize Firebase Admin SDK at startup
 
 const app = express();
 

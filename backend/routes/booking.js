@@ -5,6 +5,7 @@ const Labour = require('../models/Labour');
 const Car = require('../models/Car');
 const CarOwner = require('../models/CarOwner');
 const { protect } = require('../middleware/auth');
+const { sendNotification } = require('../utils/sendNotification');
 
 // POST /api/booking - create booking
 router.post('/', protect, async (req, res) => {
@@ -34,6 +35,25 @@ router.post('/', protect, async (req, res) => {
             carId,
             notes,
         });
+
+        // Notify provider of a new booking (fire-and-forget)
+        try {
+            let providerUserId = null;
+            if (providerType === 'labour') {
+                const labour = await Labour.findById(providerId).select('userId').lean();
+                providerUserId = labour?.userId;
+            } else if (providerType === 'car') {
+                const owner = await CarOwner.findById(providerId).select('userId').lean();
+                providerUserId = owner?.userId;
+            }
+            if (providerUserId) {
+                sendNotification(providerUserId, {
+                    title: '📬 New Booking Request!',
+                    body: `${req.user.name || 'A customer'} has sent you a booking request.`,
+                    data: { type: 'new_booking', bookingId: booking._id.toString() },
+                }).catch(() => {});
+            }
+        } catch { /* don't block response */ }
 
         res.status(201).json(booking);
     } catch (error) {
@@ -143,6 +163,21 @@ router.patch('/:id/status', protect, async (req, res) => {
 
         booking.status = status;
         await booking.save();
+
+        // Notify the customer about the status change (fire-and-forget)
+        const statusMessages = {
+            confirmed: { title: '✅ Booking Confirmed!', body: 'Your booking request has been confirmed by the provider.' },
+            completed: { title: '🎉 Service Completed!', body: 'Your booking has been marked as completed. Please leave a review!' },
+            cancelled: { title: '❌ Booking Cancelled', body: 'Your booking has been cancelled by the provider.' },
+        };
+        const msg = statusMessages[status];
+        if (msg) {
+            sendNotification(booking.userId, {
+                title: msg.title,
+                body: msg.body,
+                data: { type: 'booking_status', status, bookingId: booking._id.toString() },
+            }).catch(() => {});
+        }
 
         // Only increment bookingCount once a job is fully completed
         if (status === 'completed') {

@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
     isSuspended: { type: Boolean, default: false },
     resetPasswordToken: { type: String, default: null },
     resetPasswordExpiry: { type: Date, default: null },
+    fcmToken: { type: String, default: null },
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {

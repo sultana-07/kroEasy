@@ -415,4 +415,28 @@ router.patch('/car-booking-count/:carId', protect, authorize('admin'), async (re
     }
 });
 
+// POST /api/admin/broadcast-notification — send push to all users (or filtered by role)
+router.post('/broadcast-notification', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { title, body, role } = req.body;
+        if (!title || !body) return res.status(400).json({ message: 'title and body are required' });
+
+        // Build query — only users who have granted permission (have an FCM token)
+        const query = { fcmToken: { $ne: null } };
+        if (role && role !== 'all') query.role = role;
+
+        const users = await User.find(query).select('fcmToken').lean();
+        if (users.length === 0) return res.json({ sent: 0, message: 'No users with notifications enabled' });
+
+        const { sendNotificationToToken } = require('../utils/sendNotification');
+
+        // Send in parallel (fire-and-forget per token — failures are caught inside)
+        await Promise.all(users.map(u => sendNotificationToToken(u.fcmToken, { title, body })));
+
+        res.json({ sent: users.length, message: `Notification sent to ${users.length} user(s)` });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 module.exports = router;

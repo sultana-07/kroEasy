@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../api';
+import { requestNotificationPermission } from '../utils/notifications';
 
 const AuthContext = createContext(null);
 
@@ -20,6 +21,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('kroeasy_token', userData.token);
     localStorage.setItem('kroeasy_user', JSON.stringify(userData));
     setUser(userData);
+    // Request notification permission after login (fire-and-forget)
+    requestNotificationPermission().catch(() => {});
   };
 
   const logout = () => {

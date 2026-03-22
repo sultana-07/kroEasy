@@ -7,6 +7,7 @@ const Labour = require('../models/Labour');
 const CarOwner = require('../models/CarOwner');
 const { upload } = require('../config/cloudinary');
 const { protect, loadUser } = require('../middleware/auth');
+const { notifyAdmins } = require('../utils/sendNotification');
 
 
 // Embed role, city, and isSuspended into token so auth middleware can skip DB lookup
@@ -41,8 +42,20 @@ router.post('/register', async (req, res) => {
                 description: description || '',
                 city,
             });
+            // Notify admin about new labour registration (fire-and-forget)
+            notifyAdmins({
+                title: '🆕 New Worker Registered',
+                body: `${user.name} has registered as a Labour (${city || 'unknown city'}). Approval needed.`,
+                data: { type: 'new_registration', role: 'labour' },
+            }).catch(() => {});
         } else if (role === 'carowner') {
             await CarOwner.create({ userId: user._id, city });
+            // Notify admin about new car owner registration (fire-and-forget)
+            notifyAdmins({
+                title: '🆕 New Car Owner Registered',
+                body: `${user.name} has registered as a Car Owner (${city || 'unknown city'}). Approval needed.`,
+                data: { type: 'new_registration', role: 'carowner' },
+            }).catch(() => {});
         }
 
         res.status(201).json({
@@ -248,6 +261,18 @@ router.put('/change-password', protect, async (req, res) => {
         res.json({ message: 'Password changed successfully' });
     } catch (error) {
         res.status(500).json({ message: 'An error occurred. Please try again.' });
+    }
+});
+
+// POST /api/auth/fcm-token — save/update FCM device token for push notifications
+router.post('/fcm-token', protect, async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) return res.status(400).json({ message: 'Token is required' });
+        await User.findByIdAndUpdate(req.user._id, { fcmToken: token });
+        res.json({ message: 'FCM token saved' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 });
 

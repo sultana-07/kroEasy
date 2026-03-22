@@ -74,6 +74,23 @@ export default function AdminDashboard() {
   const [carCountPanelOwner, setCarCountPanelOwner] = useState(null);
   // Local cars list for admin car booking count — fetched lazily
   const [adminCars, setAdminCars] = useState([]);
+  // Broadcast notification state
+  const [bcTitle, setBcTitle] = useState('');
+  const [bcBody, setBcBody] = useState('');
+  const [bcRole, setBcRole] = useState('all');
+  const [bcSending, setBcSending] = useState(false);
+
+  const sendBroadcast = async () => {
+    if (!bcTitle.trim() || !bcBody.trim()) { toast.error('Title and message are required'); return; }
+    setBcSending(true);
+    try {
+      const { data } = await api.post('/admin/broadcast-notification', { title: bcTitle, body: bcBody, role: bcRole });
+      toast.success(`✅ ${data.message}`);
+      setBcTitle(''); setBcBody('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send notification');
+    } finally { setBcSending(false); }
+  };
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -222,6 +239,7 @@ export default function AdminDashboard() {
           { key: 'users', label: '👤 Users' },
           { key: 'activity', label: '📋 Activity' },
           { key: 'passwordResets', label: '🔑 Resets' },
+          { key: 'broadcast', label: '📣 Broadcast' },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flexShrink: 0, padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: activeTab === tab.key ? '#1E3A8A' : '#64748B', borderBottom: activeTab === tab.key ? '3px solid #1E3A8A' : '3px solid transparent', whiteSpace: 'nowrap' }}>{tab.label}</button>
         ))}
@@ -708,6 +726,79 @@ export default function AdminDashboard() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Broadcast Notification Tab */}
+      {activeTab === 'broadcast' && (
+        <div style={{ padding: '16px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '4px' }}>📣 Broadcast Notification</h3>
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>Send a push notification to all users who have allowed notifications.</p>
+
+          <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Role Filter */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: '#374151', display: 'block', marginBottom: '6px' }}>👥 Send To</label>
+              <select value={bcRole} onChange={e => setBcRole(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '14px', fontWeight: '600', background: 'white', color: '#0F172A', outline: 'none' }}>
+                <option value="all">🌍 Everyone (all roles)</option>
+                <option value="user">👤 Customers only</option>
+                <option value="labour">🔧 Service Providers only</option>
+                <option value="carowner">🚗 Car Owners only</option>
+              </select>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: '#374151', display: 'block', marginBottom: '6px' }}>📌 Notification Title</label>
+              <input
+                type="text"
+                placeholder="e.g. 🎉 New Feature!"
+                value={bcTitle}
+                onChange={e => setBcTitle(e.target.value)}
+                maxLength={60}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+              />
+              <div style={{ fontSize: '11px', color: '#94A3B8', textAlign: 'right', marginTop: '3px' }}>{bcTitle.length}/60</div>
+            </div>
+
+            {/* Body */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: '700', color: '#374151', display: 'block', marginBottom: '6px' }}>✏️ Message</label>
+              <textarea
+                placeholder="e.g. Ab apni booking aur asaan ho gayi! Update dekho..."
+                value={bcBody}
+                onChange={e => setBcBody(e.target.value)}
+                maxLength={200}
+                rows={3}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              />
+              <div style={{ fontSize: '11px', color: '#94A3B8', textAlign: 'right', marginTop: '3px' }}>{bcBody.length}/200</div>
+            </div>
+
+            {/* Preview */}
+            {(bcTitle || bcBody) && (
+              <div style={{ background: '#0F172A', borderRadius: '12px', padding: '14px', color: 'white' }}>
+                <div style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '6px' }}>Preview (how it looks on Android)</div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <img src="/pwa-192x192.png" alt="icon" style={{ width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '14px' }}>{bcTitle || 'Notification Title'}</div>
+                    <div style={{ fontSize: '12px', color: '#CBD5E1', marginTop: '2px' }}>{bcBody || 'Message body...'}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Send Button */}
+            <button
+              onClick={sendBroadcast}
+              disabled={bcSending || !bcTitle.trim() || !bcBody.trim()}
+              style={{ padding: '14px', borderRadius: '12px', border: 'none', cursor: bcSending ? 'not-allowed' : 'pointer', background: (bcSending || !bcTitle.trim() || !bcBody.trim()) ? '#CBD5E1' : 'linear-gradient(135deg, #1E3A8A, #2563EB)', color: 'white', fontSize: '15px', fontWeight: '800', transition: 'all 0.2s' }}
+            >
+              {bcSending ? '⏳ Sending...' : '📣 Send to All'}
+            </button>
+          </div>
         </div>
       )}
     </div>
