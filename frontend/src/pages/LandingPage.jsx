@@ -196,6 +196,7 @@ export default function LandingPage() {
   const [shareMsg, setShareMsg] = useState("");
   const [cycleIdx, setCycleIdx] = useState(0);
   const [carouselWorkers, setCarouselWorkers] = useState([]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t, lang, switchLang } = useLanguage();
@@ -390,6 +391,44 @@ export default function LandingPage() {
             )}
           </div>
         </div>
+
+        {/* ══ LOCAL AREA BANNER ══════════════════════════════════════════════ */}
+        {!bannerDismissed && (
+          <div style={{
+            background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #EC4899 100%)',
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            {/* Stripe pattern overlay */}
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(45deg,rgba(255,255,255,.05) 0,rgba(255,255,255,.05) 1px,transparent 0,transparent 50%)', backgroundSize: '8px 8px' }} />
+            {/* Pin icon */}
+            <div style={{ fontSize: '24px', flexShrink: 0, position: 'relative' }}>📍</div>
+            {/* Text */}
+            <div style={{ flex: 1, position: 'relative' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: 'white', lineHeight: 1.3 }}>
+                {lang === 'hi'
+                  ? '🏡 नवरोज़ाबाद & बीरसिंहपुर पाली के लिए!'
+                  : '🏡 Made for Nowrozabad & Birshingpur Pali!'}
+              </div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)', marginTop: '2px', lineHeight: 1.4 }}>
+                {lang === 'hi'
+                  ? 'अपने इलाक़े के कारीगर, मज़दूर और गाड़ी — सब एक जगह 🎉'
+                  : 'Your local workers, labourers & cars — all in one place 🎉'}
+              </div>
+            </div>
+            {/* Dismiss button */}
+            <button
+              onClick={() => setBannerDismissed(true)}
+              style={{ flexShrink: 0, background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: '20px', padding: '4px 10px', fontSize: '11px', fontWeight: '700', color: 'white', cursor: 'pointer', position: 'relative', whiteSpace: 'nowrap' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* ══ HERO / BANNER ═══════════════════════════════════════════════════ */}
         <div
@@ -681,11 +720,11 @@ export default function LandingPage() {
               {/* Section header */}
               <div style={{ padding: "0 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "20px" }}>
                 <div>
-                  <div style={{ fontSize: "20px", fontWeight: "900", color: "#0F172A", letterSpacing: "-0.4px", lineHeight: 1.2 }}>👷 Meet Our Workers</div>
-                  <div style={{ fontSize: "12px", color: "#64748B", fontWeight: "500", marginTop: "3px" }}>Verified professionals · Auto-scrolling</div>
+                  <div style={{ fontSize: "20px", fontWeight: "900", color: "#0F172A", letterSpacing: "-0.4px", lineHeight: 1.2 }}>{t("meetOurWorkers")}</div>
+                  <div style={{ fontSize: "12px", color: "#64748B", fontWeight: "500", marginTop: "3px" }}>{t("verifiedProfessionals")}</div>
                 </div>
                 <Link to="/services" style={{ textDecoration: "none" }}>
-                  <div style={{ fontSize: "11px", fontWeight: "800", color: "white", background: "linear-gradient(135deg,#4F46E5,#6366F1)", padding: "6px 14px", borderRadius: "20px", boxShadow: "0 3px 10px rgba(79,70,229,.3)" }}>See All →</div>
+                  <div style={{ fontSize: "11px", fontWeight: "800", color: "white", background: "linear-gradient(135deg,#4F46E5,#6366F1)", padding: "6px 14px", borderRadius: "20px", boxShadow: "0 3px 10px rgba(79,70,229,.3)" }}>{t("seeAll")}</div>
                 </Link>
               </div>
               {/* Marquee */}
@@ -719,7 +758,7 @@ export default function LandingPage() {
                         {/* Availability badge - top right */}
                         <div style={{ position: "absolute", top: "12px", right: "12px", display: "flex", alignItems: "center", gap: "4px", background: isAvail ? "#ECFDF5" : "#F8FAFC", border: `1px solid ${isAvail ? "#A7F3D0" : "#E2E8F0"}`, borderRadius: "20px", padding: "3px 8px 3px 5px" }}>
                           <span className={isAvail ? "avail-dot-pulse" : ""} style={{ width: "6px", height: "6px", borderRadius: "50%", background: isAvail ? "#10B981" : "#CBD5E1", display: "inline-block", flexShrink: 0 }} />
-                          <span style={{ fontSize: "9px", fontWeight: "700", color: isAvail ? "#059669" : "#94A3B8", lineHeight: 1 }}>{isAvail ? "Free" : "Busy"}</span>
+                          <span style={{ fontSize: "9px", fontWeight: "700", color: isAvail ? "#059669" : "#94A3B8", lineHeight: 1 }}>{isAvail ? t("freeLabel") : t("busyLabel")}</span>
                         </div>
                         {/* Avatar */}
                         <div style={{ position: "relative", width: "56px", height: "56px", marginBottom: "12px" }}>
@@ -760,13 +799,13 @@ export default function LandingPage() {
                             {rating > 0 && <span style={{ fontSize: "10px", color: "#64748B", fontWeight: "700", marginLeft: "3px" }}>{rating.toFixed(1)}</span>}
                           </div>
                           <span style={{ fontSize: "10px", color: "#64748B", fontWeight: "600", background: "rgba(255,255,255,.8)", padding: "2px 7px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
-                            {exp}y exp
+                            {exp}{t("expLabel")}
                           </span>
                         </div>
                         {/* Book CTA — pushed to bottom via flex-grow spacer */}
                         <div style={{ flex: 1 }} />
                         <div style={{ background: `linear-gradient(135deg,${sm.accent},${sm.accent}CC)`, color: "white", fontSize: "11px", fontWeight: "800", textAlign: "center", padding: "7px", borderRadius: "12px", boxShadow: `0 3px 10px ${sm.accent}40`, letterSpacing: "0.2px", flexShrink: 0 }}>
-                          Book Now →
+                          {t("bookNow")}
                         </div>
                       </div>
                     );
@@ -794,8 +833,8 @@ export default function LandingPage() {
             }}
           >
             <div>
-              <div className="lp-section-title">✨ What's New</div>
-              <div className="lp-section-sub">Latest on KroEasy</div>
+              <div className="lp-section-title">{t("whatsNew")}</div>
+              <div className="lp-section-sub">{t("latestOnKroEasy")}</div>
             </div>
           </div>
           <div className="scroll-row">
@@ -874,8 +913,8 @@ export default function LandingPage() {
             }}
           >
             <div>
-              <div className="lp-section-title">🏠 Our Services</div>
-              <div className="lp-section-sub">Find what you need</div>
+              <div className="lp-section-title">{t("ourServices")}</div>
+              <div className="lp-section-sub">{t("findWhatYouNeed")}</div>
             </div>
             <Link
               to="/services"
@@ -886,7 +925,7 @@ export default function LandingPage() {
                 color: "#4F46E5",
               }}
             >
-              See All →
+              {t("seeAll")}
             </Link>
           </div>
           <div
@@ -960,8 +999,8 @@ export default function LandingPage() {
           }}
         >
           <div style={{ marginBottom: "14px" }}>
-            <div className="lp-section-title">⚡ Quick Links</div>
-            <div className="lp-section-sub">Jump right in</div>
+            <div className="lp-section-title">{t("quickLinks")}</div>
+            <div className="lp-section-sub">{t("jumpRightIn")}</div>
           </div>
           <div
             style={{
@@ -1156,7 +1195,7 @@ export default function LandingPage() {
         >
           <div style={{ marginBottom: "16px", textAlign: "center" }}>
             <div className="lp-section-title">📱 {t("howItWorksTitle")}</div>
-            <div className="lp-section-sub">Simple 3-step process</div>
+            <div className="lp-section-sub">{t("simple3Step")}</div>
           </div>
           <div
             style={{

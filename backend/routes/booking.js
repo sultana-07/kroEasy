@@ -10,6 +10,23 @@ const { protect } = require('../middleware/auth');
 router.post('/', protect, async (req, res) => {
     try {
         const { providerId, providerType, carId, notes } = req.body;
+
+        // ── Self-booking prevention ───────────────────────────────────────────
+        // Labour and car-owners must not book themselves (prevents fake count inflation)
+        if (req.user.role === 'labour') {
+            const ownProfile = await Labour.findOne({ userId: req.user._id }).select('_id').lean();
+            if (ownProfile && ownProfile._id.toString() === providerId?.toString()) {
+                return res.status(403).json({ message: 'You cannot book yourself' });
+            }
+        }
+        if (req.user.role === 'carowner') {
+            const ownProfile = await CarOwner.findOne({ userId: req.user._id }).select('_id').lean();
+            if (ownProfile && ownProfile._id.toString() === providerId?.toString()) {
+                return res.status(403).json({ message: 'You cannot book yourself' });
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         const booking = await Booking.create({
             userId: req.user._id,
             providerId,

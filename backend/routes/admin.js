@@ -133,6 +133,16 @@ router.get('/carowners', protect, authorize('admin'), async (req, res) => {
     }
 });
 
+// GET /api/admin/all-cars - all cars (for admin booking count controls)
+router.get('/all-cars', protect, authorize('admin'), async (req, res) => {
+    try {
+        const cars = await Car.find().select('carName modelYear ownerId bookingCount').sort({ createdAt: -1 }).lean();
+        res.json(cars);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // PATCH /api/admin/approve-labour/:id
 router.patch('/approve-labour/:id', protect, authorize('admin'), async (req, res) => {
     try {
@@ -223,7 +233,7 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
         const [labours, carOwners, allCars] = await Promise.all([
             Labour.find().populate('userId', 'name phone city').lean(),
             CarOwner.find().populate('userId', 'name phone city').lean(),
-            Car.find().select('ownerId').lean(),
+            Car.find().select('ownerId bookingCount').lean(),
         ]);
 
         // Build reverse map: carId (string) -> carOwnerId (string)
@@ -254,7 +264,7 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
                 isApproved: l.isApproved,
                 weekBookings: weekBookMap[l._id.toString()] || 0,
                 monthBookings: monthBookMap[l._id.toString()] || 0,
-                totalBookings: totalBookMap[l._id.toString()] || 0,
+                totalBookings: l.bookingCount || 0,
                 completedBookings: completedBookMap[l._id.toString()] || 0,
                 todayCalls: todayCallMap[l._id.toString()] || 0,
                 weekCalls: weekCallMap[l._id.toString()] || 0,
@@ -273,6 +283,9 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
 
         const carOwnerStats = carOwners.map(o => {
             const views = o.profileViews || [];
+            // Sum bookingCount across all cars belonging to this owner
+            const ownerCars = allCars.filter(c => c.ownerId?.toString() === o._id.toString());
+            const totalCarBookings = ownerCars.reduce((sum, c) => sum + (c.bookingCount || 0), 0);
             return {
                 _id: o._id,
                 name: o.userId?.name,
@@ -281,7 +294,7 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
                 isApproved: o.isApproved,
                 weekBookings: weekBookMap[o._id.toString()] || 0,
                 monthBookings: monthBookMap[o._id.toString()] || 0,
-                totalBookings: totalBookMap[o._id.toString()] || 0,
+                totalBookings: totalCarBookings,
                 completedBookings: completedBookMap[o._id.toString()] || 0,
                 todayCalls: sumCarCalls(todayCarCallMapByCar, o._id.toString()),
                 weekCalls: sumCarCalls(weekCarCallMapByCar, o._id.toString()),
@@ -346,6 +359,57 @@ router.delete('/delete-carowner/:id', protect, authorize('admin'), async (req, r
         await User.findByIdAndDelete(owner.userId);
         await CarOwner.findByIdAndDelete(req.params.id);
         res.json({ message: 'Car owner, their cars, and user account deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// PATCH /api/admin/labour-booking-count/:id — manually adjust a labour's bookingCount
+router.patch('/labour-booking-count/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { delta } = req.body;
+        if (delta !== 1 && delta !== -1) {
+            return res.status(400).json({ message: 'delta must be 1 or -1' });
+        }
+
+        // Prevent going below 0: if decrementing, only allow if current count > 0
+        const labour = await Labour.findById(req.params.id).select('bookingCount').lean();
+        if (!labour) return res.status(404).json({ message: 'Labour not found' });
+        if (delta === -1 && (labour.bookingCount || 0) <= 0) {
+            return res.status(400).json({ message: 'Booking count is already 0' });
+        }
+
+        const updated = await Labour.findByIdAndUpdate(
+            req.params.id,
+            { $inc: { bookingCount: delta } },
+            { new: true }
+        );
+        res.json({ bookingCount: updated.bookingCount });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// PATCH /api/admin/car-booking-count/:carId — manually adjust a car's bookingCount
+router.patch('/car-booking-count/:carId', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { delta } = req.body;
+        if (delta !== 1 && delta !== -1) {
+            return res.status(400).json({ message: 'delta must be 1 or -1' });
+        }
+
+        const car = await Car.findById(req.params.carId).select('bookingCount').lean();
+        if (!car) return res.status(404).json({ message: 'Car not found' });
+        if (delta === -1 && (car.bookingCount || 0) <= 0) {
+            return res.status(400).json({ message: 'Booking count is already 0' });
+        }
+
+        const updated = await Car.findByIdAndUpdate(
+            req.params.carId,
+            { $inc: { bookingCount: delta } },
+            { new: true }
+        );
+        res.json({ bookingCount: updated.bookingCount });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

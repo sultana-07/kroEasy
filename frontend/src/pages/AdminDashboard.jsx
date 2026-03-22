@@ -70,6 +70,10 @@ export default function AdminDashboard() {
   const [carView, setCarView] = useState('manage');
   const [loading, setLoading] = useState(true);
   const [passwordResets, setPasswordResets] = useState([]);
+  // Track which car owner's car sub-panel is open (for booking count adjust)
+  const [carCountPanelOwner, setCarCountPanelOwner] = useState(null);
+  // Local cars list for admin car booking count — fetched lazily
+  const [adminCars, setAdminCars] = useState([]);
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -152,6 +156,40 @@ export default function AdminDashboard() {
       toast.success('Car owner permanently deleted');
     } catch { toast.error('Failed to delete car owner'); }
   };
+
+  // ── Admin booking count adjust handlers ────────────────────────────────────
+  const adjustLabourCount = async (labourId, delta) => {
+    try {
+      const { data } = await api.patch(`/admin/labour-booking-count/${labourId}`, { delta });
+      setProviderStats(prev => ({
+        ...prev,
+        labourStats: prev.labourStats.map(l =>
+          l._id === labourId ? { ...l, totalBookings: data.bookingCount } : l
+        ),
+      }));
+      toast.success(delta === 1 ? '✅ Booking count increased' : '✅ Booking count decreased');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update count');
+    }
+  };
+
+  const fetchAdminCars = async () => {
+    try {
+      const { data } = await api.get('/admin/all-cars');
+      setAdminCars(data);
+    } catch { toast.error('Failed to load cars'); }
+  };
+
+  const adjustCarCount = async (carId, delta) => {
+    try {
+      const { data } = await api.patch(`/admin/car-booking-count/${carId}`, { delta });
+      setAdminCars(prev => prev.map(c => c._id === carId ? { ...c, bookingCount: data.bookingCount } : c));
+      toast.success(delta === 1 ? '✅ Booking count increased' : '✅ Booking count decreased');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update count');
+    }
+  };
+  // ──────────────────────────────────────────────────────────────────────────
 
   const chartData = stats ? [
     { name: 'Users', value: stats.users, fill: '#1E3A8A' },
@@ -293,8 +331,18 @@ export default function AdminDashboard() {
                       <span className={`badge ${l.isApproved ? 'badge-green' : 'badge-orange'}`}>{l.isApproved ? '✅' : '⏳'}</span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {/* Total Bookings with +/- admin controls */}
+                      <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '10px 8px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>{l.totalBookings}</div>
+                        <div style={{ fontSize: '10px', color: '#64748B', whiteSpace: 'pre-line', lineHeight: '1.3', marginTop: '3px', marginBottom: '6px' }}>{'📋 Total\nBookings'}</div>
+                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                          <button onClick={() => adjustLabourCount(l._id, -1)}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#FEE2E2', color: '#DC2626', fontSize: '16px', fontWeight: '800', lineHeight: 1 }}>−</button>
+                          <button onClick={() => adjustLabourCount(l._id, 1)}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#DCFCE7', color: '#16A34A', fontSize: '16px', fontWeight: '800', lineHeight: 1 }}>+</button>
+                        </div>
+                      </div>
                       {[
-                        { label: '📋 Total\nBookings', val: l.totalBookings, color: '#0F172A' },
                         { label: '✅ Completed\nBookings', val: l.completedBookings, color: '#16A34A' },
                         { label: '📞 Calls\nToday', val: l.todayCalls, color: '#DC2626' },
                         { label: '📞 Calls\nThis Month', val: l.monthCalls, color: '#2563EB' },
@@ -390,8 +438,44 @@ export default function AdminDashboard() {
                       <span className={`badge ${o.isApproved ? 'badge-green' : 'badge-orange'}`}>{o.isApproved ? '✅' : '⏳'}</span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {/* Total Bookings with car-level +/- controls */}
+                      <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '10px 8px', textAlign: 'center', border: '1px solid #E2E8F0', gridColumn: '1 / -1' }}>
+                        <div style={{ fontSize: '22px', fontWeight: '800', color: '#0F172A' }}>{o.totalBookings}</div>
+                        <div style={{ fontSize: '10px', color: '#64748B', marginTop: '3px', marginBottom: '6px' }}>📋 Total Bookings (per car below)</div>
+                        <button
+                          onClick={() => {
+                            if (carCountPanelOwner === o._id) {
+                              setCarCountPanelOwner(null);
+                            } else {
+                              setCarCountPanelOwner(o._id);
+                              fetchAdminCars();
+                            }
+                          }}
+                          style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: carCountPanelOwner === o._id ? '#E0E7FF' : '#EFF6FF', color: '#1E3A8A', fontWeight: '600' }}
+                        >{carCountPanelOwner === o._id ? '▲ Hide Cars' : '▼ Adjust Per Car'}</button>
+                        {carCountPanelOwner === o._id && (
+                          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+                            {adminCars.filter(c => c.ownerId === o._id || c.ownerId?.toString() === o._id?.toString()).length === 0
+                              ? <div style={{ fontSize: '11px', color: '#94A3B8', textAlign: 'center', padding: '6px' }}>No cars found</div>
+                              : adminCars.filter(c => c.ownerId === o._id || c.ownerId?.toString() === o._id?.toString()).map(car => (
+                                <div key={car._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', borderRadius: '8px', padding: '6px 8px', border: '1px solid #E2E8F0' }}>
+                                  <div>
+                                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#0F172A' }}>{car.carName} {car.modelYear}</div>
+                                    <div style={{ fontSize: '11px', color: '#64748B' }}>Bookings: <strong>{car.bookingCount || 0}</strong></div>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <button onClick={() => adjustCarCount(car._id, -1)}
+                                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#FEE2E2', color: '#DC2626', fontSize: '16px', fontWeight: '800', lineHeight: 1 }}>−</button>
+                                    <button onClick={() => adjustCarCount(car._id, 1)}
+                                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#DCFCE7', color: '#16A34A', fontSize: '16px', fontWeight: '800', lineHeight: 1 }}>+</button>
+                                  </div>
+                                </div>
+                              ))
+                            }
+                          </div>
+                        )}
+                      </div>
                       {[
-                        { label: '📋 Total\nBookings', val: o.totalBookings, color: '#0F172A' },
                         { label: '✅ Completed\nBookings', val: o.completedBookings, color: '#16A34A' },
                         { label: '📞 Calls\nToday', val: o.todayCalls, color: '#DC2626' },
                         { label: '📞 Calls\nThis Month', val: o.monthCalls, color: '#2563EB' },

@@ -35,7 +35,7 @@ router.get('/', async (req, res) => {
         const [labours, total] = await Promise.all([
             Labour.find(filter)
                 .populate('userId', 'name phone city')
-                .sort({ rating: -1, bookingCount: -1, createdAt: -1 })
+                .sort({ rating: -1, bookingCount: -1, reviewCount: -1, createdAt: 1 })
                 .skip(skip)
                 .limit(limit),
             Labour.countDocuments(filter),

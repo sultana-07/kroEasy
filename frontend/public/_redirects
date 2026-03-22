@@ -1,0 +1,3 @@
+# SPA fallback — serve index.html for ALL routes
+# This fixes Google's 404 error on /about, /services, /register etc.
+/*    /index.html   200
