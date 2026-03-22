@@ -421,19 +421,29 @@ router.post('/broadcast-notification', protect, authorize('admin'), async (req, 
         const { title, body, role } = req.body;
         if (!title || !body) return res.status(400).json({ message: 'title and body are required' });
 
-        // Build query — only users who have granted permission (have an FCM token)
+        const { sendNotificationToToken } = require('../utils/sendNotification');
+        const GuestToken = require('../models/GuestToken');
+
+        // Build registered user query
         const query = { fcmToken: { $ne: null } };
         if (role && role !== 'all') query.role = role;
 
-        const users = await User.find(query).select('fcmToken').lean();
-        if (users.length === 0) return res.json({ sent: 0, message: 'No users with notifications enabled' });
+        const [users, guestTokens] = await Promise.all([
+            User.find(query).select('fcmToken').lean(),
+            // Only include guests when sending to 'all'
+            (!role || role === 'all') ? GuestToken.find().select('token').lean() : [],
+        ]);
 
-        const { sendNotificationToToken } = require('../utils/sendNotification');
+        const allTokens = [
+            ...users.map(u => u.fcmToken),
+            ...guestTokens.map(g => g.token),
+        ].filter(Boolean);
 
-        // Send in parallel (fire-and-forget per token — failures are caught inside)
-        await Promise.all(users.map(u => sendNotificationToToken(u.fcmToken, { title, body })));
+        if (allTokens.length === 0) return res.json({ sent: 0, message: 'No users with notifications enabled' });
 
-        res.json({ sent: users.length, message: `Notification sent to ${users.length} user(s)` });
+        await Promise.all(allTokens.map(t => sendNotificationToToken(t, { title, body })));
+
+        res.json({ sent: allTokens.length, message: `Notification sent to ${allTokens.length} device(s)` });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

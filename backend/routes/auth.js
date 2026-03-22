@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Labour = require('../models/Labour');
 const CarOwner = require('../models/CarOwner');
+const GuestToken = require('../models/GuestToken');
 const { upload } = require('../config/cloudinary');
 const { protect, loadUser } = require('../middleware/auth');
 const { notifyAdmins } = require('../utils/sendNotification');
@@ -270,7 +271,22 @@ router.post('/fcm-token', protect, async (req, res) => {
         const { token } = req.body;
         if (!token) return res.status(400).json({ message: 'Token is required' });
         await User.findByIdAndUpdate(req.user._id, { fcmToken: token });
+        // Remove from guest collection now that they are logged in
+        GuestToken.deleteOne({ token }).catch(() => {});
         res.json({ message: 'FCM token saved' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST /api/auth/guest-fcm-token — PUBLIC: save token for non-logged-in visitors
+router.post('/guest-fcm-token', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) return res.status(400).json({ message: 'Token is required' });
+        // Upsert — deduplicate on token value
+        await GuestToken.updateOne({ token }, { token }, { upsert: true });
+        res.json({ message: 'Guest FCM token saved' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

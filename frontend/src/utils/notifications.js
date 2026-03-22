@@ -8,15 +8,14 @@ const LOCAL_FCM_KEY = 'kroeasy_fcm_token';
 
 /**
  * Request notification permission from ANY visitor (logged-in or not).
- * - If logged in → saves FCM token directly to the backend
- * - If NOT logged in → saves FCM token to localStorage; backend will get it on next login
+ * - If logged in → saves FCM token to backend (User.fcmToken)
+ * - If NOT logged in → saves to localStorage AND posts to the public guest-fcm-token endpoint
  */
 export const requestNotificationPermission = async () => {
   try {
     const supported = await isSupported();
     if (!supported) return;
 
-    // Don't re-prompt if already denied
     if (Notification.permission === 'denied') return;
 
     const permission = await Notification.requestPermission();
@@ -26,19 +25,21 @@ export const requestNotificationPermission = async () => {
     const token = await getToken(messaging, { vapidKey: VAPID_KEY });
     if (!token) return;
 
-    // Always store locally so it survives page reloads
+    // Always cache locally
     localStorage.setItem(LOCAL_FCM_KEY, token);
 
-    // If logged in, also send to backend immediately
     const authToken = localStorage.getItem('kroeasy_token');
     if (authToken) {
+      // Logged-in: save to User document
       await api.post('/auth/fcm-token', { token }).catch(() => {});
       console.log('🔔 FCM token registered (logged in)');
     } else {
-      console.log('🔔 FCM token saved locally (guest — will sync on login)');
+      // Guest: save to GuestToken collection via public endpoint
+      await api.post('/auth/guest-fcm-token', { token }).catch(() => {});
+      console.log('🔔 FCM token registered (guest)');
     }
 
-    // Handle foreground messages (app is open)
+    // Handle foreground messages (app is open / tab active)
     onMessage(messaging, (payload) => {
       const { title, body } = payload.notification || {};
       if (!title) return;
@@ -57,7 +58,7 @@ export const requestNotificationPermission = async () => {
 
 /**
  * Called after login — syncs any locally saved FCM token to the backend.
- * This handles guests who allowed notifications before logging in.
+ * Also removes the token from the GuestToken collection (handled server-side).
  */
 export const syncFcmTokenAfterLogin = async () => {
   try {
