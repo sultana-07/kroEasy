@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# Generated at build time from env vars — DO NOT COMMIT (contains Firebase apiKey)
+public/firebase-messaging-sw.js
+
 # Logs
 logs
 *.log

@@ -4,14 +4,15 @@ import { app } from '../firebase';
 import api from '../api';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+const LOCAL_FCM_KEY = 'kroeasy_fcm_token';
 
 /**
- * Request notification permission and register the FCM token with our backend.
- * Safe to call on every login — skips silently if already granted or browser doesn't support it.
+ * Request notification permission from ANY visitor (logged-in or not).
+ * - If logged in → saves FCM token directly to the backend
+ * - If NOT logged in → saves FCM token to localStorage; backend will get it on next login
  */
 export const requestNotificationPermission = async () => {
   try {
-    // Check browser support
     const supported = await isSupported();
     if (!supported) return;
 
@@ -25,16 +26,22 @@ export const requestNotificationPermission = async () => {
     const token = await getToken(messaging, { vapidKey: VAPID_KEY });
     if (!token) return;
 
-    // Save token to backend (silently — don't block the login flow)
-    await api.post('/auth/fcm-token', { token });
-    console.log('🔔 FCM token registered');
+    // Always store locally so it survives page reloads
+    localStorage.setItem(LOCAL_FCM_KEY, token);
+
+    // If logged in, also send to backend immediately
+    const authToken = localStorage.getItem('kroeasy_token');
+    if (authToken) {
+      await api.post('/auth/fcm-token', { token }).catch(() => {});
+      console.log('🔔 FCM token registered (logged in)');
+    } else {
+      console.log('🔔 FCM token saved locally (guest — will sync on login)');
+    }
 
     // Handle foreground messages (app is open)
     onMessage(messaging, (payload) => {
       const { title, body } = payload.notification || {};
       if (!title) return;
-
-      // Use the Notifications API directly to show a toast-style notification
       if (Notification.permission === 'granted') {
         new Notification(title, {
           body,
@@ -44,7 +51,23 @@ export const requestNotificationPermission = async () => {
       }
     });
   } catch (err) {
-    // Notification setup should never break the app
     console.warn('Notification setup failed:', err.message);
+  }
+};
+
+/**
+ * Called after login — syncs any locally saved FCM token to the backend.
+ * This handles guests who allowed notifications before logging in.
+ */
+export const syncFcmTokenAfterLogin = async () => {
+  try {
+    const token = localStorage.getItem(LOCAL_FCM_KEY);
+    if (!token) return;
+    const authToken = localStorage.getItem('kroeasy_token');
+    if (!authToken) return;
+    await api.post('/auth/fcm-token', { token });
+    console.log('🔔 FCM token synced to backend after login');
+  } catch (err) {
+    console.warn('FCM token sync failed:', err.message);
   }
 };

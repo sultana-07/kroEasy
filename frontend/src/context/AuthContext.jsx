@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../api';
-import { requestNotificationPermission } from '../utils/notifications';
+import { requestNotificationPermission, syncFcmTokenAfterLogin } from '../utils/notifications';
 
 const AuthContext = createContext(null);
 
@@ -13,6 +13,9 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('kroeasy_token');
     if (storedUser && token) {
       setUser(JSON.parse(storedUser));
+      // Ask for notification permission for returning logged-in users
+      // (skips silently if already granted or denied)
+      requestNotificationPermission().catch(() => {});
     }
     setLoading(false);
   }, []);
@@ -21,7 +24,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('kroeasy_token', userData.token);
     localStorage.setItem('kroeasy_user', JSON.stringify(userData));
     setUser(userData);
-    // Request notification permission after login (fire-and-forget)
+    // Sync any FCM token saved locally (from guest permission grant)
+    syncFcmTokenAfterLogin().catch(() => {});
+    // Also request permission if not yet granted
     requestNotificationPermission().catch(() => {});
   };
 

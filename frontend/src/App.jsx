@@ -11,6 +11,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import InstagramFAB from "./components/InstagramFAB";
+import { requestNotificationPermission } from "./utils/notifications";
 
 // Lazy-loaded pages — each page loads as its own JS chunk only when visited.
 // Cuts initial bundle by ~70%, improving cold-start time on free tier.
@@ -228,6 +229,15 @@ export default function App() {
       }, 2500); // 2.5s — matches the longer animation sequence
       return () => clearTimeout(timer);
     }
+  }, []);
+
+  // Ask ALL visitors for notification permission (logged-in or not)
+  // Delay by 3s so it shows after the splash screen fades
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      requestNotificationPermission().catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
