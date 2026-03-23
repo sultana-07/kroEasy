@@ -47,6 +47,11 @@ export default defineConfig({
         skipWaiting: false,
         clientsClaim: false,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Exclude firebase-messaging-sw.js so Workbox doesn't precache or intercept it —
+        // it must be served fresh every time to avoid conflicts with FCM background handling.
+        globIgnores: ['firebase-messaging-sw.js'],
+        // Prevent Workbox navigation fallback from hijacking the Firebase SW route
+        navigateFallbackDenylist: [/firebase-messaging-sw\.js/],
         // Cache navigation (HTML) requests so the app loads instantly on repeat visits
         navigationPreload: false,  // use cache instead of preload for offline support
         runtimeCaching: [

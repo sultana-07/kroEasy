@@ -1,6 +1,24 @@
 const admin = require('../config/firebase');
 const User = require('../models/User');
 
+// FCM error codes that mean the token is permanently invalid and should be deleted
+const STALE_TOKEN_ERRORS = ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'];
+
+/**
+ * Delete a stale FCM token from both User and GuestToken collections.
+ */
+const deleteStaleToken = async (token) => {
+    try {
+        const GuestToken = require('../models/GuestToken');
+        await Promise.all([
+            User.updateMany({ fcmToken: token }, { $unset: { fcmToken: '' } }),
+            GuestToken.deleteMany({ token }),
+        ]);
+    } catch (e) {
+        // best-effort cleanup, don't throw
+    }
+};
+
 /**
  * Send a push notification to a specific user by their MongoDB userId.
  * Gracefully skips if the user has no FCM token stored.
@@ -21,6 +39,7 @@ const sendNotification = async (userId, { title, body, data = {} }) => {
 
 /**
  * Send a push notification directly using an FCM token.
+ * Auto-deletes stale tokens (NotRegistered) from the DB to keep it clean.
  * @param {string} token
  * @param {{ title: string, body: string, data?: Record<string,string> }} payload
  */
@@ -54,8 +73,13 @@ const sendNotificationToToken = async (token, { title, body, data = {} }) => {
 
         await admin.messaging().send(message);
     } catch (err) {
-        // Token may be stale/revoked — log but don't throw
-        console.error('sendNotificationToToken error:', err.message);
+        const code = err.errorInfo?.code || err.code || '';
+        if (STALE_TOKEN_ERRORS.some(e => code.includes(e)) || err.message?.includes('NotRegistered')) {
+            // Token is expired/revoked — silently remove it from DB
+            await deleteStaleToken(token);
+        } else {
+            console.error('sendNotificationToToken error:', err.message);
+        }
     }
 };
 

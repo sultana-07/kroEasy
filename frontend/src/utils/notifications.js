@@ -8,8 +8,14 @@ const LOCAL_FCM_KEY = 'kroeasy_fcm_token';
 
 /**
  * Request notification permission from ANY visitor (logged-in or not).
- * - If logged in → saves FCM token to backend (User.fcmToken)
- * - If NOT logged in → saves to localStorage AND posts to the public guest-fcm-token endpoint
+ * Works for:
+ *  - PWA installed users
+ *  - Regular browser tab users (non-PWA)
+ *  - Logged-in users (saves to User.fcmToken)
+ *  - Guests / not logged in (saves to GuestToken collection)
+ *
+ * Firebase SDK automatically finds /firebase-messaging-sw.js — no manual SW
+ * registration needed here (which would conflict with the Workbox SW).
  */
 export const requestNotificationPermission = async () => {
   try {
@@ -22,6 +28,9 @@ export const requestNotificationPermission = async () => {
     if (permission !== 'granted') return;
 
     const messaging = getMessaging(app);
+
+    // Firebase SDK auto-discovers /firebase-messaging-sw.js at the root.
+    // Do NOT pass serviceWorkerRegistration here to avoid SW conflicts with Workbox.
     const token = await getToken(messaging, { vapidKey: VAPID_KEY });
     if (!token) return;
 
@@ -34,21 +43,33 @@ export const requestNotificationPermission = async () => {
       await api.post('/auth/fcm-token', { token }).catch(() => {});
       console.log('🔔 FCM token registered (logged in)');
     } else {
-      // Guest: save to GuestToken collection via public endpoint
+      // Guest / non-PWA: save to GuestToken collection via public endpoint
       await api.post('/auth/guest-fcm-token', { token }).catch(() => {});
       console.log('🔔 FCM token registered (guest)');
     }
 
     // Handle foreground messages (app is open / tab active)
+    // Use SW showNotification() so it works in both PWA and regular browser mode on Android
     onMessage(messaging, (payload) => {
       const { title, body } = payload.notification || {};
-      if (!title) return;
-      if (Notification.permission === 'granted') {
-        new Notification(title, {
-          body,
-          icon: '/pwa-192x192.png',
-          badge: '/pwa-192x192.png',
-        });
+      if (!title || Notification.permission !== 'granted') return;
+
+      // Prefer SW-based notification (works in PWA standalone mode on Android)
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.ready
+          .then(reg => reg.showNotification(title, {
+            body,
+            icon: '/pwa-192x192.png',
+            badge: '/pwa-192x192.png',
+            vibrate: [200, 100, 200],
+          }))
+          .catch(() => {
+            // Fallback for desktop browsers when SW showNotification fails
+            new Notification(title, { body, icon: '/pwa-192x192.png' });
+          });
+      } else {
+        // Desktop browser / no SW controller yet
+        new Notification(title, { body, icon: '/pwa-192x192.png' });
       }
     });
   } catch (err) {
