@@ -53,6 +53,12 @@ const sendNotificationToToken = async (token, { title, body, data = {} }) => {
             stringData[k] = String(v);
         });
 
+        // Always include a 'link' in the data payload so the service worker's
+        // notificationclick handler can read it from event.notification.data.link
+        if (!stringData.link) {
+            stringData.link = 'https://kroeasy.com/dashboard';
+        }
+
         const message = {
             token,
             notification: { title, body },
@@ -64,9 +70,10 @@ const sendNotificationToToken = async (token, { title, body, data = {} }) => {
                     icon: '/pwa-192x192.png',
                     badge: '/pwa-192x192.png',
                     vibrate: [200, 100, 200],
+                    data: stringData,   // pass data into the notification object too
                 },
                 fcmOptions: {
-                    link: 'https://kroeasy.com/dashboard',
+                    link: stringData.link,
                 },
             },
         };
