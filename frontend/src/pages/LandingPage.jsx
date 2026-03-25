@@ -204,8 +204,8 @@ export default function LandingPage() {
   const statsInView = useInView(statsRef);
 
   const [users, startUsers] = useCounter(100);
-  const [jobs, startJobs] = useCounter(12);
-  const [providers, startProviders] = useCounter(15);
+  const [jobs, startJobs] = useCounter(18);
+  const [providers, startProviders] = useCounter(25);
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 50);

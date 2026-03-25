@@ -7,6 +7,7 @@ const Car = require('../models/Car');
 const Booking = require('../models/Booking');
 const CallLog = require('../models/CallLog');
 const PwaInstall = require('../models/PwaInstall');
+const GuestToken = require('../models/GuestToken');
 const { protect, authorize } = require('../middleware/auth');
 
 // Helper: parse pagination query params
@@ -19,7 +20,7 @@ const paginate = (query) => {
 
 router.get('/stats', protect, authorize('admin'), async (req, res) => {
     try {
-        const [users, labours, carOwners, cars, bookings, callLogs, pwaInstalls] = await Promise.all([
+        const [users, labours, carOwners, cars, bookings, callLogs, pwaInstalls, notifUsers, notifGuests] = await Promise.all([
             User.countDocuments({ role: 'user' }),
             Labour.countDocuments(),
             CarOwner.countDocuments(),
@@ -27,8 +28,11 @@ router.get('/stats', protect, authorize('admin'), async (req, res) => {
             Booking.countDocuments(),
             CallLog.countDocuments(),
             PwaInstall.countDocuments(),
+            User.countDocuments({ fcmToken: { $ne: null } }),
+            GuestToken.countDocuments(),
         ]);
-        res.json({ users, labours, carOwners, cars, bookings, callLogs, pwaInstalls });
+        res.json({ users, labours, carOwners, cars, bookings, callLogs, pwaInstalls,
+                   notifSubscribers: notifUsers + notifGuests, notifUsers, notifGuests });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -441,7 +445,7 @@ router.post('/broadcast-notification', protect, authorize('admin'), async (req, 
 
         if (allTokens.length === 0) return res.json({ sent: 0, message: 'No users with notifications enabled' });
 
-        await Promise.all(allTokens.map(t => sendNotificationToToken(t, { title, body })));
+        await Promise.all(allTokens.map(t => sendNotificationToToken(t, { title, body, data: { link: 'https://kroeasy.com/' } })));
 
         res.json({ sent: allTokens.length, message: `Notification sent to ${allTokens.length} device(s)` });
     } catch (error) {

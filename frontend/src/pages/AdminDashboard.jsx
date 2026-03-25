@@ -216,6 +216,7 @@ export default function AdminDashboard() {
     { name: 'Bookings', value: stats.bookings, fill: '#EC4899' },
     { name: 'Call Logs', value: stats.callLogs, fill: '#F59E0B' },
     { name: 'Installs', value: stats.pwaInstalls, fill: '#0891B2' },
+    { name: 'Notif.', value: stats.notifSubscribers, fill: '#7C3AED' },
   ] : [];
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><div className="spinner" /></div>;
@@ -257,6 +258,7 @@ export default function AdminDashboard() {
               { label: 'Bookings', value: stats?.bookings, icon: '📋', color: '#EC4899' },
               { label: 'Call Logs', value: stats?.callLogs, icon: '📞', color: '#F59E0B' },
               { label: 'PWA Installs', value: stats?.pwaInstalls, icon: '📲', color: '#0891B2' },
+              { label: 'Notif. Subscribers', value: stats?.notifSubscribers, icon: '🔔', color: '#7C3AED' },
             ].map((s, i) => (
               <div key={i} className="stat-card" style={{ padding: '14px 8px' }}>
                 <div style={{ fontSize: '22px', marginBottom: '4px' }}>{s.icon}</div>
@@ -733,7 +735,14 @@ export default function AdminDashboard() {
       {activeTab === 'broadcast' && (
         <div style={{ padding: '16px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '4px' }}>📣 Broadcast Notification</h3>
-          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>Send a push notification to all users who have allowed notifications.</p>
+          <p style={{ fontSize: '13px', color: '#64748B', marginBottom: '16px' }}>
+            Send a push notification to all users who have allowed notifications.
+            {stats?.notifSubscribers != null && (
+              <span style={{ marginLeft: '6px', background: '#F5F3FF', color: '#7C3AED', borderRadius: '20px', padding: '2px 10px', fontWeight: '700', fontSize: '12px' }}>
+                🔔 {stats.notifSubscribers} subscribers ({stats.notifUsers} registered + {stats.notifGuests} guests)
+              </span>
+            )}
+          </p>
 
           <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Role Filter */}

@@ -56,7 +56,7 @@ const sendNotificationToToken = async (token, { title, body, data = {} }) => {
         // Always include a 'link' in the data payload so the service worker's
         // notificationclick handler can read it from event.notification.data.link
         if (!stringData.link) {
-            stringData.link = 'https://kroeasy.com/dashboard';
+            stringData.link = 'https://kroeasy.com/';
         }
 
         const message = {

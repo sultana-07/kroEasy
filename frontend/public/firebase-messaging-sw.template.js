@@ -32,7 +32,7 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.link || 'https://kroeasy.com/dashboard';
+  const urlToOpen = event.notification.data?.link || 'https://kroeasy.com/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {
