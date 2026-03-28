@@ -11,13 +11,13 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
-// ── Keep-alive: ping ourselves every 14 minutes to prevent Render cold starts ──
+// ── Keep-alive: ping ourselves every 1 hour ──
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL;
 if (SELF_URL) {
     setInterval(() => {
         fetch(`${SELF_URL}/api/health`).catch(() => { });
-    }, 14 * 60 * 1000); // every 14 min (Render sleeps after 15 min)
-    console.log(`🔄 Keep-alive enabled: pinging ${SELF_URL} every 14 min`);
+    }, 60 * 60 * 1000); // every 1 hour
+    console.log(`🔄 Keep-alive enabled: pinging ${SELF_URL} every 1 hour`);
 }
 
 // Rate limiting — 200 requests per minute per IP
