@@ -1,0 +1,21 @@
+<svg width="1200" height="420" viewBox="0 0 1200 420" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4c1d95"/>
+      <stop offset="100%" stop-color="#9d174d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="420" fill="url(#bg3)"/>
+  <circle cx="990" cy="120" r="180" fill="#fbcfe8" opacity="0.2"/>
+  <circle cx="1120" cy="280" r="120" fill="#f9a8d4" opacity="0.2"/>
+  <rect x="80" y="100" width="290" height="210" rx="28" fill="#fff1f2"/>
+  <circle cx="176" cy="178" r="46" fill="#fda4af"/>
+  <rect x="136" y="228" width="80" height="58" rx="18" fill="#be185d"/>
+  <rect x="250" y="136" width="82" height="16" rx="8" fill="#fb7185"/>
+  <rect x="250" y="164" width="66" height="16" rx="8" fill="#f472b6"/>
+  <rect x="250" y="192" width="54" height="16" rx="8" fill="#ec4899"/>
+  <text x="410" y="176" fill="#fff1f2" font-size="62" font-family="Inter, Arial, sans-serif" font-weight="800">Beautician At Home</text>
+  <text x="410" y="238" fill="#fce7f3" font-size="34" font-family="Inter, Arial, sans-serif" font-weight="500">Bridal and daily beauty services</text>
+  <rect x="410" y="274" width="330" height="62" rx="31" fill="#ec4899"/>
+  <text x="485" y="315" fill="#ffffff" font-size="30" font-family="Inter, Arial, sans-serif" font-weight="700">Book Artist</text>
+</svg>
