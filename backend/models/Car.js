@@ -15,6 +15,8 @@ const carSchema = new mongoose.Schema({
     leadCount: { type: Number, default: 0 },
     bookingCount: { type: Number, default: 0 },
     city: { type: String, index: true },
+    pincode: { type: String },
+    serviceAreas: [{ type: String }],
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
 }, { timestamps: true });

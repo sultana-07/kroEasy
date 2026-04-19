@@ -7,7 +7,16 @@ const labourSchema = new mongoose.Schema({
     charges: { type: String },
     description: { type: String },
     city: { type: String, index: true },
+    pincode: { type: String },
+    serviceCities: [{ type: String }],
+    serviceAreas: [{ type: String }],
     availability: { type: Boolean, default: true },
+    isOnline: { type: Boolean, default: false },
+    location: {
+        type: { type: String, enum: ['Point'], default: 'Point' },
+        coordinates: { type: [Number], default: [0, 0] } // [longitude, latitude]
+    },
+    workRadius: { type: Number, default: 5 }, // In Kilometers
     rating: { type: Number, default: 0, min: 0, max: 5 },
     reviewCount: { type: Number, default: 0 },
     totalRating: { type: Number, default: 0 },
@@ -17,6 +26,9 @@ const labourSchema = new mongoose.Schema({
     isApproved: { type: Boolean, default: false, index: true },
     profileViews: [{ date: { type: Date, required: true } }],
 }, { timestamps: true });
+
+// Geo-spatial index
+labourSchema.index({ location: '2dsphere' });
 
 // Compound index for the most common public listing query: approved labours by city
 labourSchema.index({ isApproved: 1, city: 1 });

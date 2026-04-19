@@ -527,8 +527,6 @@ const translations = {
     carOwnerCtaBtn: '🚗 Car Owner',
     finalCtaTitle: 'आज ही try करो — Free!',
     finalCtaDesc: 'Browse करने के लिए register भी नहीं चाहिए। देखो और काम करवाओ!',
-    browseServices: '⚡ सेवाएं देखें — अभी!',
-    registerFree: '✨ Free Register',
     installBannerTitle: 'KroEasy App Install करें — Free!',
     installBannerSub: 'Offline भी चलेगा • Home screen पर icon',
     trust1Title: 'Admin Verified', trust1Desc: 'हर कामगार को admin check करता है',
@@ -709,7 +707,6 @@ const translations = {
     unavailableText: '\u0905\u0928\u0941\u092a\u0932\u092c\u094d\u0927',
     notAvailableText: '\u0909\u092a\u0932\u092c\u094d\u0927 \u0928\u0939\u0940\u0902',
     viewDetails: '\u0935\u093f\u0935\u0930\u0923 \u0926\u0947\u0916\u0947\u0902',
-    perKm: '\u092a\u094d\u0930\u0924\u093f \u0915\u093f\u092e\u0940',
     ownerDetails: '\u092e\u093e\u0932\u093f\u0915 \u0915\u0940 \u091c\u093e\u0928\u0915\u093e\u0930\u0940',
     carFeatures: '\u0915\u093e\u0930 \u0915\u0940 \u0935\u093f\u0936\u0947\u0937\u0924\u093e\u090f\u0902',
     verifiedCarOwner: '\u0938\u0924\u094d\u092f\u093e\u092a\u093f\u0924 \u0915\u093e\u0930 \u092e\u093e\u0932\u093f\u0915',
@@ -749,6 +746,17 @@ export const LanguageProvider = ({ children }) => {
 
   useEffect(() => {
     document.documentElement.lang = lang === 'hi' ? 'hi' : 'en';
+  }, [lang]);
+
+  // Listen for StorageEvents dispatched by CityModal when user picks language
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'kroeasy_lang' && e.newValue && e.newValue !== lang) {
+        setLang(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
   }, [lang]);
 
   return (

@@ -52,10 +52,14 @@ app.use('/api/booking', require('./routes/booking'));
 app.use('/api/call-log', require('./routes/callLog'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/pwa', require('./routes/pwa'));
+app.use('/api/locations', require('./routes/location'));
+app.use('/api/citypartner', require('./routes/citypartner'));
+app.use('/api/videos',     require('./routes/video'));       // Reels / video feed
+app.use('/api/subscription', require('./routes/subscription')); // Subscription & payments
 
 // Health check (also used by keep-alive)
 app.get('/api/health', (req, res) =>
-    res.json({ status: 'OK', message: 'KroEasy API running', uptime: process.uptime() | 0 })
+    res.json({ status: 'OK', message: 'Antigravity API running', uptime: process.uptime() | 0 })
 );
 
 // 404 handler
@@ -69,5 +73,5 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () =>
-    console.log(`🚀 KroEasy API running on port ${PORT}`)
+    console.log(`🚀 ApniSeva API running on port ${PORT}`)
 );

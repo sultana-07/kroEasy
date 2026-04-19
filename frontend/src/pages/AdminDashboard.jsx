@@ -7,6 +7,13 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const ADMIN_WA = import.meta.env.VITE_ADMIN_WHATSAPP || '';
 
+const ALL_SERVICES = [
+  'Electrician', 'Plumber', 'Carpenter', 'Mason',
+  'Beautician', 'AC Technician', 'Mehndi Artist', 'Helper',
+  'Painter', 'Pest Control', 'CCTV Technician', 'Water Purifier',
+  'Home Cleaning', 'Gardener', 'Driver',
+];
+
 function openWhatsApp(b) {
   const pd = b.providerDetails;
   const isLabour = b.providerType === 'labour';
@@ -55,6 +62,8 @@ function openWhatsApp(b) {
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [autocomplete, setAutocomplete] = useState(null);
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState({ recentBookings: [], recentCallLogs: [] });
   const [labours, setLabours] = useState([]);
@@ -64,7 +73,6 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [userTotal, setUserTotal] = useState(0);
   const [providerStats, setProviderStats] = useState({ labourStats: [], carOwnerStats: [] });
-  const [activeTab, setActiveTab] = useState('overview');
   const [activitySubTab, setActivitySubTab] = useState('bookings');
   const [labourView, setLabourView] = useState('manage');
   const [carView, setCarView] = useState('manage');
@@ -79,6 +87,59 @@ export default function AdminDashboard() {
   const [bcBody, setBcBody] = useState('');
   const [bcRole, setBcRole] = useState('all');
   const [bcSending, setBcSending] = useState(false);
+  // City Partners state
+  const [cityPartners, setCityPartners] = useState([]);
+  const [cpLoading, setCpLoading] = useState(false);
+  const [cpForm, setCpForm] = useState({ name: '', phone: '', password: '', city: '' });
+  const [cpFormOpen, setCpFormOpen] = useState(false);
+  const [cpSaving, setCpSaving] = useState(false);
+  const [cpExpandedId, setCpExpandedId] = useState(null);
+  const [cpDetails, setCpDetails] = useState({});   // { [partnerId]: { stats, recentBookings, pendingWorkers, pendingOwners } }
+  const [cpDetailLoading, setCpDetailLoading] = useState('');
+  // Partner cities are loaded dynamically from the active locations
+  // Banners state
+  const [banners, setBanners] = useState([]);
+  const [bannerLoading, setBannerLoading] = useState(false);
+  const [bannerFile, setBannerFile] = useState(null);
+  const [bannerLink, setBannerLink] = useState('');
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [editLinkId, setEditLinkId] = useState(null);
+  const [editLinkVal, setEditLinkVal] = useState('');
+  // ── Videos state ──
+  const [adminVideos, setAdminVideos] = useState([]);
+  const [videoTabLoading, setVideoTabLoading] = useState(false);
+  // ── Locations state ──
+  const [locations, setLocations] = useState([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const [locForm, setLocForm] = useState({ city: '', nameHi: '', pincode: '', areas: '', isActive: true, enabledServices: [] });
+  const [locEditId, setLocEditId] = useState(null);
+  const [locSaving, setLocSaving] = useState(false);
+  // Per-area inline manager
+  const [areaInputs, setAreaInputs] = useState({}); // { [locId]: string }
+  const [areaSaving, setAreaSaving] = useState(''); // locId currently saving
+  // ── User Address Modal state ──
+  const [addrModalUser, setAddrModalUser] = useState(null);
+
+  // ── Subscriptions state ──
+  const [subs, setSubs] = useState([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+
+  const fetchSubscriptions = async () => {
+    setSubsLoading(true);
+    try {
+      const { data } = await api.get('/subscription/admin/all');
+      setSubs(data);
+    } catch { toast.error('Failed to load subscriptions'); }
+    finally { setSubsLoading(false); }
+  };
+
+  const handleSubOverride = async (subId, updateData) => {
+    try {
+      await api.patch(`/subscription/admin/${subId}/override`, updateData);
+      toast.success('Subscription updated successfully');
+      fetchSubscriptions();
+    } catch { toast.error('Failed to update subscription'); }
+  };
 
   const sendBroadcast = async () => {
     if (!bcTitle.trim() || !bcBody.trim()) { toast.error('Title and message are required'); return; }
@@ -92,7 +153,216 @@ export default function AdminDashboard() {
     } finally { setBcSending(false); }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  const fetchCityPartners = async () => {
+    setCpLoading(true);
+    try {
+      const { data } = await api.get('/admin/city-partners');
+      setCityPartners(data);
+    } catch { toast.error('Failed to load city partners'); }
+    finally { setCpLoading(false); }
+  };
+
+  const fetchPartnerDetails = async (partnerId) => {
+    if (cpDetails[partnerId]) return; // already loaded, use cache
+    setCpDetailLoading(partnerId);
+    try {
+      const { data } = await api.get(`/admin/city-partners/${partnerId}/stats`);
+      setCpDetails(prev => ({ ...prev, [partnerId]: data }));
+    } catch { toast.error('Failed to load partner details'); }
+    finally { setCpDetailLoading(''); }
+  };
+
+  const togglePartnerExpand = (partnerId) => {
+    if (cpExpandedId === partnerId) {
+      setCpExpandedId(null);
+    } else {
+      setCpExpandedId(partnerId);
+      fetchPartnerDetails(partnerId);
+    }
+  };
+
+  const refreshPartnerDetails = async (partnerId) => {
+    setCpDetailLoading(partnerId);
+    setCpDetails(prev => { const n = { ...prev }; delete n[partnerId]; return n; });
+    try {
+      const { data } = await api.get(`/admin/city-partners/${partnerId}/stats`);
+      setCpDetails(prev => ({ ...prev, [partnerId]: data }));
+    } catch { toast.error('Failed to refresh'); }
+    finally { setCpDetailLoading(''); }
+  };
+
+  const createCityPartner = async () => {
+    if (!cpForm.name || !cpForm.phone || !cpForm.password || !cpForm.city) {
+      toast.error('All fields are required'); return;
+    }
+    setCpSaving(true);
+    try {
+      const { data } = await api.post('/admin/city-partners', cpForm);
+      setCityPartners(prev => [data, ...prev]);
+      setCpForm({ name: '', phone: '', password: '', city: '' });
+      setCpFormOpen(false);
+      toast.success(`✅ City Partner created for ${data.city}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create city partner');
+    } finally { setCpSaving(false); }
+  };
+
+  const deleteCityPartner = async (id, name) => {
+    if (!window.confirm(`Delete city partner "${name}"?`)) return;
+    try {
+      await api.delete(`/admin/city-partners/${id}`);
+      setCityPartners(prev => prev.filter(p => p._id !== id));
+      toast.success('City partner deleted');
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const fetchBanners = async () => {
+    setBannerLoading(true);
+    try {
+      const { data } = await api.get('/admin/admin-banners');
+      setBanners(data);
+    } catch { toast.error('Failed to load banners'); }
+    finally { setBannerLoading(false); }
+  };
+
+  const uploadBanner = async () => {
+    if (!bannerFile) { toast.error('Please choose an image'); return; }
+    setBannerUploading(true);
+    try {
+      const form = new FormData();
+      form.append('image', bannerFile);
+      form.append('link', bannerLink.trim());
+      const { data } = await api.post('/admin/admin-banners', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setBanners(prev => [...prev, data]);
+      setBannerFile(null);
+      setBannerLink('');
+      toast.success('Banner uploaded!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Upload failed');
+    } finally { setBannerUploading(false); }
+  };
+
+  const deleteBanner = async (id) => {
+    if (!window.confirm('Delete this banner?')) return;
+    try {
+      await api.delete(`/admin/admin-banners/${id}`);
+      setBanners(prev => prev.filter(b => b._id !== id));
+      toast.success('Banner deleted');
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const toggleBannerActive = async (id, isActive) => {
+    try {
+      const { data } = await api.patch(`/admin/admin-banners/${id}`, { isActive });
+      setBanners(prev => prev.map(b => b._id === id ? data : b));
+    } catch { toast.error('Failed to update'); }
+  };
+
+  const saveBannerLink = async (id) => {
+    try {
+      const { data } = await api.patch(`/admin/admin-banners/${id}`, { link: editLinkVal.trim() });
+      setBanners(prev => prev.map(b => b._id === id ? data : b));
+      setEditLinkId(null);
+      toast.success('Link saved');
+    } catch { toast.error('Failed to save link'); }
+  };
+
+  // ── Location Handlers ──
+  const fetchLocations = async () => {
+    setLocLoading(true);
+    try {
+      const { data } = await api.get('/admin/locations');
+      setLocations(data);
+    } catch { toast.error('Failed to load locations'); }
+    finally { setLocLoading(false); }
+  };
+
+  const saveLocation = async (e) => {
+    e.preventDefault();
+    if (!locForm.city.trim()) { toast.error('City name is required'); return; }
+    setLocSaving(true);
+    try {
+      const payload = { 
+        city: locForm.city.trim(),
+        nameHi: locForm.nameHi.trim(),
+        pincode: locForm.pincode.trim(),
+        areas: locForm.areas.split(',').map(a => a.trim()).filter(Boolean),
+        isActive: locForm.isActive,
+        enabledServices: locForm.enabledServices,
+      };
+      if (locEditId) {
+        const { data } = await api.put(`/admin/locations/${locEditId}`, payload);
+        setLocations(prev => prev.map(l => l._id === locEditId ? data : l));
+        toast.success('Location updated');
+      } else {
+        const { data } = await api.post('/admin/locations', payload);
+        setLocations(prev => [...prev, data]);
+        toast.success('Location added');
+      }
+      setLocForm({ city: '', nameHi: '', pincode: '', areas: '', isActive: true, enabledServices: [] });
+      setLocEditId(null);
+    } catch { toast.error('Failed to save location'); }
+    finally { setLocSaving(false); }
+  };
+
+  const deleteLocation = async (id) => {
+    if (!window.confirm('Delete this location?')) return;
+    try {
+      await api.delete(`/admin/locations/${id}`);
+      setLocations(prev => prev.filter(l => l._id !== id));
+      toast.success('Location deleted');
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const editLocation = (loc) => {
+    setLocEditId(loc._id);
+    // Areas: handle both string[] (old) and {name,isActive}[] (new)
+    const areasStr = (loc.areas || []).map(a => typeof a === 'string' ? a : a.name).join(', ');
+    setLocForm({
+      city: loc.city,
+      nameHi: loc.nameHi || '',
+      pincode: loc.pincode || '',
+      areas: areasStr,
+      isActive: loc.isActive !== undefined ? loc.isActive : true,
+      enabledServices: loc.enabledServices || [],
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ── Inline Area Manager Handlers ──
+  const addArea = async (locId) => {
+    const name = (areaInputs[locId] || '').trim();
+    if (!name) { toast.error('Area name is required'); return; }
+    setAreaSaving(locId);
+    try {
+      const { data } = await api.post(`/admin/locations/${locId}/areas`, { name });
+      setLocations(prev => prev.map(l => l._id === locId ? data : l));
+      setAreaInputs(prev => ({ ...prev, [locId]: '' }));
+      toast.success(`✅ Area "${name}" added`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add area');
+    } finally { setAreaSaving(''); }
+  };
+
+  const toggleArea = async (locId, areaName) => {
+    try {
+      const { data } = await api.patch(`/admin/locations/${locId}/areas/${encodeURIComponent(areaName)}/toggle`);
+      setLocations(prev => prev.map(l => l._id === locId ? data : l));
+    } catch { toast.error('Failed to toggle area'); }
+  };
+
+  const deleteArea = async (locId, areaName) => {
+    if (!window.confirm(`Delete area "${areaName}"?`)) return;
+    try {
+      const { data } = await api.delete(`/admin/locations/${locId}/areas/${encodeURIComponent(areaName)}`);
+      setLocations(prev => prev.map(l => l._id === locId ? data : l));
+      toast.success('Area deleted');
+    } catch { toast.error('Failed to delete area'); }
+  };
+
+
+  // (geo/map helpers removed — not needed for text-only locations tab)
+  useEffect(() => { fetchAll(); fetchLocations(); }, []);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -208,6 +478,73 @@ export default function AdminDashboard() {
   };
   // ──────────────────────────────────────────────────────────────────────────
 
+  const onAddrPlaceChanged = () => {
+    if (addrAutocomplete !== null) {
+      const place = addrAutocomplete.getPlace();
+      if (place.geometry) {
+        setAddrForm(prev => ({
+          ...prev,
+          address: place.formatted_address || place.name,
+          location: {
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng()
+          }
+        }));
+      }
+    }
+  };
+
+  const useCurrentAddrLocation = () => {
+    if (!navigator.geolocation) { toast.error('Not supported'); return; }
+    navigator.geolocation.getCurrentPosition(pos => {
+      setAddrForm(prev => ({ ...prev, location: { lat: pos.coords.latitude, lng: pos.coords.longitude } }));
+      toast.success('Location updated');
+    });
+  };
+
+  const saveUserAddress = async (e) => {
+    e.preventDefault();
+    if (!addrModalUser) return;
+    setAddrSaving(true);
+    try {
+      const payload = {
+        label: addrForm.label,
+        address: addrForm.address,
+        location: {
+          type: 'Point',
+          coordinates: [addrForm.location.lng, addrForm.location.lat]
+        }
+      };
+      await api.post(`/admin/users/${addrModalUser._id}/addresses`, payload);
+      toast.success('Address added');
+      // Refresh user data in list
+      const { data } = await api.get('/admin/users');
+      setUsers(data.data);
+      // Close modal
+      setAddrModalUser(null);
+      setAddrForm({ label: 'Home', address: '', location: { lat: 28.6139, lng: 77.2090 } });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add address');
+    } finally { setAddrSaving(false); }
+  };
+
+  const deleteUserAddress = async (userId, addrId) => {
+    if (!window.confirm('Delete this address?')) return;
+    try {
+      await api.delete(`/admin/users/${userId}/addresses/${addrId}`);
+      toast.success('Address deleted');
+      const { data } = await api.get('/admin/users');
+      setUsers(data.data);
+      // Update modal user if currently open
+      if (addrModalUser?._id === userId) {
+        setAddrModalUser(prev => ({
+          ...prev,
+          savedAddresses: prev.savedAddresses.filter(a => a._id !== addrId)
+        }));
+      }
+    } catch { toast.error('Failed to delete'); }
+  };
+
   const chartData = stats ? [
     { name: 'Users', value: stats.users, fill: '#1E3A8A' },
     { name: 'Providers', value: stats.labours, fill: '#F97316' },
@@ -241,8 +578,26 @@ export default function AdminDashboard() {
           { key: 'activity', label: '📋 Activity' },
           { key: 'passwordResets', label: '🔑 Resets' },
           { key: 'broadcast', label: '📣 Broadcast' },
+          { key: 'cityPartners', label: '🏙️ City Partners' },
+          { key: 'banners', label: '🖼️ Banners' },
+          { key: 'locations', label: '📍 Cities/Areas' },
+          { key: 'videos', label: '🎬 Videos' },
+          { key: 'subs', label: '💳 Subs' },
         ].map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flexShrink: 0, padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: activeTab === tab.key ? '#1E3A8A' : '#64748B', borderBottom: activeTab === tab.key ? '3px solid #1E3A8A' : '3px solid transparent', whiteSpace: 'nowrap' }}>{tab.label}</button>
+          <button key={tab.key} onClick={() => {
+            setActiveTab(tab.key);
+            if (tab.key === 'cityPartners') fetchCityPartners();
+            if (tab.key === 'banners') fetchBanners();
+            if (tab.key === 'locations') fetchLocations();
+            if (tab.key === 'videos') {
+              setVideoTabLoading(true);
+              api.get('/videos/admin/all?limit=100')
+                .then(({ data }) => setAdminVideos(data.data || []))
+                .catch(() => toast.error('Failed to load videos'))
+                .finally(() => setVideoTabLoading(false));
+            }
+            if (tab.key === 'subs') fetchSubscriptions();
+          }} style={{ flexShrink: 0, padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: activeTab === tab.key ? '#1E3A8A' : '#64748B', borderBottom: activeTab === tab.key ? '3px solid #1E3A8A' : '3px solid transparent', whiteSpace: 'nowrap' }}>{tab.label}</button>
         ))}
       </div>
 
@@ -540,26 +895,33 @@ export default function AdminDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {users.map(u => (
                 <div key={u._id} className="card" style={{ padding: '14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ fontWeight: '700', fontSize: '15px' }}>{u.name}</div>
                       <div style={{ fontSize: '13px', color: '#64748B' }}>📱 {u.phone} • {u.role}</div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(u.createdAt).toLocaleDateString('en-IN')}</div>
+                      {u.city && <div style={{ fontSize: '12px', color: '#4F46E5', fontWeight: '600', marginTop: '2px' }}>🏙️ {u.city}</div>}
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{new Date(u.createdAt).toLocaleDateString('en-IN')}</div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                       <span className={`badge ${u.isSuspended ? 'badge-red' : 'badge-green'}`}>{u.isSuspended ? '⛔ Suspended' : '✅ Active'}</span>
-                      {u.role !== 'admin' && (
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            onClick={() => suspendUser(u._id, !u.isSuspended)}
-                            style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: u.isSuspended ? '#F0FDF4' : '#FEF2F2', color: u.isSuspended ? '#16A34A' : '#DC2626', fontWeight: '600' }}
-                          >{u.isSuspended ? 'Unsuspend' : 'Suspend'}</button>
-                          <button
-                            onClick={() => deleteUser(u._id, u.name)}
-                            style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#FEF2F2', color: '#DC2626', fontWeight: '700' }}
-                          >Delete</button>
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={() => setAddrModalUser(u)}
+                          style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', cursor: 'pointer', background: 'white', color: '#1E3A8A', fontWeight: '700' }}
+                        >📍 Addresses ({u.savedAddresses?.length || 0})</button>
+                        {u.role !== 'admin' && (
+                          <>
+                            <button
+                              onClick={() => suspendUser(u._id, !u.isSuspended)}
+                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: u.isSuspended ? '#F0FDF4' : '#FEF2F2', color: u.isSuspended ? '#16A34A' : '#DC2626', fontWeight: '600' }}
+                            >{u.isSuspended ? 'Unsuspend' : 'Suspend'}</button>
+                            <button
+                              onClick={() => deleteUser(u._id, u.name)}
+                              style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#FEF2F2', color: '#DC2626', fontWeight: '700' }}
+                            >Delete</button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -625,7 +987,7 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className={`badge ${b.status === 'pending' ? 'badge-orange' : b.status === 'confirmed' ? 'badge-green' : 'badge-red'}`}>{b.status}</span>
+                        <span className={`badge ${b.status === 'pending' ? 'badge-orange' : b.status === 'confirmed' ? 'badge-green' : b.status === 'confirmed' ? 'badge-green' : 'badge-red'}`}>{b.status}</span>
                         <div style={{ fontSize: '11px', color: '#94a3b8' }}>{new Date(b.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</div>
                       </div>
                       {b.notes && <div style={{ marginTop: '6px', fontSize: '12px', color: '#374151', fontStyle: 'italic' }}>💬 "{b.notes}"</div>}
@@ -807,6 +1169,769 @@ export default function AdminDashboard() {
             >
               {bcSending ? '⏳ Sending...' : '📣 Send to All'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ City Partners Tab ═══ */}
+      {activeTab === 'cityPartners' && (
+        <div style={{ padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>🏙️ City Partners ({cityPartners.length})</h3>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Click a partner to view full details</div>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={fetchCityPartners} style={{ padding: '6px 12px', fontSize: 12, borderRadius: 8, border: 'none', background: '#EFF6FF', color: '#1E3A8A', fontWeight: 600, cursor: 'pointer' }}>↻ Refresh</button>
+              <button onClick={() => setCpFormOpen(!cpFormOpen)} style={{ padding: '6px 14px', fontSize: 12, borderRadius: 8, border: 'none', background: cpFormOpen ? '#FEE2E2' : 'linear-gradient(135deg,#1E3A8A,#2563EB)', color: cpFormOpen ? '#DC2626' : '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                {cpFormOpen ? '✕ Close' : '+ Add Partner'}
+              </button>
+            </div>
+          </div>
+
+          {/* Create form */}
+          {cpFormOpen && (
+            <div className="card" style={{ padding: 16, marginBottom: 16, border: '1.5px solid #C7D2FE', background: '#EEF2FF' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', marginBottom: 12 }}>🆕 Create New City Partner</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { key: 'name', label: 'Full Name', ph: 'e.g. Ramesh Kumar', type: 'text' },
+                  { key: 'phone', label: 'Phone Number', ph: 'e.g. 9876543210', type: 'tel' },
+                  { key: 'password', label: 'Password', ph: 'Min 6 characters', type: 'password' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>{f.label}</label>
+                    <input type={f.type} placeholder={f.ph} value={cpForm[f.key]}
+                      onChange={e => setCpForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 14, boxSizing: 'border-box' }} />
+                  </div>
+                ))}
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Assigned City</label>
+                  <select value={cpForm.city} onChange={e => setCpForm(prev => ({ ...prev, city: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 14 }}>
+                    <option value="">— Select City —</option>
+                    {locations.filter(l => l.isActive !== false).map(l => <option key={l._id} value={l.city}>{l.city}{l.nameHi ? ` (${l.nameHi})` : ''}</option>)}
+                  </select>
+                </div>
+                <button onClick={createCityPartner} disabled={cpSaving}
+                  style={{ padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1E3A8A,#2563EB)', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', opacity: cpSaving ? 0.7 : 1 }}>
+                  {cpSaving ? '⏳ Creating...' : '✅ Create City Partner'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Partners list */}
+          {cpLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className="spinner" /></div>
+          ) : cityPartners.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748b' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🏙️</div>
+              <p style={{ fontWeight: 600 }}>No city partners yet</p>
+              <p style={{ fontSize: 13 }}>Click "+ Add Partner" to create one</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {cityPartners.map(p => {
+                const isExpanded = cpExpandedId === p._id;
+                const detail = cpDetails[p._id];
+                const loadingDetail = cpDetailLoading === p._id;
+                const s = detail?.stats;
+
+                return (
+                  <div key={p._id} className="card" style={{ overflow: 'hidden', border: isExpanded ? '1.5px solid #C7D2FE' : undefined }}>
+
+                    {/* ── Partner summary row (always visible) ── */}
+                    <div style={{ padding: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{p.name}</div>
+                          <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>📱 {p.phone}</div>
+                          <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#EEF2FF', color: '#4338CA', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 700 }}>
+                            📍 {p.city}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 5 }}>Added {new Date(p.createdAt).toLocaleDateString('en-IN')}</div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0, marginLeft: 8 }}>
+                          <button onClick={() => deleteCityPartner(p._id, p.name)}
+                            style={{ padding: '5px 11px', borderRadius: 7, border: 'none', background: '#FEF2F2', color: '#DC2626', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => togglePartnerExpand(p._id)}
+                            style={{ padding: '5px 11px', borderRadius: 7, border: '1.5px solid #C7D2FE', background: isExpanded ? '#EEF2FF' : 'white', color: '#1E3A8A', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                            {isExpanded ? '▲ Hide' : '▼ Details'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Expanded detail panel ── */}
+                    {isExpanded && (
+                      <div style={{ borderTop: '1px solid #EFF6FF', background: '#F8FAFF' }}>
+
+                        {loadingDetail ? (
+                          <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><div className="spinner" /></div>
+                        ) : detail ? (
+                          <div style={{ padding: 14 }}>
+
+                            {/* Refresh button */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                              <button onClick={() => refreshPartnerDetails(p._id)}
+                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: 'none', background: '#EFF6FF', color: '#1E3A8A', fontWeight: 600, cursor: 'pointer' }}>
+                                ↻ Refresh data
+                              </button>
+                            </div>
+
+                            {/* Stats mini-grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 14 }}>
+                              {[
+                                { label: 'Workers', val: s.totalLabours, sub: `${s.approvedLabours} approved`, icon: '🔧', color: '#1E3A8A' },
+                                { label: 'Car Owners', val: s.totalCarOwners, sub: `${s.approvedCarOwners} approved`, icon: '🚗', color: '#16A34A' },
+                                { label: 'Bookings', val: s.totalBookings, sub: `${s.pendingBookings} pending`, icon: '📋', color: '#8B5CF6' },
+                                { label: 'Completed', val: s.completedBookings, sub: `${s.cancelledBookings} cancelled`, icon: '✅', color: '#F97316' },
+                              ].map((st, i) => (
+                                <div key={i} style={{ background: 'white', borderRadius: 10, padding: '10px 6px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
+                                  <div style={{ fontSize: 18 }}>{st.icon}</div>
+                                  <div style={{ fontSize: 20, fontWeight: 800, color: st.color, lineHeight: 1.2 }}>{st.val}</div>
+                                  <div style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>{st.label}</div>
+                                  <div style={{ fontSize: 9, color: '#94A3B8' }}>{st.sub}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Booking status bar */}
+                            {s.totalBookings > 0 && (
+                              <div style={{ marginBottom: 14 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>📊 Booking Status Breakdown</div>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  {[
+                                    { label: 'Pending', val: s.pendingBookings, bg: '#FFF7ED', c: '#EA580C' },
+                                    { label: 'Confirmed', val: s.confirmedBookings, bg: '#EFF6FF', c: '#2563EB' },
+                                    { label: 'Completed', val: s.completedBookings, bg: '#F0FDF4', c: '#16A34A' },
+                                    { label: 'Cancelled', val: s.cancelledBookings, bg: '#FEF2F2', c: '#DC2626' },
+                                  ].map(b => (
+                                    <div key={b.label} style={{ flex: 1, minWidth: 60, background: b.bg, borderRadius: 8, padding: '7px 4px', textAlign: 'center', border: `1px solid ${b.c}30` }}>
+                                      <div style={{ fontSize: 18, fontWeight: 800, color: b.c }}>{b.val}</div>
+                                      <div style={{ fontSize: 10, color: b.c, fontWeight: 600 }}>{b.label}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Pending workers */}
+                            {detail.pendingWorkers?.length > 0 && (
+                              <div style={{ marginBottom: 14 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>⏳ Pending Workers ({s.pendingLabours})</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  {detail.pendingWorkers.map(w => (
+                                    <div key={w._id} style={{ background: 'white', borderRadius: 8, padding: '8px 10px', border: '1px solid #FED7AA', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{w.userId?.name || '—'}</div>
+                                        <div style={{ fontSize: 11, color: '#64748B' }}>📱 {w.userId?.phone}</div>
+                                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
+                                          {w.skills?.slice(0, 3).map(sk => <span key={sk} className="badge badge-blue" style={{ fontSize: 10 }}>{sk}</span>)}
+                                        </div>
+                                      </div>
+                                      <span className="badge badge-orange" style={{ fontSize: 10, flexShrink: 0 }}>⏳ Pending</span>
+                                    </div>
+                                  ))}
+                                  {s.pendingLabours > 5 && (
+                                    <div style={{ fontSize: 11, color: '#64748B', textAlign: 'center', padding: '4px' }}>+ {s.pendingLabours - 5} more pending workers</div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Pending car owners */}
+                            {detail.pendingOwners?.length > 0 && (
+                              <div style={{ marginBottom: 14 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>⏳ Pending Car Owners ({s.pendingCarOwners})</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  {detail.pendingOwners.map(o => (
+                                    <div key={o._id} style={{ background: 'white', borderRadius: 8, padding: '8px 10px', border: '1px solid #FED7AA', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{o.userId?.name || '—'}</div>
+                                        <div style={{ fontSize: 11, color: '#64748B' }}>📱 {o.userId?.phone}</div>
+                                      </div>
+                                      <span className="badge badge-orange" style={{ fontSize: 10, flexShrink: 0 }}>⏳ Pending</span>
+                                    </div>
+                                  ))}
+                                  {s.pendingCarOwners > 5 && (
+                                    <div style={{ fontSize: 11, color: '#64748B', textAlign: 'center', padding: '4px' }}>+ {s.pendingCarOwners - 5} more pending owners</div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Recent bookings */}
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>📋 Recent Bookings (last 10)</div>
+                              {detail.recentBookings?.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '16px', color: '#94A3B8', fontSize: 13 }}>No bookings yet in this city</div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                  {detail.recentBookings.map(b => {
+                                    const isLabour = b.providerType === 'labour';
+                                    const pd = b.providerDetails;
+                                    const providerUser = pd?.userId;
+                                    const stc = { pending: '#FFF7ED', confirmed: '#EFF6FF', completed: '#F0FDF4', cancelled: '#FEF2F2' };
+                                    const stx = { pending: '#EA580C', confirmed: '#2563EB', completed: '#16A34A', cancelled: '#DC2626' };
+                                    return (
+                                      <div key={b._id} style={{ background: 'white', borderRadius: 10, padding: '10px 12px', border: '1px solid #E2E8F0' }}>
+                                        {/* Row 1: type + status + date */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                          <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A' }}>{isLabour ? '🔧 Service' : '🚗 Car Booking'}</span>
+                                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: stc[b.status], color: stx[b.status] }}>{b.status}</span>
+                                            <span style={{ fontSize: 10, color: '#94A3B8' }}>{new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
+                                          </div>
+                                        </div>
+                                        {/* Row 2: customer → provider */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                          <div style={{ flex: 1, minWidth: 100, background: '#EFF6FF', borderRadius: 8, padding: '7px 9px' }}>
+                                            <div style={{ fontSize: 9, color: '#64748B', fontWeight: 600, marginBottom: 2 }}>👤 CUSTOMER</div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: '#1E3A8A' }}>{b.userId?.name || 'Guest'}</div>
+                                            <div style={{ fontSize: 11, color: '#64748B' }}>📱 {b.userId?.phone || '—'}</div>
+                                          </div>
+                                          <span style={{ color: '#94A3B8', fontSize: 16 }}>→</span>
+                                          <div style={{ flex: 1, minWidth: 100, background: isLabour ? '#F0FDF4' : '#FFF7ED', borderRadius: 8, padding: '7px 9px' }}>
+                                            <div style={{ fontSize: 9, color: '#64748B', fontWeight: 600, marginBottom: 2 }}>{isLabour ? '🔧 WORKER' : '🚗 CAR OWNER'}</div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: isLabour ? '#16A34A' : '#EA580C' }}>{providerUser?.name || '—'}</div>
+                                            <div style={{ fontSize: 11, color: '#64748B' }}>📱 {providerUser?.phone || '—'}</div>
+                                            {isLabour && pd?.skills?.length > 0 && (
+                                              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 3 }}>
+                                                {pd.skills.slice(0, 2).map(sk => <span key={sk} className="badge badge-blue" style={{ fontSize: 9, padding: '1px 6px' }}>{sk}</span>)}
+                                              </div>
+                                            )}
+                                            {!isLabour && b.carId && (
+                                              <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>🚙 {b.carId.carName} {b.carId.modelYear && `(${b.carId.modelYear})`}</div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {b.notes && <div style={{ marginTop: 6, fontSize: 11, color: '#64748B', fontStyle: 'italic' }}>💬 "{b.notes}"</div>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ Banners Tab ═══ */}
+      {activeTab === 'banners' && (
+        <div style={{ padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>🖼️ Homepage Banners ({banners.length})</h3>
+            <button onClick={fetchBanners} style={{ padding: '6px 12px', fontSize: 12, borderRadius: 8, border: 'none', background: '#EFF6FF', color: '#1E3A8A', fontWeight: 600, cursor: 'pointer' }}>↻ Refresh</button>
+          </div>
+
+          {/* Upload form */}
+          <div className="card" style={{ padding: 16, marginBottom: 16, background: '#F8FAFF', border: '1.5px solid #C7D2FE' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E3A8A', marginBottom: 10 }}>➕ Upload New Banner</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>🖼️ Image File</label>
+                <input
+                  type="file" accept="image/*"
+                  onChange={e => setBannerFile(e.target.files[0] || null)}
+                  style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13, boxSizing: 'border-box' }}
+                />
+                {bannerFile && <div style={{ marginTop: 4, fontSize: 11, color: '#16A34A' }}>✅ {bannerFile.name}</div>}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>🔗 Link (optional) — e.g. /services or https://...</label>
+                <input
+                  type="text"
+                  placeholder="e.g. /services?skill=Electrician"
+                  value={bannerLink}
+                  onChange={e => setBannerLink(e.target.value)}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 14, boxSizing: 'border-box' }}
+                />
+              </div>
+              <button
+                onClick={uploadBanner}
+                disabled={bannerUploading || !bannerFile}
+                style={{ padding: '11px', borderRadius: 10, border: 'none', background: (bannerUploading || !bannerFile) ? '#CBD5E1' : 'linear-gradient(135deg,#1E3A8A,#2563EB)', color: '#fff', fontSize: 14, fontWeight: 800, cursor: (bannerUploading || !bannerFile) ? 'not-allowed' : 'pointer' }}
+              >
+                {bannerUploading ? '⏳ Uploading...' : '⬆️ Upload Banner'}
+              </button>
+            </div>
+          </div>
+
+          {/* Banner list */}
+          {bannerLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div className="spinner" /></div>
+          ) : banners.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 20px', color: '#64748b' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🖼️</div>
+              <p style={{ fontWeight: 600 }}>No banners yet</p>
+              <p style={{ fontSize: 13 }}>Upload one above to show it on the home page</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {banners.map((b, idx) => (
+                <div key={b._id} className="card" style={{ overflow: 'hidden', border: b.isActive ? '1.5px solid #BBF7D0' : '1.5px solid #E2E8F0' }}>
+                  <img src={b.imageUrl} alt={`Banner ${idx + 1}`} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
+                  <div style={{ padding: '12px 14px' }}>
+                    {/* Link row */}
+                    {editLinkId === b._id ? (
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={editLinkVal}
+                          onChange={e => setEditLinkVal(e.target.value)}
+                          placeholder="/services or https://..."
+                          style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #CBD5E1', fontSize: 13 }}
+                        />
+                        <button onClick={() => saveBannerLink(b._id)} style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#1E3A8A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                        <button onClick={() => setEditLinkId(null)} style={{ padding: '7px 10px', borderRadius: 8, border: 'none', background: '#F1F5F9', color: '#374151', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                        <span style={{ fontSize: 12, color: b.link ? '#2563EB' : '#94A3B8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {b.link ? `🔗 ${b.link}` : '(no link)'}
+                        </span>
+                        <button onClick={() => { setEditLinkId(b._id); setEditLinkVal(b.link || ''); }} style={{ padding: '4px 10px', fontSize: 11, borderRadius: 7, border: '1px solid #C7D2FE', background: '#EEF2FF', color: '#1E3A8A', fontWeight: 600, cursor: 'pointer' }}>✏️ Edit Link</button>
+                      </div>
+                    )}
+                    {/* Controls */}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: b.isActive ? '#16A34A' : '#94A3B8', background: b.isActive ? '#F0FDF4' : '#F8FAFC', border: `1px solid ${b.isActive ? '#BBF7D0' : '#E2E8F0'}`, borderRadius: 20, padding: '3px 10px' }}>
+                        {b.isActive ? '✅ Active' : '⏸ Hidden'}
+                      </span>
+                      <button
+                        onClick={() => toggleBannerActive(b._id, !b.isActive)}
+                        style={{ padding: '5px 12px', fontSize: 12, borderRadius: 8, border: 'none', cursor: 'pointer', background: b.isActive ? '#FEF9C3' : '#DCFCE7', color: b.isActive ? '#854D0E' : '#166534', fontWeight: 600 }}
+                      >
+                        {b.isActive ? 'Hide' : 'Show'}
+                      </button>
+                      <button
+                        onClick={() => deleteBanner(b._id)}
+                        style={{ padding: '5px 12px', fontSize: 12, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#FEF2F2', color: '#DC2626', fontWeight: 700, marginLeft: 'auto' }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Videos Tab ── */}
+      {activeTab === 'videos' && (
+        <div style={{ padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '700' }}>🎬 Worker Videos ({adminVideos.length})</h3>
+            <button
+              onClick={() => {
+                setVideoTabLoading(true);
+                api.get('/videos/admin/all?limit=100')
+                  .then(({ data }) => setAdminVideos(data.data || []))
+                  .catch(() => toast.error('Failed to load videos'))
+                  .finally(() => setVideoTabLoading(false));
+              }}
+              style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', border: 'none', background: '#EFF6FF', color: '#1E3A8A', fontWeight: '700', cursor: 'pointer' }}
+            >
+              🔄 Refresh
+            </button>
+          </div>
+
+          {videoTabLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><div className="spinner" /></div>
+          ) : adminVideos.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+              <div style={{ fontSize: '40px' }}>🎬</div>
+              <p style={{ fontSize: '13px', marginTop: '8px' }}>No videos uploaded yet.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {adminVideos.map(v => (
+                <div key={v._id} className="card" style={{ padding: '14px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  {/* Thumbnail */}
+                  <img
+                    src={`https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`}
+                    alt="thumb"
+                    style={{ width: '110px', height: '62px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, border: '1px solid #E2E8F0' }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Title */}
+                    <p style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {v.title || 'Untitled'}
+                    </p>
+                    {/* Uploader info */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      {v.userId?.avatar
+                        ? <img src={v.userId.avatar} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
+                        : <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'linear-gradient(135deg,#4F46E5,#7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: '800', flexShrink: 0 }}>{v.userId?.name?.[0]?.toUpperCase()}</div>
+                      }
+                      <div>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#1E3A8A' }}>{v.userId?.name || '—'}</span>
+                        <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '6px' }}>
+                          {v.uploaderType === 'labour' ? '👷 Worker' : '🚗 Car Owner'}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#94A3B8', marginLeft: '6px' }}>
+                          📱 {v.userId?.phone}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Skills (labour) */}
+                    {v.profile?.skills?.length > 0 && (
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                        {v.profile.skills.slice(0, 3).map(s => <span key={s} className="badge badge-blue" style={{ fontSize: '10px' }}>{s}</span>)}
+                      </div>
+                    )}
+                    {/* City */}
+                    {v.profile?.city && <p style={{ fontSize: '11px', color: '#64748B', margin: '0 0 3px' }}>🏙️ {v.profile.city}</p>}
+                    {/* Date */}
+                    <p style={{ fontSize: '10px', color: '#94A3B8', margin: '0 0 6px' }}>
+                      {new Date(v.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </p>
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <a
+                        href={v.youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#EFF6FF', color: '#1E3A8A', fontWeight: '700', textDecoration: 'none' }}
+                      >
+                        ▶ Watch
+                      </a>
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm(`Delete "${v.title || 'this video'}" by ${v.userId?.name}?`)) return;
+                          try {
+                            await api.delete(`/videos/${v._id}`);
+                            setAdminVideos(prev => prev.filter(x => x._id !== v._id));
+                            toast.success('Video deleted');
+                          } catch {
+                            toast.error('Failed to delete');
+                          }
+                        }}
+                        style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#FEF2F2', color: '#DC2626', fontWeight: '700', border: 'none', cursor: 'pointer' }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Locations Tab */}
+      {activeTab === 'locations' && (
+        <div style={{ padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '800' }}>📍 Service Areas & Hubs</h3>
+            <span style={{ fontSize: '11px', background: '#F0FDF4', color: '#16A34A', padding: '4px 10px', borderRadius: '20px', fontWeight: '700', border: '1px solid #BBF7D0' }}>{locations.length} ACTIVE CITIES</span>
+          </div>
+          
+
+
+          {/* Add/Edit Form */}
+          <div className="card" style={{ padding: '24px', marginBottom: '24px', background: 'linear-gradient(to bottom right, #FFFFFF, #F8FAFC)', border: '1.5px solid #E2E8F0', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' }}>
+            <h4 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '16px', color: '#1E3A8A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {locEditId ? '✏️ EDIT SERVICE HUB' : '➕ REGISTER NEW SERVICE HUB'}
+            </h4>
+            <form onSubmit={saveLocation} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', display: 'block', marginBottom: '6px' }}>CITY NAME (ENGLISH) *</label>
+                  <input type="text" className="input-field" placeholder="e.g. Prayagraj" value={locForm.city} onChange={e => setLocForm({...locForm, city: e.target.value})} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', display: 'block', marginBottom: '6px' }}>HINDI NAME (नवरोज़ाबाद)</label>
+                  <input type="text" className="input-field" placeholder="e.g. प्रयागराज" value={locForm.nameHi} onChange={e => setLocForm({...locForm, nameHi: e.target.value})} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', display: 'block', marginBottom: '6px' }}>PINCODE (OPTIONAL)</label>
+                    <input type="text" className="input-field" placeholder="e.g. 484555" value={locForm.pincode} onChange={e => setLocForm({...locForm, pincode: e.target.value})} />
+                </div>
+                <div>
+                    {/* Placeholder for future specific field or just empty to keep layout */}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', display: 'block', marginBottom: '6px' }}>SUB-AREAS / WARDS (COMMA SEPARATED)</label>
+                <textarea className="input-field" style={{ minHeight: '60px', padding: '12px' }} placeholder="Civil Lines, Katra, Mumfordganj..." value={locForm.areas} onChange={e => setLocForm({...locForm, areas: e.target.value})} />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#64748B' }}>ENABLED SERVICES (EMPTY = ALL)</label>
+                    <button type="button" onClick={() => setLocForm({ ...locForm, enabledServices: [] })} style={{ fontSize: '10px', background: 'none', border: '1px solid #CBD5E1', borderRadius: '4px', cursor: 'pointer', padding: '2px 6px' }}>Clear Filter</button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '12px', border: '1.5px solid #E2E8F0', borderRadius: '12px', background: '#F8FAFC' }}>
+                    {ALL_SERVICES.map(svc => {
+                      const enabled = locForm.enabledServices.length === 0 || locForm.enabledServices.includes(svc);
+                      return (
+                        <button key={svc} type="button" onClick={() => {
+                            let curr = [...locForm.enabledServices];
+                            if (curr.length === 0) curr = [...ALL_SERVICES]; // if it was "all", prepopulate and remove clicked
+                            
+                            if (curr.includes(svc)) {
+                                curr = curr.filter(s => s !== svc);
+                            } else {
+                                curr.push(svc);
+                            }
+                            if (curr.length === ALL_SERVICES.length) curr = []; // Reset to empty if all selected
+                            setLocForm({...locForm, enabledServices: curr});
+                        }} style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', border: `1.5px solid ${enabled ? '#1E3A8A' : '#CBD5E1'}`, background: enabled ? '#1E3A8A' : 'white', color: enabled ? 'white' : '#64748B', cursor: 'pointer', transition: 'all 0.2s' }}>
+                            {svc}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F1F5F9', padding: '10px 14px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>STATUS:</span>
+                <label className="toggle">
+                  <input type="checkbox" checked={locForm.isActive} onChange={e => setLocForm({...locForm, isActive: e.target.checked})} />
+                  <span className="toggle-slider" />
+                </label>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: locForm.isActive ? '#16A34A' : '#EF4444' }}>{locForm.isActive ? '✅ ACTIVE' : '⛔ OFFLINE'}</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                <button type="submit" className="btn-primary" disabled={locSaving} style={{ flex: 2, padding: '14px', fontSize: '14px' }}>
+                  {locSaving ? 'PROCESSING...' : locEditId ? 'UPDATE CITY' : 'ADD CITY'}
+                </button>
+                {locEditId && <button type="button" onClick={() => { setLocEditId(null); setLocForm({ city:'', nameHi:'', pincode:'', areas:'', isActive:true, enabledServices:[] }); }} className="btn-outline" style={{ flex: 1 }}>CANCEL</button>}
+              </div>
+            </form>
+          </div>
+
+          {/* List */}
+          <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#64748B' }}>📜 REGISTERED HUBS</h4>
+            <button onClick={fetchLocations} style={{ fontSize: '11px', background: 'none', border: 'none', color: '#1E3A8A', fontWeight: '700', cursor: 'pointer' }}>REFRESH LIST 🔄</button>
+          </div>
+          {locLoading ? <div style={{ textAlign: 'center', padding: '40px' }}><div className="spinner" style={{ margin: '0 auto' }} /></div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {locations.length === 0 ? <div style={{ textAlign: 'center', padding: '60px', background: 'white', borderRadius: '20px', color: '#64748B', border: '1.5px dashed #E2E8F0' }}>No hubs found. Add your first service city above!</div> : locations.map(loc => (
+                <div key={loc._id} className="card" style={{ padding: '0', overflow: 'hidden', border: loc.isActive ? '1px solid #E2E8F0' : '1px solid #FECACA' }}>
+                  <div style={{ background: loc.isActive ? '#F8FAFC' : '#FEF2F2', padding: '12px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '18px' }}>🏙️</span>
+                        <div style={{ fontSize: '16px', fontWeight: '800', color: '#1E3A8A' }}>
+                          {loc.city} <span style={{ fontWeight: '400', fontSize: '13px', color: '#64748B', marginLeft: '6px' }}>({loc.nameHi || 'N/A'})</span>
+                        </div>
+                        {!loc.isActive && <span style={{ fontSize: '9px', background: '#DC2626', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>OFFLINE</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                       <button onClick={() => editLocation(loc)} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px', border: 'none', background: 'white', color: '#1E3A8A', fontWeight: '800', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>EDIT</button>
+                       <button onClick={() => deleteLocation(loc._id)} style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '8px', border: 'none', background: '#FEF2F2', color: '#DC2626', fontWeight: '800', cursor: 'pointer' }}>✕</button>
+                    </div>
+                  </div>
+                  <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                     <div>
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700', marginBottom: '4px' }}>COVERAGE AREA</div>
+                        <div style={{ fontSize: '13px', color: '#475569', fontWeight: '600' }}>📡 {loc.serviceRadius || 10} KM Radius</div>
+                        {loc.pincode && <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>📮 PO: {loc.pincode}</div>}
+                     </div>
+                     <div>
+                        <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700', marginBottom: '6px' }}>AREAS — click to toggle ON/OFF</div>
+                        {(loc.areas || []).length === 0 ? (
+                          <p style={{ fontSize: '11px', color: '#CBD5E1', fontStyle: 'italic' }}>No areas added yet</p>
+                        ) : (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                            {loc.areas.map(a => {
+                              const name = typeof a === 'string' ? a : a.name;
+                              const active = typeof a === 'string' ? true : a.isActive !== false;
+                              return (
+                                <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: active ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${active ? '#BBF7D0' : '#FECACA'}`, borderRadius: '8px', padding: '3px 8px' }}>
+                                  <span style={{ fontSize: '10px', fontWeight: '700', color: active ? '#16A34A' : '#DC2626' }}>{name}</span>
+                                  <button
+                                    onClick={() => toggleArea(loc._id, name)}
+                                    title={active ? 'Click to disable' : 'Click to enable'}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', padding: '0 2px', color: active ? '#16A34A' : '#DC2626', fontWeight: '800' }}
+                                  >{active ? '●' : '○'}</button>
+                                  <button
+                                    onClick={() => deleteArea(loc._id, name)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#94A3B8', padding: '0', lineHeight: 1 }}
+                                    title="Remove area"
+                                  >✕</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {/* Add new area input */}
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                          <input
+                            type="text"
+                            placeholder="Add new area..."
+                            value={areaInputs[loc._id] || ''}
+                            onChange={e => setAreaInputs(prev => ({ ...prev, [loc._id]: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addArea(loc._id); } }}
+                            style={{ flex: 1, padding: '5px 10px', fontSize: '12px', border: '1.5px solid #E2E8F0', borderRadius: '8px', outline: 'none' }}
+                          />
+                          <button
+                            onClick={() => addArea(loc._id)}
+                            disabled={areaSaving === loc._id}
+                            style={{ padding: '5px 12px', fontSize: '12px', fontWeight: '800', background: '#1E3A8A', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', opacity: areaSaving === loc._id ? 0.6 : 1 }}
+                          >
+                            {areaSaving === loc._id ? '...' : '+ Add'}
+                          </button>
+                        </div>
+                     </div>
+                  </div>
+                  <div style={{ padding: '0 16px 16px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                     <div style={{ fontSize: '10px', fontWeight: '800', width: '100%', color: '#94A3B8', marginBottom: '2px' }}>SERVICES:</div>
+                     {(!loc.enabledServices || loc.enabledServices.length === 0) ? (
+                        <span style={{ fontSize: '10px', background: '#DCFCE7', color: '#16A34A', padding: '2px 8px', borderRadius: '6px', fontWeight: '800' }}>ALL SERVICES ENABLED</span>
+                     ) : (
+                        loc.enabledServices.map(s => <span key={s} style={{ fontSize: '10px', background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: '6px', fontWeight: '600' }}>{s}</span>)
+                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Videos Tab */}
+      {activeTab === 'videos' && (
+        <div style={{ padding: '16px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>🎬 Video Reels ({adminVideos.length})</h3>
+          {videoTabLoading ? (
+            <div style={{ padding: '40px', textAlign: 'center' }}><div className="spinner" /></div>
+          ) : adminVideos.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>No videos found</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '10px' }}>
+              {adminVideos.map(v => (
+                <div key={v._id} className="card" style={{ overflow: 'hidden' }}>
+                  <div style={{ backgroundColor: '#000', position: 'relative' }}>
+                    <video src={v.videoUrl} preload="metadata" style={{ width: '100%', height: '220px', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', top: 5, right: 5, background: 'rgba(0,0,0,0.5)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>
+                      👁️ {v.views}
+                    </div>
+                  </div>
+                  <div style={{ padding: '8px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '700' }}>{v.workerId?.userId?.name || 'Worker'}</div>
+                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>{v.serviceCategory}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Subscriptions Tab */}
+      {activeTab === 'subs' && (
+        <div style={{ padding: '16px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>💳 Subscriptions</h3>
+          {subsLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}><div className="spinner" /></div>
+          ) : subs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>No subscriptions found</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {subs.map(s => (
+                <div key={s._id} className="card" style={{ padding: '16px', borderLeft: `4px solid ${s.status === 'active' ? '#16A34A' : s.status === 'trial' ? '#3B82F6' : '#EF4444'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{s.userId?.name || 'Unknown'}</div>
+                      <div style={{ fontSize: '12px', color: '#64748B' }}>📱 {s.userId?.phone} • {s.providerType === 'labour' ? 'Worker' : 'Car Owner'}</div>
+                    </div>
+                    <span className="badge" style={{ background: s.status === 'active' ? '#DCFCE7' : s.status === 'trial' ? '#EFF6FF' : '#FEF2F2', color: s.status === 'active' ? '#16A34A' : s.status === 'trial' ? '#3B82F6' : '#DC2626' }}>
+                      {s.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748B', marginTop: '8px' }}>
+                    <div>Plan: <strong>{s.plan}</strong></div>
+                    {s.status === 'trial' && <div>Trial Ends: <strong>{new Date(s.trialEndsAt).toLocaleDateString('en-IN')}</strong></div>}
+                    {s.status === 'active' && <div>Active Until: <strong>{new Date(s.currentPeriodEnd).toLocaleDateString('en-IN')}</strong></div>}
+                  </div>
+                  
+                  {/* Admin Context Actions */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    {s.status === 'trial' && (
+                      <button onClick={() => {
+                        const days = window.prompt("Extend trial by how many days?", "30");
+                        if (days && !isNaN(days)) {
+                          const newDate = new Date(s.trialEndsAt);
+                          newDate.setDate(newDate.getDate() + parseInt(days));
+                          handleSubOverride(s._id, { status: 'trial', trialEndsAt: newDate });
+                        }
+                      }} style={{ flex: 1, padding: '8px', background: '#F1F5F9', border: '1.5px solid #E2E8F0', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#3B82F6', cursor: 'pointer' }}>
+                        Extend Trial
+                      </button>
+                    )}
+                    {(s.status === 'expired' || s.status === 'cancelled') && (
+                      <button onClick={() => {
+                        const days = window.prompt("Activate subscription manually for how many days?", "30");
+                        if (days && !isNaN(days)) {
+                          const newDate = new Date();
+                          newDate.setDate(newDate.getDate() + parseInt(days));
+                          handleSubOverride(s._id, { status: 'active', currentPeriodEnd: newDate });
+                        }
+                      }} style={{ flex: 1, padding: '8px', background: '#DCFCE7', border: '1.5px solid #BBF7D0', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#16A34A', cursor: 'pointer' }}>
+                        Activate Manually
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Address Viewer Modal for User */}
+      {addrModalUser && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: 'white', borderRadius: '24px', width: '100%', maxWidth: '440px', maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', position: 'sticky', top: 0, background: 'white', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '800' }}>📍 Addresses: {addrModalUser.name}</h3>
+              <button onClick={() => setAddrModalUser(null)} style={{ border: 'none', background: '#F1F5F9', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              {!addrModalUser.savedAddresses?.length ? (
+                <div style={{ textAlign: 'center', padding: '32px', color: '#94A3B8', fontSize: '13px' }}>📭 No saved addresses</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {addrModalUser.savedAddresses.map((addr, i) => (
+                    <div key={addr._id || i} style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: '12px', border: '1.5px solid #E2E8F0' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '800', color: '#1E3A8A', marginBottom: '4px' }}>{addr.label || 'Address'}</div>
+                      <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>{addr.address}</div>
+                      {addr.location?.coordinates && (
+                        <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '4px' }}>
+                          📍 {addr.location.coordinates[1]?.toFixed(5)}, {addr.location.coordinates[0]?.toFixed(5)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

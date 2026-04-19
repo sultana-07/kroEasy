@@ -8,13 +8,26 @@ import toast from 'react-hot-toast';
 import BottomNav from '../components/BottomNav';
 import LabourCard from '../components/LabourCard';
 import CarCard from '../components/CarCard';
-import CITIES from '../utils/cities';
+import CityModal, { STORAGE_KEY as CITY_KEY } from '../components/CityModal';
+
+
+// Hindi labels for city filter pills
+// Dynamic city labels will be built from backend data
 
 const STATUS_COLORS = {
   pending: '#F97316',
   confirmed: '#3B82F6',
+  in_progress: '#8B5CF6',
   completed: '#16A34A',
   cancelled: '#EF4444',
+};
+
+const STATUS_LABELS = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
 };
 
 
@@ -65,6 +78,7 @@ function ReviewModal({ booking, onClose, onSubmit }) {
   );
 }
 
+
 // ─── Enhanced Profile Tab ─────────────────────────────────────────────────────
 function ProfileTab({ user, onLogout, onTabChange, refreshUser }) {
   const { t, lang, switchLang } = useLanguage();
@@ -72,6 +86,16 @@ function ProfileTab({ user, onLogout, onTabChange, refreshUser }) {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: user?.name || '', city: user?.city || '' });
+  const [availableLocations, setAvailableLocations] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/locations');
+        setAvailableLocations(data);
+      } catch (err) { console.error('Failed to load locations', err); }
+    })();
+  }, []);
   const [editLoading, setEditLoading] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
@@ -236,8 +260,8 @@ function ProfileTab({ user, onLogout, onTabChange, refreshUser }) {
                 style={{ padding: '10px 12px', fontSize: '14px' }}
               >
                 <option value="">{t('selectCity')}</option>
-                {CITIES.map(c => (
-                  <option key={c.en} value={c.en}>{lang === 'hi' ? c.hi : c.en}</option>
+                {availableLocations.map(loc => (
+                  <option key={loc._id} value={loc.city}>{lang === 'hi' ? (loc.nameHi || loc.city) : loc.city}</option>
                 ))}
               </select>
             </div>
@@ -308,6 +332,100 @@ function ProfileTab({ user, onLogout, onTabChange, refreshUser }) {
   );
 }
 
+// ─── City Picker Row ──────────────────────────────────────────────────────────
+function CityPickerRow({ city, lang, onCityChange, locations = [] }) {
+  const [open, setOpen] = useState(false);
+
+  // Helper for Hindi labels
+  const getLabel = (cEn) => {
+    if (lang !== 'hi') return cEn;
+    const found = locations.find(l => l.city === cEn);
+    return found?.nameHi || cEn;
+  };
+
+  const cityLabel = city
+    ? getLabel(city)
+    : (lang === 'hi' ? 'सभी शहर' : 'All Cities');
+
+  return (
+    <div style={{ position: 'relative', paddingBottom: 12, marginTop: 4 }}>
+      <div style={{ borderTop: '1px dashed #E2E8F0', marginBottom: 10 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, flexShrink: 0 }}>
+          🏙️ {lang === 'hi' ? 'शहर' : 'City'}:
+        </span>
+        <button
+          onClick={() => setOpen(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '5px 12px', borderRadius: 20, fontSize: 13, fontWeight: 700,
+            border: city ? '1.5px solid #4338CA' : '1.5px solid #E2E8F0',
+            background: city ? 'linear-gradient(135deg,#4338ca,#7c3aed)' : '#F8FAFC',
+            color: city ? '#fff' : '#374151',
+            cursor: 'pointer', whiteSpace: 'nowrap',
+            boxShadow: city ? '0 2px 8px rgba(67,56,202,0.2)' : 'none',
+            transition: 'all 0.18s',
+          }}
+        >
+          {cityLabel}
+          <span style={{ fontSize: 10, opacity: 0.8 }}>{open ? '▲' : '▼'}</span>
+        </button>
+        {city && (
+          <button
+            onClick={() => { onCityChange(''); setOpen(false); }}
+            style={{ padding: '4px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600, border: '1px solid #FECACA', background: '#FEF2F2', color: '#DC2626', cursor: 'pointer' }}
+          >✕</button>
+        )}
+      </div>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, zIndex: 60,
+            background: 'white', border: '1.5px solid #E2E8F0',
+            borderRadius: 14, boxShadow: '0 8px 24px rgba(15,23,42,0.12)',
+            padding: 8, minWidth: 200, marginTop: 2,
+          }}>
+            <button
+              onClick={() => { onCityChange(''); setOpen(false); }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '8px 12px', border: 'none', borderRadius: 10,
+                background: !city ? '#EEF2FF' : 'none',
+                color: !city ? '#4338CA' : '#374151',
+                fontWeight: !city ? 700 : 500, fontSize: 13, cursor: 'pointer',
+              }}
+            >🌐 {lang === 'hi' ? 'सभी शहर' : 'All Cities'}</button>
+
+            {locations.map(c => {
+              const label = getLabel(c.city);
+              const active = city === c.city;
+              return (
+                <button
+                  key={c._id}
+                  onClick={() => { onCityChange(c.city); setOpen(false); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    width: '100%', textAlign: 'left', padding: '8px 12px',
+                    border: 'none', borderRadius: 10, marginTop: 2,
+                    background: active ? '#EEF2FF' : 'none',
+                    color: active ? '#4338CA' : '#374151',
+                    fontWeight: active ? 700 : 500, fontSize: 13, cursor: 'pointer',
+                  }}
+                >
+                  <span>📍 {label}</span>
+                  {active && <span style={{ color: '#4338CA', fontSize: 14 }}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function UserDashboard() {
   const { user, logout, refreshUser } = useAuth();
@@ -324,10 +442,42 @@ export default function UserDashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [filters, setFilters] = useState({ city: '', skills: '', ac: '', driverIncluded: '', priceType: '' });
+  const [showCityModal, setShowCityModal] = useState(false);
+  // Pre-fill city filter from the globally cached city choice
+  const [filters, setFilters] = useState(() => {
+    const savedCity = localStorage.getItem(CITY_KEY) || '';
+    return { city: savedCity, skills: '', ac: '', driverIncluded: '', priceType: '' };
+  });
   const [reviewTarget, setReviewTarget] = useState(null);
   const [showCitySugg, setShowCitySugg] = useState(false);
+  const [activeArea, setActiveArea] = useState('All');
+  const [availableLocations, setAvailableLocations] = useState([]);
   const skipNextServicesFetch = useRef(false);
+
+  // Derive the list of active areas for the currently selected city
+  const activeAreas = (() => {
+    if (!filters.city) return [];
+    const loc = availableLocations.find(l => l.city === filters.city);
+    if (!loc || !loc.areas?.length) return [];
+    return loc.areas
+      .filter(a => (typeof a === 'string') || a.isActive !== false)
+      .map(a => typeof a === 'string' ? a : a.name);
+  })();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/locations');
+        setAvailableLocations(data);
+      } catch (err) { console.error('Failed to load locations', err); }
+    })();
+  }, []);
+
+  // Reset area filter when city changes
+  useEffect(() => {
+    setActiveArea('All');
+  }, [filters.city]);
+
 
   useEffect(() => {
     if (location.state?.openTab) {
@@ -361,14 +511,14 @@ export default function UserDashboard() {
   useEffect(() => {
     if (activeTab === 'services') {
       if (skipNextServicesFetch.current) { skipNextServicesFetch.current = false; return; }
-      fetchLabours();
+      fetchLabours(1, false, undefined, true); // bust cache on area/tab change
     }
     if (activeTab === 'cars') fetchCars();
     if (activeTab === 'bookings') {
       if (!user) { navigate('/login'); return; }
       fetchBookings();
     }
-  }, [activeTab]);
+  }, [activeTab, activeArea]);
 
   useEffect(() => {
     if (activeTab !== 'bookings') return;
@@ -377,10 +527,12 @@ export default function UserDashboard() {
     return () => clearInterval(interval);
   }, [activeTab]);
 
-  const fetchLabours = async (page = 1, append = false, skillOverride, bust = false) => {
+  const fetchLabours = async (page = 1, append = false, skillOverride, bust = false, cityOverride) => {
     const skill = skillOverride !== undefined ? skillOverride : filters.skills;
+    const city = cityOverride !== undefined ? cityOverride : filters.city;
     const params = { page, limit: 20 };
-    if (filters.city) params.city = filters.city;
+    if (city) params.city = city;
+    if (activeArea && activeArea !== 'All') params.area = activeArea;
     if (skill) params.skills = skill;
 
     // Only cache page-1 no-append requests; bypass cache on explicit user searches
@@ -404,9 +556,10 @@ export default function UserDashboard() {
     finally { append ? setLoadingMore(false) : setLoading(false); }
   };
 
-  const fetchCars = async (page = 1, append = false, bust = false) => {
+  const fetchCars = async (page = 1, append = false, bust = false, cityOverride) => {
+    const city = cityOverride !== undefined ? cityOverride : filters.city;
     const params = { page, limit: 20 };
-    if (filters.city) params.city = filters.city;
+    if (city) params.city = city;
 
     // Cache page-1 car results for 5 min; bypass on explicit search
     const cacheKey = cache.key('/cars', params);
@@ -464,6 +617,9 @@ export default function UserDashboard() {
     window.open(`tel:${phone}`, '_self');
   };
 
+
+
+
   const handleCancelBooking = async (bookingId) => {
     if (!window.confirm(t('cancelBookingConfirm'))) return;
     try {
@@ -491,11 +647,25 @@ export default function UserDashboard() {
 
   return (
     <div className="page-container" style={{ paddingBottom: '80px' }}>
-      {/* Header — light premium theme */}
+      {/* City Modal — shown when user clicks change city */}
+      {showCityModal && (
+        <CityModal
+          forceOpen
+          onCitySelected={(city) => {
+            setFilters(prev => ({ ...prev, city }));
+            setShowCityModal(false);
+            // Re-fetch with new city
+            if (activeTab === 'services') fetchLabours(1, false, undefined, true);
+            if (activeTab === 'cars') fetchCars(1, false, true);
+          }}
+        />
+      )}
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.5px' }}>{t('appName')}</div>
-          <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '500' }}>{user ? `${t('hello')}, ${user.name} 👋` : t('browseServices')}</div>
+          <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '500' }}>
+            {user ? `${t('hello')}, ${user.name} 👋` : (filters.city ? `📍 ${filters.city}` : t('browseServices'))}
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {/* Language toggle */}
@@ -534,8 +704,9 @@ export default function UserDashboard() {
       </div>
 
       {/* Services Tab */}
-      {activeTab === 'services' && (
+      {activeTab === "services" && (
         <div>
+
           <div style={{ padding: '12px 16px 0', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px', marginBottom: '10px' }}>
               {[
@@ -569,48 +740,45 @@ export default function UserDashboard() {
                 );
               })()}
             </div>
-            <div style={{ display: 'flex', gap: '8px', paddingBottom: '12px', position: 'relative' }}>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <input
-                  className="input-field"
-                  placeholder={t('filterByCity')}
-                  value={filters.city}
-                  autoComplete="off"
-                  onChange={e => { setFilters({ ...filters, city: e.target.value }); setShowCitySugg(e.target.value.trim().length > 0); }}
-                  onFocus={() => { if (filters.city.trim().length > 0) setShowCitySugg(true); }}
-                  onBlur={() => setTimeout(() => setShowCitySugg(false), 150)}
-                  style={{ padding: '8px 12px', fontSize: '13px', width: '100%' }}
-                />
-                {showCitySugg && (() => {
-                  const filtered = CITIES.filter(c =>
-                    c.en.toLowerCase().includes(filters.city.toLowerCase()) ||
-                    c.hi.includes(filters.city)
-                  );
-                  if (!filtered.length) return null;
-                  return (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1.5px solid #E2E8F0', borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100, overflow: 'hidden', marginTop: '4px' }}>
-                      {filtered.map(c => (
-                        <div
-                          key={c.en}
-                          onMouseDown={() => { setFilters(prev => ({ ...prev, city: c.en })); setShowCitySugg(false); }}
-                          style={{ padding: '10px 14px', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #F1F5F9' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'white'}
-                        >
-                          <span>📍</span>
-                          <div>
-                            <div style={{ fontWeight: '600', color: '#0F172A' }}>{lang === 'hi' ? c.hi : c.en}</div>
-                            <div style={{ fontSize: '11px', color: '#94A3B8' }}>Madhya Pradesh</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+
+            {/* ── City row: single button + inline popup ── */}
+            <CityPickerRow
+              city={filters.city}
+              lang={lang}
+              locations={availableLocations}
+              onCityChange={(next) => {
+                setFilters(prev => ({ ...prev, city: next }));
+                setActiveArea('All');
+                fetchLabours(1, false, undefined, true, next);
+              }}
+            />
+
+            {/* Area Filter — only shows admin-enabled areas */}
+            {filters.city && activeAreas.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '10px', marginTop: '4px', scrollbarWidth: 'none' }}>
+                <button
+                  onClick={() => setActiveArea('All')}
+                  style={{
+                    flexShrink: 0, padding: '4px 12px', borderRadius: '15px', fontSize: '11px', fontWeight: '700',
+                    border: '1px solid #E2E8F0', background: activeArea === 'All' ? '#1E3A8A' : '#F8FAFC',
+                    color: activeArea === 'All' ? 'white' : '#64748B', cursor: 'pointer'
+                  }}
+                >📍 All Areas</button>
+                {activeAreas.map(area => (
+                  <button
+                    key={area}
+                    onClick={() => setActiveArea(area)}
+                    style={{
+                      flexShrink: 0, padding: '4px 12px', borderRadius: '15px', fontSize: '11px', fontWeight: '700',
+                      border: '1px solid #E2E8F0', background: activeArea === area ? '#1E3A8A' : '#F8FAFC',
+                      color: activeArea === area ? 'white' : '#64748B', cursor: 'pointer'
+                    }}
+                  >{area}</button>
+                ))}
               </div>
-              <button className="btn-primary" onClick={() => fetchLabours(1, false, undefined, true)} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
-            </div>
+            )}
           </div>
+          
           <div style={{ padding: '16px' }}>
             {loading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><div className="spinner" /></div>
@@ -622,7 +790,7 @@ export default function UserDashboard() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {labours.map(labour => <LabourCard key={labour._id} labour={labour} userId={user?._id} />)}
+                {labours.map(labour => <LabourCard key={labour._id} labour={labour} userId={user?._id} searchedCity={filters.city} />)}
                 {labourMeta.page < labourMeta.pages && (
                   <button onClick={() => fetchLabours(labourMeta.page + 1, true)} className="btn-outline" style={{ width: '100%', padding: '12px', fontSize: '14px', marginTop: '4px' }} disabled={loadingMore}>
                     {loadingMore ? '⏳ Loading...' : `${t('loadMore')} (${labours.length} of ${labourMeta.total})`}
@@ -637,49 +805,17 @@ export default function UserDashboard() {
       {/* Cars Tab */}
       {activeTab === 'cars' && (
         <div>
-          <div style={{ padding: '12px 16px', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', alignItems: 'center' }}>
-              <div style={{ flex: 1, position: 'relative', minWidth: '160px' }}>
-                <input
-                  className="input-field"
-                  placeholder={lang === 'hi' ? '🏙️ शहर से खोजें' : '🏙️ Search by city...'}
-                  value={filters.city || ''}
-                  autoComplete="off"
-                  onChange={e => { setFilters({ ...filters, city: e.target.value }); setShowCitySugg(e.target.value.trim().length > 0); }}
-                  onFocus={() => { if ((filters.city || '').trim().length > 0) setShowCitySugg(true); }}
-                  onBlur={() => setTimeout(() => setShowCitySugg(false), 150)}
-                  onKeyDown={e => e.key === 'Enter' && fetchCars()}
-                  style={{ padding: '8px 12px', fontSize: '13px', width: '100%' }}
-                />
-                {showCitySugg && (() => {
-                  const filtered = CITIES.filter(c =>
-                    c.en.toLowerCase().includes((filters.city || '').toLowerCase()) ||
-                    c.hi.includes(filters.city || '')
-                  );
-                  if (!filtered.length) return null;
-                  return (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1.5px solid #E2E8F0', borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 100, overflow: 'hidden', marginTop: '4px' }}>
-                      {filtered.map(c => (
-                        <div
-                          key={c.en}
-                          onMouseDown={() => { setFilters(prev => ({ ...prev, city: c.en })); setShowCitySugg(false); }}
-                          style={{ padding: '10px 14px', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #F1F5F9' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'white'}
-                        >
-                          <span>📍</span>
-                          <div>
-                            <div style={{ fontWeight: '600', color: '#0F172A' }}>{lang === 'hi' ? c.hi : c.en}</div>
-                            <div style={{ fontSize: '11px', color: '#94A3B8' }}>Madhya Pradesh</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
-              <button className="btn-primary" onClick={() => fetchCars(1, false, true)} style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>{t('search')}</button>
-            </div>
+          {/* City picker row for Cars */}
+          <div style={{ padding: '8px 16px 0', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
+            <CityPickerRow
+              city={filters.city}
+              lang={lang}
+              locations={availableLocations}
+              onCityChange={(next) => {
+                setFilters(prev => ({ ...prev, city: next }));
+                fetchCars(1, false, true, next);
+              }}
+            />
           </div>
           <div style={{ padding: '16px' }}>
             {loading ? (
@@ -713,6 +849,7 @@ export default function UserDashboard() {
               { label: t('filterAll'), value: '' },
               { label: t('statusPending'), value: 'pending' },
               { label: t('statusConfirmed'), value: 'confirmed' },
+              { label: 'In Progress', value: 'in_progress' },
               { label: t('statusCompleted'), value: 'completed' },
               { label: t('statusCancelled'), value: 'cancelled' },
             ].map(f => (
@@ -743,7 +880,7 @@ export default function UserDashboard() {
                         {isLabour ? t('serviceBooking') : t('carBooking')}
                       </div>
                       <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', background: STATUS_COLORS[b.status] + '20', color: STATUS_COLORS[b.status] }}>
-                        {b.status === 'pending' ? t('statusPending') : b.status === 'confirmed' ? t('statusConfirmed') : b.status === 'completed' ? t('statusCompleted') : t('statusCancelled')}
+                        {STATUS_LABELS[b.status] || b.status}
                       </span>
                     </div>
                     <div style={{ background: '#F1F5F9', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px' }}>
@@ -800,7 +937,7 @@ export default function UserDashboard() {
                             ✕ {t('cancel')}
                           </button>
                         )}
-                        {(b.status === 'pending' || b.status === 'confirmed') && (
+                        {(b.status === 'pending' || b.status === 'confirmed' || b.status === 'in_progress') && (
                           <button onClick={() => handleCallFromBooking(b)} style={{ padding: '10px 14px', borderRadius: '10px', background: '#16A34A', border: 'none', color: 'white', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
                             {t('callProvider')}
                           </button>

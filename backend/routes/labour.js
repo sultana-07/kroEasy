@@ -15,9 +15,25 @@ const paginate = (query) => {
 // GET /api/labours - public listing with filters + pagination
 router.get('/', async (req, res) => {
     try {
-        const { city, skills, availability } = req.query;
-        const filter = { isApproved: true };
-        if (city) filter.city = { $regex: city, $options: 'i' };
+        const { city, area, pincode, skills } = req.query;
+        const filter = { isApproved: true, availability: true };  // only show online workers
+        
+        if (city) {
+            filter.$or = [
+                { city: { $regex: city, $options: 'i' } },
+                { serviceCities: { $regex: city, $options: 'i' } },
+            ];
+        }
+        
+        if (area) {
+            if (!filter.$or) filter.$or = [];
+            filter.$or.push({ serviceAreas: { $regex: area, $options: 'i' } });
+            filter.$or.push({ description: { $regex: area, $options: 'i' } });
+        }
+        
+        if (pincode) {
+            filter.pincode = pincode;
+        }
         const STANDARD_SKILLS = [
             'Electrician', 'Plumber', 'Carpenter', 'Mason',
             'Beautician', 'AC Technician', 'Mehndi Artist', 'Helper',
@@ -29,13 +45,28 @@ router.get('/', async (req, res) => {
             filter.skills = { $in: skills.split(',').map(s => s.trim()) };
         }
 
-        if (availability !== undefined) filter.availability = availability === 'true';
+
+        // ── Geo-filtering ──────────────────────────────────────────────────
+        const { lat, lng, radius } = req.query;
+        if (lat && lng) {
+            const latitude = parseFloat(lat);
+            const longitude = parseFloat(lng);
+            const maxDistance = (parseFloat(radius) || 10) * 1000; // default 10km in meters
+
+            filter.location = {
+                $near: {
+                    $geometry: { type: 'Point', coordinates: [longitude, latitude] },
+                    $maxDistance: maxDistance,
+                },
+            };
+        }
+        // ───────────────────────────────────────────────────────────────────
 
         const { page, limit, skip } = paginate(req.query);
         const [labours, total] = await Promise.all([
             Labour.find(filter)
                 .populate('userId', 'name phone city')
-                .sort({ rating: -1, bookingCount: -1, reviewCount: -1, createdAt: 1 })
+                .sort(lat && lng ? {} : { rating: -1, bookingCount: -1, reviewCount: -1, createdAt: 1 })
                 .skip(skip)
                 .limit(limit),
             Labour.countDocuments(filter),
@@ -127,6 +158,10 @@ router.patch('/:id', protect, authorize('labour'), async (req, res) => {
         if (labour.userId.toString() !== req.user._id.toString()) {
             return res.status(403).json({ message: 'Not authorized' });
         }
+        // Enforce max 3 skills
+        if (Array.isArray(req.body.skills) && req.body.skills.length > 3) {
+            return res.status(400).json({ message: 'Workers can select a maximum of 3 skills/services.' });
+        }
         const updated = await Labour.findByIdAndUpdate(req.params.id, req.body, { new: true })
             .populate('userId', 'name phone city');
         res.json(updated);
@@ -149,6 +184,48 @@ router.post('/:id/upload-image', protect, authorize('labour'), upload.single('im
             { new: true }
         ).populate('userId', 'name phone city');
         res.json(updated);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// PATCH /api/labour/profile/location - update live location
+router.patch('/profile/location', protect, authorize('labour'), async (req, res) => {
+    try {
+        const { latitude, longitude } = req.body;
+        if (latitude === undefined || longitude === undefined) {
+            return res.status(400).json({ message: 'Latitude and Longitude are required' });
+        }
+
+        const labour = await Labour.findOneAndUpdate(
+            { userId: req.user._id },
+            {
+                location: {
+                    type: 'Point',
+                    coordinates: [parseFloat(longitude), parseFloat(latitude)]
+                }
+            },
+            { new: true }
+        );
+
+        if (!labour) return res.status(404).json({ message: 'Labour profile not found' });
+        res.json({ ok: true, location: labour.location });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// PATCH /api/labour/profile/online-status - toggle online/offline status
+router.patch('/profile/online-status', protect, authorize('labour'), async (req, res) => {
+    try {
+        const { isOnline } = req.body;
+        const labour = await Labour.findOneAndUpdate(
+            { userId: req.user._id },
+            { isOnline: !!isOnline, availability: !!isOnline },
+            { new: true }
+        );
+        if (!labour) return res.status(404).json({ message: 'Labour profile not found' });
+        res.json({ ok: true, isOnline: labour.isOnline, availability: labour.availability });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -15,17 +15,27 @@ const paginate = (query) => {
 // GET /api/cars - public listing with filters + pagination
 router.get('/', async (req, res) => {
     try {
-        const { ac, driverIncluded, priceType, city } = req.query;
+        const { ac, driverIncluded, priceType, city, area, pincode } = req.query;
         const filter = { availability: true };
         if (ac !== undefined) filter.ac = ac === 'true';
         if (driverIncluded !== undefined) filter.driverIncluded = driverIncluded === 'true';
         if (priceType) filter.priceType = priceType;
-        if (city) filter.city = { $regex: city, $options: 'i' };
+        
+        if (city) {
+            filter.city = { $regex: city, $options: 'i' };
+        }
+        
+        if (area) {
+            filter.serviceAreas = { $regex: area, $options: 'i' };
+        }
+        
+        if (pincode) {
+            filter.pincode = pincode;
+        }
 
-        // Only show cars belonging to APPROVED car owners
+        // Restrict to approved owners only
         const approvedOwners = await CarOwner.find({ isApproved: true }).select('_id').lean();
-        const approvedOwnerIds = approvedOwners.map(o => o._id);
-        filter.ownerId = { $in: approvedOwnerIds };
+        filter.ownerId = { $in: approvedOwners.map(o => o._id) };
 
         const { page, limit, skip } = paginate(req.query);
         const [cars, total] = await Promise.all([
@@ -75,10 +85,13 @@ router.get('/owner-profile', protect, authorize('carowner'), async (req, res) =>
 // PATCH /api/cars/owner-profile - update CarOwner city
 router.patch('/owner-profile', protect, authorize('carowner'), async (req, res) => {
     try {
-        const { city } = req.body;
+        const { city, serviceCities } = req.body;
+        const updateData = {};
+        if (city !== undefined) updateData.city = city?.trim() || '';
+        if (serviceCities !== undefined) updateData.serviceCities = serviceCities;
         const owner = await CarOwner.findOneAndUpdate(
             { userId: req.user._id },
-            { city: city?.trim() || '' },
+            updateData,
             { new: true }
         );
         if (!owner) return res.status(404).json({ message: 'Car owner profile not found' });
@@ -136,7 +149,23 @@ router.patch('/:id', protect, authorize('carowner'), async (req, res) => {
     }
 });
 
-// GET /api/car/:id/reviews - public reviews for a car
+// GET /api/cars/:id - get a single car by ID (for car profile page)
+router.get('/:id', async (req, res) => {
+    try {
+        const car = await Car.findById(req.params.id)
+            .populate({ path: 'ownerId', populate: { path: 'userId', select: 'name phone city avatar' } });
+        if (!car) return res.status(404).json({ message: 'Car not found' });
+        // Record a profile view (fire-and-forget)
+        if (car.ownerId) {
+            CarOwner.findByIdAndUpdate(car.ownerId._id || car.ownerId, { $push: { profileViews: { date: new Date() } } }).catch(() => {});
+        }
+        res.json(car);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET /api/cars/:id/reviews - public reviews for a car
 router.get('/:id/reviews', async (req, res) => {
     try {
         const Booking = require('../models/Booking');

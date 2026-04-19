@@ -3,10 +3,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import BottomNav from "../components/BottomNav";
-import electricianBanner from "../assets/banners/electrician-banner.svg";
-import acTechnicianBanner from "../assets/banners/ac-technician-banner.svg";
-import beauticianBanner from "../assets/banners/beautician-banner.svg";
-import mehndiBanner from "../assets/banners/mehndi-banner.svg";
+import CityModal, { STORAGE_KEY as CITY_KEY } from "../components/CityModal";
+import api from "../api";
 
 const SERVICES = [
   { icon: "⚡", hi: "बिजली मिस्त्री", en: "Electrician", skill: "Electrician" },
@@ -19,18 +17,13 @@ const SERVICES = [
   { icon: "🤝", hi: "सहायक", en: "Helper", skill: "Helper" },
 ];
 
-const PROMO_BANNERS = [
-  { image: electricianBanner, titleHi: "इलेक्ट्रिशियन", titleEn: "Electrician", subtitleHi: "घर के बिजली काम तुरंत", subtitleEn: "Quick home electric fixes", to: "/services?skill=Electrician" },
-  { image: acTechnicianBanner, titleHi: "AC तकनीशियन", titleEn: "AC Technician", subtitleHi: "ठंडक, गैस रिफिल, सर्विस", subtitleEn: "Cooling, gas refill, service", to: "/services?skill=AC%20Technician" },
-  { image: beauticianBanner, titleHi: "ब्यूटीशियन घर पर", titleEn: "Beautician At Home", subtitleHi: "ब्राइडल और पार्टी मेकअप", subtitleEn: "Bridal and party makeup", to: "/services?skill=Beautician" },
-  { image: mehndiBanner, titleHi: "मेहंदी आर्टिस्ट", titleEn: "Mehndi Artist", subtitleHi: "शादी और त्योहार के डिजाइन", subtitleEn: "Wedding and festive designs", to: "/services?skill=Mehndi%20Artist" },
-];
-
 export default function LandingPage() {
   const [visible, setVisible] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const [activePromo, setActivePromo] = useState(0);
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [selectedCity, setSelectedCity] = useState(() => localStorage.getItem(CITY_KEY) || '');
+  const [banners, setBanners] = useState([]);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { lang, switchLang } = useLanguage();
@@ -38,14 +31,18 @@ export default function LandingPage() {
 
   useEffect(() => {
     setVisible(true);
+    api.get('/admin/banners').then(res => {
+      if (res.data && res.data.length > 0) setBanners(res.data);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
+    if (banners.length <= 1) return;
     const timer = setInterval(() => {
-      setActivePromo((prev) => (prev + 1) % PROMO_BANNERS.length);
+      setActivePromo((prev) => (prev + 1) % banners.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, []);
+  }, [banners.length]);
 
   const handleShare = async () => {
     const data = {
@@ -68,8 +65,23 @@ export default function LandingPage() {
 
   const getDashboard = () => {
     if (!user) return "/login";
-    const map = { labour: "/labour-dashboard", carowner: "/carowner-dashboard", admin: "/admin" };
+    const map = { labour: "/labour-dashboard", carowner: "/carowner-dashboard", admin: "/admin", citypartner: "/citypartner-dashboard" };
     return map[user.role] || "/dashboard";
+  };
+
+  const openCityModal = () => setShowCityModal(true);
+  const handleCitySelected = (city) => {
+    setSelectedCity(city);
+    setShowCityModal(false);
+  };
+
+  const handleBannerClick = (banner) => {
+    if (!banner.link) return;
+    if (banner.link.startsWith('http')) {
+      window.open(banner.link, '_blank', 'noopener');
+    } else {
+      navigate(banner.link);
+    }
   };
 
   const trustItems = [
@@ -85,18 +97,36 @@ export default function LandingPage() {
         .lp-nav { position:sticky; top:0; z-index:40; backdrop-filter: blur(10px); background:rgba(255,255,255,.88); border-bottom:1px solid #e2e8f0; }
         .lp-icon-btn { border:1px solid #dbe4ff; background:#fff; border-radius:12px; min-width:34px; height:34px; cursor:pointer; font-weight:700; color:#1e293b; }
         .lp-chip { display:inline-flex; align-items:center; gap:6px; background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:999px; padding:5px 11px; font-size:11px; font-weight:700; }
-        .lp-slider-track { display:flex; width:100%; transition: transform .45s ease; }
+        .lp-slider-track { display:flex; width:100%; transition: transform .45s cubic-bezier(.4,0,.2,1); will-change:transform; }
         .lp-cta { width:100%; border:none; border-radius:14px; padding:14px 16px; color:#fff; font-size:15px; font-weight:800; cursor:pointer; }
         .lp-card { background:#fff; border:1px solid #e2e8f0; border-radius:18px; box-shadow:0 8px 20px rgba(30,41,59,.06); }
         .lp-service-btn { border:none; cursor:pointer; border-radius:14px; background:#fff; padding:14px 8px; display:flex; flex-direction:column; align-items:center; gap:8px; box-shadow:0 6px 16px rgba(15,23,42,.06); }
+        .lp-banner-img { width:100%; height:auto; max-height:220px; object-fit:cover; display:block; border-radius:16px; background:#f1f5f9; }
+        .lp-banner-slide { flex: 0 0 100%; min-width:100%; overflow:hidden; border-radius:16px; }
       `}</style>
 
-      <nav className="lp-nav" style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
+      {showCityModal
+        ? <CityModal onCitySelected={handleCitySelected} forceOpen />
+        : <CityModal onCitySelected={handleCitySelected} />
+      }
+
+      <nav className="lp-nav" style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 21, fontWeight: 900, color: "#0f172a", letterSpacing: -0.4 }}>⚡ KroEasy</div>
-          <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>{isHi ? "Premium local services" : "Premium local services"}</div>
+          {/* City pill in navbar — taps opens city modal */}
+          <button
+            onClick={openCityModal}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              marginTop: 2, padding: '2px 9px', borderRadius: 999,
+              fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              border: '1.5px solid #c7d2fe', background: '#eef2ff', color: '#4338ca',
+            }}
+          >
+            📍 {selectedCity || (isHi ? 'शहर चुनें' : 'Choose city')} ▾
+          </button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
           <button className="lp-icon-btn" onClick={() => switchLang(isHi ? "en" : "hi")}>{isHi ? "EN" : "🇮🇳"}</button>
           <div style={{ position: "relative" }}>
             <button className="lp-icon-btn" onClick={handleShare}>📤</button>
@@ -110,47 +140,51 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {!bannerDismissed && (
-        <div style={{ margin: "12px 12px 0", padding: "10px 12px", borderRadius: 14, background: "linear-gradient(135deg,#4338ca,#7c3aed)", color: "#fff", display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 18 }}>📍</span>
-          <div style={{ flex: 1, fontSize: 12, fontWeight: 600, lineHeight: 1.4 }}>
-            {isHi ? "नवरोज़ाबाद और बीरसिंहपुर पाली में trusted local workers उपलब्ध" : "Trusted local workers available in Nowrozabad & Birshingpur Pali"}
-          </div>
-          <button onClick={() => setBannerDismissed(true)} style={{ border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.18)", color: "#fff", borderRadius: 18, padding: "3px 9px", fontSize: 11, cursor: "pointer" }}>✕</button>
-        </div>
-      )}
-
-      <section style={{ padding: "16px 12px 0" }}>
-        <div className="lp-card" style={{ overflow: "hidden", background: "#0f172a" }}>
-          <div className="lp-slider-track" style={{ transform: `translateX(-${activePromo * 100}%)` }}>
-            {PROMO_BANNERS.map((banner) => (
-              <button key={banner.titleEn} onClick={() => navigate(banner.to)} style={{ flex: "0 0 100%", border: "none", padding: 0, textAlign: "left", cursor: "pointer", background: "transparent" }}>
-                <div style={{ minHeight: 210, backgroundImage: `linear-gradient(95deg,rgba(2,6,23,.86) 0%,rgba(2,6,23,.62) 50%,rgba(2,6,23,.22) 100%), url(${banner.image})`, backgroundSize: "cover", backgroundPosition: "center", padding: "16px 14px", display: "flex", alignItems: "flex-end" }}>
-                  <div style={{ width: "100%", maxWidth: 220 }}>
-                    <div style={{ fontSize: 21, lineHeight: 1.15, color: "#fff", fontWeight: 900, letterSpacing: -0.2 }}>{isHi ? banner.titleHi : banner.titleEn}</div>
-                    <div style={{ fontSize: 12, color: "rgba(255,255,255,.92)", marginTop: 5, fontWeight: 600, lineHeight: 1.35 }}>{isHi ? banner.subtitleHi : banner.subtitleEn}</div>
-                    <div style={{ marginTop: 12, display: "inline-flex", background: "#0ea5e9", color: "#fff", borderRadius: 999, fontSize: 12, fontWeight: 800, padding: "6px 12px" }}>
-                      {isHi ? "अभी देखें" : "Explore now"}
-                    </div>
+      {/* ── Dynamic banner slider — image only ── */}
+      {banners.length > 0 && (
+        <section style={{ padding: "16px 16px 0" }}>
+          <div className="lp-card" style={{ overflow: "hidden", position: "relative", borderRadius: 18, borderLeft: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0', boxShadow: '0 4px 18px rgba(30,41,59,.1)' }}>
+            {/* Outer wrapper clips the sliding strip */}
+            <div style={{ width: "100%", overflow: "hidden", borderRadius: 18 }}>
+              <div className="lp-slider-track" style={{ transform: `translateX(-${activePromo * 100}%)` }}>
+                {banners.map((banner, i) => (
+                  <div
+                    key={banner._id}
+                    className="lp-banner-slide"
+                    onClick={() => handleBannerClick(banner)}
+                    style={{ cursor: banner.link ? 'pointer' : 'default' }}
+                  >
+                    <img
+                      src={banner.imageUrl}
+                      alt={`Banner ${i + 1}`}
+                      className="lp-banner-img"
+                      loading="lazy"
+                    />
                   </div>
-                </div>
-              </button>
-            ))}
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
-          {PROMO_BANNERS.map((_, i) => (
-            <button key={i} onClick={() => setActivePromo(i)} style={{ width: activePromo === i ? 24 : 9, height: 9, border: "none", borderRadius: 999, background: activePromo === i ? "#1d4ed8" : "#cbd5e1", cursor: "pointer", transition: "all .2s ease", padding: 0 }} />
-          ))}
-        </div>
-      </section>
+          {banners.length > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
+              {banners.map((_, i) => (
+                <button key={i} onClick={() => setActivePromo(i)} style={{ width: activePromo === i ? 24 : 9, height: 9, border: "none", borderRadius: 999, background: activePromo === i ? "#1d4ed8" : "#cbd5e1", cursor: "pointer", transition: "all .2s ease", padding: 0 }} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section style={{ padding: "26px 14px 0", opacity: visible ? 1 : 0, transform: visible ? "none" : "translateY(12px)", transition: "all .45s ease" }}>
         <div style={{ padding: "2px 2px 0" }}>
           <div className="lp-chip">● {isHi ? "25+ भरोसेमंद प्रोफाइल" : "25+ trusted profiles"}</div>
-          <h1 style={{ margin: "12px 0 8px", fontSize: 32, lineHeight: 1.15, letterSpacing: -0.7, color: "#0f172a" }}>
-            {isHi ? "घर के काम के लिए सही लोग" : "Right experts for your home"}
+          <h1 style={{ margin: "12px 0 8px", fontSize: 28, lineHeight: 1.2, letterSpacing: -0.5, color: "#0f172a" }}>
+            {isHi
+              ? `${selectedCity ? (selectedCity === 'Nowrozabad' ? 'नवरोज़ाबाद' : selectedCity === 'Birshingpur Pali' ? 'बीरसिंहपुर पाली' : selectedCity === 'Dindori' ? 'डिंडोरी' : selectedCity) : 'नवरोज़ाबाद'} में घर के काम के लिए सही लोग`
+              : `Trusted Home Services in ${selectedCity || 'Nowrozabad & Birshingpur Pali'}`
+            }
           </h1>
+
           <p style={{ margin: 0, color: "#475569", fontWeight: 500, fontSize: 14, lineHeight: 1.6 }}>
             {isHi ? "बिजली, AC, ब्यूटी, मेहंदी और रोज़ के काम - आसान बुकिंग के साथ।" : "Electric, AC, beauty, mehndi and daily services with easy booking."}
           </p>
@@ -171,6 +205,11 @@ export default function LandingPage() {
               <span style={{ fontSize: 11, fontWeight: 700, color: "#334155", textAlign: "center", lineHeight: 1.3 }}>{isHi ? s.hi : s.en}</span>
             </button>
           ))}
+        </div>
+        <div style={{ marginTop: 14, fontSize: 11, color: "#94a3b8", lineHeight: 1.7 }}>
+          {isHi
+            ? "नवरोज़ाबाद में बिजली मिस्त्री, प्लंबर, ब्यूटीशियन, AC तकनीशियन, बढ़ई, राजमिस्त्री, मेहंदी आर्टिस्ट और गाड़ी बुकिंग — KroEasy पर मुफ़्त।"
+            : "Electrician, Plumber, Beautician, AC Technician, Carpenter, Mason, Mehndi Artist & Car Booking in Nowrozabad & Birshingpur Pali — free on KroEasy."}
         </div>
       </section>
 
@@ -209,20 +248,40 @@ export default function LandingPage() {
           <div className="lp-card" style={{ padding: "14px" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>{isHi ? "कामगार / मज़दूर हो?" : "Are you a Worker?"}</div>
             <div style={{ marginTop: 5, color: "#64748b", fontSize: 12, lineHeight: 1.5 }}>{isHi ? "अपना profile बनाएं और direct customer calls पाएं।" : "Create your profile and receive direct customer calls."}</div>
-            <Link to="/register" style={{ textDecoration: "none" }}><button className="lp-cta" style={{ marginTop: 10, background: "linear-gradient(135deg,#f97316,#ef4444)" }}>{isHi ? "Worker के रूप में Register" : "Register as Worker"}</button></Link>
+            <Link to="/register?role=labour" style={{ textDecoration: "none" }}><button className="lp-cta" style={{ marginTop: 10, background: "linear-gradient(135deg,#f97316,#ef4444)" }}>{isHi ? "Worker के रूप में Register" : "Register as Worker"}</button></Link>
           </div>
           <div className="lp-card" style={{ padding: "14px" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>{isHi ? "गाड़ी मालिक हो?" : "Do you own a Car?"}</div>
             <div style={{ marginTop: 5, color: "#64748b", fontSize: 12, lineHeight: 1.5 }}>{isHi ? "अपनी गाड़ी list करें और local bookings पाएं।" : "List your car and get local bookings."}</div>
-            <Link to="/register" style={{ textDecoration: "none" }}><button className="lp-cta" style={{ marginTop: 10, background: "linear-gradient(135deg,#1d4ed8,#4338ca)" }}>{isHi ? "Car Owner के रूप में Register" : "Register as Car Owner"}</button></Link>
+            <Link to="/register?role=carowner" style={{ textDecoration: "none" }}><button className="lp-cta" style={{ marginTop: 10, background: "linear-gradient(135deg,#1d4ed8,#4338ca)" }}>{isHi ? "Car Owner के रूप में Register" : "Register as Car Owner"}</button></Link>
           </div>
+          {/* Direct call button — inline, after car register */}
+          <a href="tel:8878353787" style={{ textDecoration: "none", display: "block" }}>
+            <button style={{
+              width: "100%", padding: "14px 16px", borderRadius: 14, border: "none",
+              background: "linear-gradient(135deg,#16a34a,#15803d)",
+              color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              boxShadow: "0 4px 18px rgba(22,163,74,0.3)",
+              animation: "pulse-green 2s infinite",
+            }}>
+              <span style={{ fontSize: 20 }}>📞</span>
+              <span>{isHi ? "सीधे बुक करें — 8878353787" : "Book Directly — Call 8878353787"}</span>
+            </button>
+          </a>
+          <style>{`
+            @keyframes pulse-green {
+              0%,100% { box-shadow: 0 4px 18px rgba(22,163,74,0.3); }
+              50% { box-shadow: 0 4px 28px rgba(22,163,74,0.6); }
+            }
+          `}</style>
         </div>
       </section>
 
       <footer style={{ margin: "28px 12px 0", background: "linear-gradient(145deg,#0f172a,#1e293b)", color: "#cbd5e1", borderRadius: 20, padding: "18px 14px 78px" }}>
         <div style={{ fontSize: 20, color: "#fff", fontWeight: 900 }}>⚡ KroEasy</div>
         <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6 }}>
-          {isHi ? "Trusted local services platform for homes and daily needs." : "Trusted local services platform for homes and daily needs."}
+          Trusted local services platform for homes and daily needs.
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
           <Link to="/services" style={{ color: "#dbeafe", textDecoration: "none", fontSize: 12 }}>Services</Link>
@@ -236,6 +295,7 @@ export default function LandingPage() {
           © 2026 KroEasy. {isHi ? "सभी अधिकार सुरक्षित।" : "All rights reserved."}
         </div>
       </footer>
+
 
       <BottomNav />
     </div>

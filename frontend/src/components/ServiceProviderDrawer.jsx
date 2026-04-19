@@ -170,17 +170,30 @@ export default function ServiceProviderDrawer({ labour, userId, onClose }) {
                 {' '}{t('toCallProvider')}
               </div>
             ) : (
-              <button
-                onClick={handleBook}
-                disabled={booking}
-                style={{
-                  width: '100%', padding: '13px', fontSize: '15px', fontWeight: '700', borderRadius: '12px',
-                  background: booking ? 'rgba(249,115,22,0.5)' : '#F97316',
-                  border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {booking ? t('booking') : t('requestBooking')}
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  onClick={handleBook}
+                  disabled={booking}
+                  style={{
+                    width: '100%', padding: '13px', fontSize: '15px', fontWeight: '700', borderRadius: '12px',
+                    background: booking ? 'rgba(249,115,22,0.5)' : '#F97316',
+                    border: 'none', color: 'white', cursor: booking ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(249,115,22,0.3)',
+                  }}
+                >
+                  {booking ? t('booking') : t('requestBooking')}
+                </button>
+                <button
+                  onClick={() => navigate(`/profile/labour/${labour._id}`)}
+                  style={{
+                    width: '100%', padding: '10px', fontSize: '13px', fontWeight: '700', borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
+                    color: 'white', cursor: 'pointer',
+                  }}
+                >
+                  🎬 View Work Videos & Profile
+                </button>
+              </div>
             )}
           </div>
         </div>
