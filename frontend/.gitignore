@@ -2,7 +2,7 @@
 .env
 .env.local
 .env.*.local
-
+.env.production
 # Generated at build time from env vars — DO NOT COMMIT (contains Firebase apiKey)
 public/firebase-messaging-sw.js
 

@@ -5,7 +5,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import { cache } from "../utils/apiCache";
 import toast from "react-hot-toast";
-import CITIES from "../utils/cities";
 
 const emptyCarForm = {
   carName: "",
@@ -42,12 +41,31 @@ export default function CarOwnerDashboard() {
     monthlyViews: 0,
   });
   const [editNameOpen, setEditNameOpen] = useState(false);
-  const [editNameForm, setEditNameForm] = useState({ name: "", city: "" });
+  const [editNameForm, setEditNameForm] = useState({ name: "", city: "", serviceCities: [] });
   const [editNameLoading, setEditNameLoading] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState('');
+  const [serviceCities, setServiceCities] = useState([]);
+  const [savingCities, setSavingCities] = useState(false);
+  const [loadingScreen, setLoadingScreen] = useState(true);
+  // ── Video state ──
+  const [myVideos, setMyVideos] = useState([]);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoError, setVideoError] = useState('');
+  const [availableLocations, setAvailableLocations] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/locations');
+        setAvailableLocations(data);
+      } catch (err) { console.error('Failed to load locations', err); }
+    })();
+  }, []);
 
   // Open the correct tab when navigated from BottomNav with { state: { openTab } }
   useEffect(() => {
@@ -62,7 +80,7 @@ export default function CarOwnerDashboard() {
   useEffect(() => {
     fetchCars();
     fetchBookings();
-    fetchOwnerProfile();
+    fetchOwnerProfile().finally(() => setLoadingScreen(false));
     fetchViewStats();
   }, []);
 
@@ -111,7 +129,14 @@ export default function CarOwnerDashboard() {
       );
       refreshUser();
       if (editNameForm.city) {
-        await api.patch("/cars/owner-profile", { city: editNameForm.city });
+        await api.patch("/cars/owner-profile", {
+          city: editNameForm.city,
+          serviceCities: editNameForm.serviceCities || [],
+        });
+        setOwnerProfile((prev) => prev ? { ...prev, city: editNameForm.city, serviceCities: editNameForm.serviceCities || [] } : prev);
+      } else if (editNameForm.serviceCities?.length) {
+        await api.patch("/cars/owner-profile", { serviceCities: editNameForm.serviceCities });
+        setOwnerProfile((prev) => prev ? { ...prev, serviceCities: editNameForm.serviceCities } : prev);
       }
       setEditNameOpen(false);
       toast.success(t("profileUpdated") + " ✅");
@@ -128,6 +153,7 @@ export default function CarOwnerDashboard() {
     try {
       const { data } = await api.get("/cars/owner-profile");
       setOwnerProfile(data);
+      setServiceCities(data.serviceCities || []);
     } catch {}
   };
 
@@ -259,6 +285,51 @@ export default function CarOwnerDashboard() {
     setShowAddForm(true);
   };
 
+  if (loadingScreen)
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(165deg, #1C0A00 0%, #4A1500 40%, #C2410C 100%)'
+      }}>
+        {/* KroEasy Car Owner Icon */}
+        <svg width="88" height="88" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg"
+          style={{ animation: 'splash-bounce 1.2s ease-in-out', filter: 'drop-shadow(0 8px 24px rgba(249,115,22,0.5))' }}>
+          <defs>
+            <linearGradient id="co-bg" x1="0" y1="0" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#F97316"/>
+              <stop offset="100%" stopColor="#C2410C"/>
+            </linearGradient>
+          </defs>
+          <rect width="88" height="88" rx="22" fill="url(#co-bg)"/>
+          {/* Car body */}
+          <rect x="14" y="42" width="60" height="22" rx="5" fill="white" fillOpacity="0.95"/>
+          {/* Car roof */}
+          <path d="M24 42 L32 26 L56 26 L64 42 Z" fill="white" fillOpacity="0.85"/>
+          {/* Windows */}
+          <rect x="33" y="29" width="9" height="11" rx="2" fill="#F97316" fillOpacity="0.7"/>
+          <rect x="45" y="29" width="9" height="11" rx="2" fill="#F97316" fillOpacity="0.7"/>
+          {/* Wheels */}
+          <circle cx="27" cy="64" r="8" fill="#1C1917"/>
+          <circle cx="27" cy="64" r="4" fill="#F97316"/>
+          <circle cx="61" cy="64" r="8" fill="#1C1917"/>
+          <circle cx="61" cy="64" r="4" fill="#F97316"/>
+          {/* KroEasy K badge */}
+          <circle cx="63" cy="25" r="12" fill="#10B981"/>
+          <path d="M57 25L63 19L63 25L69 25" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M63 25L69 31" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+        <div style={{ fontSize: '28px', fontWeight: '900', color: 'white', marginTop: '16px', letterSpacing: '-0.5px',
+          opacity: 0, animation: 'splash-fade-up 0.7s ease forwards 0.7s' }}>KroEasy</div>
+        <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', marginTop: '4px',
+          opacity: 0, animation: 'splash-fade-up 0.7s ease forwards 1s' }}>Car Owner Dashboard</div>
+        <div style={{ marginTop: '28px', width: '36px', height: '36px',
+          border: '3px solid rgba(255,255,255,0.15)', borderTopColor: '#FED7AA',
+          borderRadius: '50%',
+          opacity: 0, animation: 'splash-spin 0.8s linear infinite, splash-fade-up 0.4s ease forwards 1.4s' }} />
+      </div>
+    );
+
   return (
     <div className="page-container" style={{ paddingBottom: "24px" }}>
       <div
@@ -308,6 +379,7 @@ export default function CarOwnerDashboard() {
           { key: "cars", label: t("myCars") },
           { key: "bookings", label: t("tabBookings") },
           { key: "profile", label: t("tabProfile") },
+          { key: "videos", label: "🎬 Videos" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -1005,6 +1077,16 @@ export default function CarOwnerDashboard() {
             <h2 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "4px" }}>{user?.name}</h2>
             <p style={{ color: "#64748B", fontSize: "14px" }}>📱 {user?.phone}</p>
             <p style={{ color: "#64748B", fontSize: "14px" }}>🏙️ {user?.city}</p>
+            {ownerProfile?.serviceCities?.length > 0 && (
+              <div style={{ marginTop: "8px" }}>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: "#EA580C", marginBottom: "4px" }}>📍 {lang === "hi" ? "सेवा क्षेत्र" : "Service Cities"}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", justifyContent: "center" }}>
+                  {ownerProfile.serviceCities.map((c) => (
+                    <span key={c} style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "999px", background: "#FFF7ED", color: "#C2410C", fontWeight: "600", border: "1px solid #FED7AA" }}>{c}</span>
+                  ))}
+                </div>
+              </div>
+            )}
             <span className="badge badge-orange" style={{ marginTop: "8px" }}>{t("carOwnerBadge")}</span>
           </div>
 
@@ -1037,7 +1119,7 @@ export default function CarOwnerDashboard() {
             );
           })()}
 
-          {/* 3. Language Selector — EN/HI two-button style matching customer */}
+          {/* 3. Language Selector */}
           <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
@@ -1055,9 +1137,9 @@ export default function CarOwnerDashboard() {
             </div>
           </div>
 
-          {/* 4. Edit Name / City */}
+          {/* 4. Edit Name / Primary City */}
           <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
-            <button onClick={() => { setEditNameOpen(!editNameOpen); setEditNameForm({ name: user?.name || "", city: ownerProfile?.city || user?.city || "" }); }}
+            <button onClick={() => { setEditNameOpen(!editNameOpen); setEditNameForm({ name: user?.name || "", city: ownerProfile?.city || user?.city || "", serviceCities: ownerProfile?.serviceCities || [] }); }}
               style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <span style={{ fontSize: "20px" }}>✏️</span>
@@ -1072,10 +1154,10 @@ export default function CarOwnerDashboard() {
                   <input className="input-field" value={editNameForm.name} onChange={(e) => setEditNameForm((f) => ({ ...f, name: e.target.value }))} placeholder="अपना नाम" style={{ padding: "10px 12px", fontSize: "14px" }} />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#374151", marginBottom: "5px" }}>{t("city")}</label>
+                  <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#374151", marginBottom: "5px" }}>{t("city")} ({lang === "hi" ? "मुख्य शहर" : "Primary City"})</label>
                   <select className="input-field" value={editNameForm.city} onChange={(e) => setEditNameForm((f) => ({ ...f, city: e.target.value }))} style={{ padding: "10px 12px", fontSize: "14px" }}>
                     <option value="">{t("selectCity")}</option>
-                    {CITIES.map((c) => (<option key={c.en} value={c.en}>{lang === "hi" ? c.hi : c.en}</option>))}
+                    {availableLocations.map((c) => (<option key={c._id} value={c.city}>{lang === "hi" ? (c.nameHi || c.city) : c.city}</option>))}
                   </select>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -1087,6 +1169,96 @@ export default function CarOwnerDashboard() {
               </div>
             )}
           </div>
+
+          {/* 4b. Service Cities — simplified single-step card */}
+          {(() => {
+            const toggleCity = (cityEn) => setServiceCities(prev => prev.includes(cityEn) ? prev.filter(c => c !== cityEn) : [...prev, cityEn]);
+            const saveCities = async () => {
+              setSavingCities(true);
+              try {
+                await api.patch("/cars/owner-profile", { serviceCities });
+                setOwnerProfile(prev => prev ? { ...prev, serviceCities } : prev);
+                toast.success(lang === "hi" ? "✅ शहर सेव हो गए!" : "✅ Cities saved!");
+              } catch {
+                toast.error(lang === "hi" ? "अपडेट विफल" : "Update failed");
+              } finally { setSavingCities(false); }
+            };
+            return (
+              <div className="card" style={{ padding: "16px", marginBottom: "12px", background: "linear-gradient(135deg,#FFF7ED,#FFEDD5)", border: "1.5px solid #FED7AA" }}>
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+                  <span style={{ fontSize: "26px" }}>📍</span>
+                  <div>
+                    <div style={{ fontSize: "15px", fontWeight: "800", color: "#C2410C" }}>
+                      {lang === "hi" ? "अपने सेवा शहर चुनें" : "Select Your Service Cities"}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#9A3412", marginTop: "2px" }}>
+                      {lang === "hi" ? "जिन शहरों में गाड़ी चलाते हैं उन्हें टैप करें, फिर Save करें" : "Tap the cities you drive in, then tap Save"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step indicator */}
+                <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "white", borderRadius: "20px", padding: "5px 12px", border: "1.5px solid #FED7AA" }}>
+                    <span style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#C2410C", color: "white", fontSize: "11px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>1</span>
+                    <span style={{ fontSize: "12px", fontWeight: "700", color: "#C2410C" }}>{lang === "hi" ? "शहर चुनें" : "Pick cities"}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "white", borderRadius: "20px", padding: "5px 12px", border: "1.5px solid #FED7AA" }}>
+                    <span style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#C2410C", color: "white", fontSize: "11px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>2</span>
+                    <span style={{ fontSize: "12px", fontWeight: "700", color: "#C2410C" }}>{lang === "hi" ? "Save दबाएं" : "Press Save"}</span>
+                  </div>
+                </div>
+
+                {/* City buttons */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "6px" }}>
+                  {availableLocations.map((c) => {
+                    const selected = serviceCities.includes(c.city);
+                    return (
+                      <button key={c._id} type="button" onClick={() => toggleCity(c.city)}
+                        style={{
+                          padding: "10px 18px", borderRadius: "25px", fontSize: "14px", fontWeight: "700",
+                          border: `2.5px solid ${selected ? "#C2410C" : "#FED7AA"}`,
+                          background: selected ? "#C2410C" : "white",
+                          color: selected ? "white" : "#9A3412",
+                          cursor: "pointer", transition: "all 0.15s",
+                          boxShadow: selected ? "0 3px 10px rgba(194,65,12,0.3)" : "none"
+                        }}>
+                        {selected ? "✅ " : ""}{lang === "hi" ? (c.nameHi || c.city) : c.city}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Selected count */}
+                {serviceCities.length > 0 ? (
+                  <div style={{ fontSize: "12px", color: "#9A3412", fontWeight: "600", marginTop: "10px", marginBottom: "12px", background: "rgba(255,255,255,0.7)", borderRadius: "8px", padding: "8px 12px" }}>
+                    ✅ {lang === "hi" ? `${serviceCities.length} शहर चुने: ` : `${serviceCities.length} selected: `}
+                    <strong>{serviceCities.join(", ")}</strong>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "12px", color: "#EA580C", fontWeight: "600", marginTop: "10px", marginBottom: "12px", background: "rgba(255,255,255,0.6)", borderRadius: "8px", padding: "8px 12px", textAlign: "center" }}>
+                    👆 {lang === "hi" ? "ऊपर से कोई शहर टैप करें" : "Tap a city above to select it"}
+                  </div>
+                )}
+
+                {/* Single Save button */}
+                <button onClick={saveCities} disabled={savingCities || serviceCities.length === 0}
+                  style={{
+                    width: "100%", padding: "13px", borderRadius: "12px", border: "none",
+                    background: serviceCities.length === 0 ? "#CBD5E1" : (savingCities ? "#FDBA74" : "#C2410C"),
+                    color: "white", fontSize: "15px", fontWeight: "800",
+                    cursor: serviceCities.length === 0 ? "not-allowed" : "pointer",
+                    transition: "all 0.2s"
+                  }}>
+                  {savingCities
+                    ? (lang === "hi" ? "⏳ सेव हो रहा है..." : "⏳ Saving...")
+                    : (lang === "hi" ? "💾 शहर सेव करें" : "💾 Save Cities")}
+                </button>
+              </div>
+            );
+          })()}
+
 
           {/* 5. Change Password */}
           <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
@@ -1142,6 +1314,128 @@ export default function CarOwnerDashboard() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Videos Tab ── */}
+      {activeTab === "videos" && (
+        <CarOwnerVideoTab
+          ownerId={ownerProfile?._id}
+          myVideos={myVideos}
+          setMyVideos={setMyVideos}
+          videoUrl={videoUrl}
+          setVideoUrl={setVideoUrl}
+          videoTitle={videoTitle}
+          setVideoTitle={setVideoTitle}
+          videoUploading={videoUploading}
+          setVideoUploading={setVideoUploading}
+          videoError={videoError}
+          setVideoError={setVideoError}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────────────────────
+   CarOwnerVideoTab — isolated so logic
+   stays separate from the main component
+─────────────────────────────────────── */
+function CarOwnerVideoTab({
+  ownerId, myVideos, setMyVideos,
+  videoUrl, setVideoUrl,
+  videoTitle, setVideoTitle,
+  videoUploading, setVideoUploading,
+  videoError, setVideoError,
+}) {
+  useEffect(() => {
+    if (!ownerId) return;
+    api.get('/videos?limit=50').then(({ data }) => {
+      setMyVideos((data.data || []).filter(v => v.uploaderId === ownerId.toString()));
+    }).catch(() => {});
+  }, [ownerId]);
+
+  const handleUpload = async () => {
+    setVideoError('');
+    const trimmed = videoUrl.trim();
+    if (!trimmed) { setVideoError('Please paste a YouTube Shorts link.'); return; }
+    setVideoUploading(true);
+    try {
+      const { data } = await api.post('/videos', { youtubeUrl: trimmed, title: videoTitle.trim() });
+      setMyVideos(prev => [data, ...prev]);
+      setVideoUrl('');
+      setVideoTitle('');
+      toast.success('🎬 Video uploaded successfully!');
+    } catch (err) {
+      setVideoError(err.response?.data?.message || 'Upload failed.');
+    } finally {
+      setVideoUploading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this video?')) return;
+    try {
+      await api.delete(`/videos/my/${id}`);
+      setMyVideos(prev => prev.filter(v => v._id !== id));
+      toast.success('Video deleted.');
+    } catch {
+      toast.error('Delete failed.');
+    }
+  };
+
+  return (
+    <div style={{ padding: '16px' }}>
+      <div className="card" style={{ padding: '20px', marginBottom: '16px', background: 'linear-gradient(135deg,#EFF6FF,#E0E7FF)', border: '1.5px solid #BFDBFE' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#1E3A8A', marginBottom: '4px' }}>🎬 Upload YouTube Shorts</h3>
+        <p style={{ fontSize: '12px', color: '#3730A3', marginBottom: '16px', lineHeight: '1.5' }}>
+          Share your car! Only YouTube Shorts links are accepted
+          (e.g. <code style={{ background: '#DBEAFE', padding: '1px 4px', borderRadius: '4px' }}>https://youtube.com/shorts/VIDEO_ID</code>)
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <input className="input-field" placeholder="https://youtube.com/shorts/..."
+            value={videoUrl} onChange={e => { setVideoUrl(e.target.value); setVideoError(''); }}
+            style={{ padding: '11px 12px', fontSize: '13px' }} />
+          <input className="input-field" placeholder="Caption / title (optional)"
+            value={videoTitle} onChange={e => setVideoTitle(e.target.value)}
+            style={{ padding: '11px 12px', fontSize: '13px' }} />
+          {videoError && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#DC2626', fontWeight: '600' }}>
+              ⚠️ {videoError}
+            </div>
+          )}
+          <button onClick={handleUpload} disabled={videoUploading} className="btn-primary"
+            style={{ padding: '12px', fontSize: '14px', opacity: videoUploading ? 0.7 : 1 }}>
+            {videoUploading ? '⏳ Uploading…' : '📤 Upload Video'}
+          </button>
+        </div>
+      </div>
+
+      <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', marginBottom: '12px' }}>My Uploaded Videos ({myVideos.length})</h3>
+      {myVideos.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '32px 16px', color: '#94A3B8' }}>
+          <div style={{ fontSize: '40px' }}>🎬</div>
+          <p style={{ fontSize: '13px', marginTop: '8px' }}>No videos yet. Upload your first YouTube Short!</p>
+        </div>
+      ) : (
+        myVideos.map(v => (
+          <div key={v._id} className="card" style={{ padding: '14px', marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            <img src={`https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`} alt="thumb"
+              style={{ width: '100px', height: '56px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {v.title || 'Untitled'}
+              </p>
+              <p style={{ fontSize: '11px', color: '#94A3B8', margin: 0 }}>{new Date(v.createdAt).toLocaleDateString('en-IN')}</p>
+              <a href={v.youtubeUrl} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: '11px', color: '#4F46E5', textDecoration: 'none', fontWeight: '600' }}>
+                ▶ View on YouTube
+              </a>
+            </div>
+            <button onClick={() => handleDelete(v._id)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#EF4444', padding: '4px', flexShrink: 0 }}
+              title="Delete">🗑️</button>
+          </div>
+        ))
       )}
     </div>
   );

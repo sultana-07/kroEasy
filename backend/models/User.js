@@ -5,9 +5,17 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, unique: true, trim: true, index: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ['user', 'labour', 'carowner', 'admin'], default: 'user', index: true },
+    role: { type: String, enum: ['user', 'labour', 'carowner', 'admin', 'citypartner'], default: 'user', index: true },
     city: { type: String, trim: true, index: true },
     avatar: { type: String, default: '' },
+    savedAddresses: [{
+        label: { type: String, required: true }, // e.g., 'Home', 'Office'
+        address: { type: String, required: true },
+        location: {
+            type: { type: String, enum: ['Point'], default: 'Point' },
+            coordinates: { type: [Number], required: true } // [longitude, latitude]
+        }
+    }],
     isActive: { type: Boolean, default: true },
     isSuspended: { type: Boolean, default: false },
     resetPasswordToken: { type: String, default: null },

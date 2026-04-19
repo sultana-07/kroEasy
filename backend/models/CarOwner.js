@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const carOwnerSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     city: { type: String },
+    serviceCities: [{ type: String }],
     isApproved: { type: Boolean, default: false },
     profileViews: [{ date: { type: Date, required: true } }],
 }, { timestamps: true });

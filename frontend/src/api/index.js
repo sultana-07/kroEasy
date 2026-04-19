@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const defaultBaseUrl = isLocalhost ? 'http://localhost:5000/api' : 'https://apniseva.onrender.com/api';
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+    baseURL: import.meta.env.VITE_API_URL || defaultBaseUrl,
     headers: { 'Content-Type': 'application/json' },
     timeout: 15000,  // 15s timeout — handles Render cold starts gracefully
 });

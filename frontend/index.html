@@ -6,20 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
   <!-- ════ PRIMARY SEO ════════════════════════════════════════════════════ -->
-  <title>KroEasy – Electrician, Beautician, AC Technician, Car Booking in Nowrozabad & Birshingpur Pali</title>
+  <title>KroEasy – Book Electrician, Plumber, Beautician, AC Technician & Home Services Across India</title>
   <meta name="description"
-    content="KroEasy – Nowrozabad aur Birshingpur Pali mein verified Electrician, Plumber, Beautician, AC Technician, Carpenter, Mason aur Car Booking service. Apne shehar ki har service ek app mein. Free registration, trusted workers." />
+    content="KroEasy – India's fastest growing home services marketplace. Book verified Electricians, Plumbers, Beauticians, AC Technicians, Carpenters, Masons & more in your city. No commission, subscription-based platform." />
   <meta name="keywords"
-    content="electrician nowrozabad, electrician birshingpur pali, beautician nowrozabad, ac technician nowrozabad, plumber nowrozabad, carpenter nowrozabad, car booking nowrozabad, car rental birshingpur pali, mason nowrozabad, mehndi artist nowrozabad, helper nowrozabad, labour service nowrozabad, KroEasy, apni seva, home service nowrozabad MP, बिजलीवाला नौरोजाबाद, प्लंबर नौरोजाबाद, ब्यूटीशियन नौरोजाबाद, एसी टेक्नीशियन नौरोजाबाद, कार बुकिंग नौरोजाबाद" />
+    content="home services india, electrician near me, plumber near me, beautician near me, ac technician, carpenter, mason, KroEasy, book service worker india, service marketplace india, home repair india, handyman india" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="author" content="KroEasy" />
-  <link rel="canonical" href="https://kroeasy.com/" />
+  <link rel="canonical" href="https://KroEasy.in/" />
 
-  <!-- ════ GEO TARGETING (local SEO) ══════════════════════════════════════ -->
-  <meta name="geo.region" content="IN-MP" />
-  <meta name="geo.placename" content="Nowrozabad, Birshingpur Pali, Madhya Pradesh, India" />
-  <meta name="geo.position" content="23.4500;80.3500" />
-  <meta name="ICBM" content="23.4500, 80.3500" />
+  <!-- ════ GEO TARGETING (national) ══════════════════════════════════════ -->
+  <meta name="geo.region" content="IN" />
+  <meta name="geo.placename" content="India" />
   <meta name="language" content="Hindi, English" />
 
   <!-- ════ OPEN GRAPH (WhatsApp/Facebook sharing) ══════════════════════════ -->
@@ -45,7 +43,7 @@
 
   <!-- ════ PWA / MOBILE ════════════════════════════════════════════════════ -->
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="theme-color" content="#1E3A8A" />
+  <meta name="theme-color" content="#7C3AED" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -220,7 +218,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(165deg, #0F172A 0%, #1E3A8A 50%, #2563EB 100%);
+      background: linear-gradient(165deg, #0F0A1E 0%, #1E0A4A 40%, #7C3AED 100%);
       transition: opacity 0.5s ease, visibility 0.5s ease;
     }
 
@@ -230,8 +228,10 @@
     }
 
     #splash-logo {
-      font-size: 52px;
+      width: 88px;
+      height: 88px;
       animation: splash-bounce 1.3s ease-in-out;
+      filter: drop-shadow(0 8px 24px rgba(124,58,237,0.55));
     }
 
     #splash-name {
@@ -303,30 +303,50 @@
 <body>
   <!-- Splash screen — shows instantly before React loads -->
   <div id="splash-screen">
-    <div id="splash-logo">⚡</div>
+    <!-- KroEasy branded icon -->
+    <svg id="splash-logo" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="KroEasy Logo">
+      <defs>
+        <linearGradient id="bg-grad" x1="0" y1="0" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#7C3AED"/>
+          <stop offset="100%" stop-color="#4F1DAC"/>
+        </linearGradient>
+        <linearGradient id="bolt-grad" x1="28" y1="10" x2="60" y2="78" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#FBBF24"/>
+          <stop offset="100%" stop-color="#F97316"/>
+        </linearGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- rounded square background -->
+      <rect width="88" height="88" rx="22" fill="url(#bg-grad)"/>
+      <!-- house outline (home services) -->
+      <path d="M44 18 L20 38 L20 70 L36 70 L36 52 L52 52 L52 70 L68 70 L68 38 Z" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2.5" stroke-linejoin="round"/>
+      <!-- lightning bolt (quick service) -->
+      <path d="M50 16 L34 46 L44 46 L38 72 L58 38 L47 38 Z" fill="url(#bolt-grad)" filter="url(#glow)" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
+      <!-- tick mark at bottom right -->
+      <circle cx="63" cy="63" r="12" fill="#10B981"/>
+      <path d="M57 63 L61 67 L69 58" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
     <div id="splash-name">KroEasy</div>
-    <div id="splash-tagline">Apna Kaam, Easy Kaam</div>
+    <div id="splash-tagline">Apka Ghar, Hamare Experts</div>
     <div id="splash-loader"></div>
   </div>
 
   <!-- SEO-friendly noscript fallback for crawlers that don't run JavaScript -->
   <noscript>
     <div style="font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px;line-height:1.8">
-      <h1>KroEasy – Nowrozabad &amp; Birshingpur Pali Local Services</h1>
-      <p>Find trusted <strong>Electrician in Nowrozabad</strong>, <strong>Plumber in Nowrozabad</strong>,
-        <strong>Beautician in Nowrozabad</strong>, <strong>AC Technician Nowrozabad</strong>,
-        <strong>Carpenter Nowrozabad</strong>, <strong>Mason Nowrozabad</strong>,
-        <strong>Mehndi Artist Nowrozabad</strong>, and <strong>Car Booking in Nowrozabad</strong>
-        &amp; Birshingpur Pali, Madhya Pradesh.
+      <h1>KroEasy – India's Home Services Marketplace</h1>
+      <p>Book verified <strong>Electricians</strong>, <strong>Plumbers</strong>,
+        <strong>Beauticians</strong>, <strong>AC Technicians</strong>,
+        <strong>Carpenters</strong>, <strong>Masons</strong> and more near you.
       </p>
-      <p>KroEasy connects you with verified local workers. Call or WhatsApp: <a
-          href="https://wa.me/918878353787">8878353787</a></p>
       <ul>
         <li><a href="/services">Browse All Services</a></li>
-        <li><a href="/services?tab=cars">Book a Car</a></li>
         <li><a href="/register">Register as Worker</a></li>
         <li><a href="/login">Login</a></li>
-        <li><a href="/about">About Founder – Sultan Ali</a></li>
+        <li><a href="/about">About Us</a></li>
       </ul>
     </div>
   </noscript>
@@ -334,21 +354,15 @@
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
   <script>
-    // Skip splash on repeat visits within the same session
+    // Always show splash screen on every page load
     (function () {
       var splash = document.getElementById('splash-screen');
       if (!splash) return;
-      if (sessionStorage.getItem('_ke_visited')) {
-        // Already visited this session — hide splash immediately, no animation
-        splash.style.display = 'none';
-      } else {
-        sessionStorage.setItem('_ke_visited', '1');
-        // Normal first-visit animation — hide after 2.2s
-        setTimeout(function () {
-          splash.classList.add('hide');
-          setTimeout(function () { splash.style.display = 'none'; }, 500);
-        }, 2200);
-      }
+      // Hide splash after 2.2s with fade-out transition
+      setTimeout(function () {
+        splash.classList.add('hide');
+        setTimeout(function () { splash.style.display = 'none'; }, 500);
+      }, 2200);
     })();
   </script>
 </body>

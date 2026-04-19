@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
 import toast from 'react-hot-toast';
 
-import CITIES from '../utils/cities';
+
 
 
 const skillOptions = [
@@ -17,13 +17,24 @@ export default function RegisterPage() {
   const [searchParams] = useSearchParams();
   const [selectedRole, setSelectedRole] = useState(searchParams.get('role') || 'user');
   const [form, setForm] = useState({ name: '', phone: '', password: '', city: '', skills: [], experience: '', charges: '', description: '' });
+  const [serviceCities, setServiceCities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [customSkill, setCustomSkill] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const { login } = useAuth();
+  const [locations, setLocations] = useState([]);
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
+
+  useState(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/locations');
+        setLocations(data);
+      } catch (err) { console.error('Failed to fetch locations', err); }
+    })();
+  }, []);
 
   const roles = [
     { value: 'user', label: t('roleCustomerLabel'), desc: t('roleCustomerDesc') },
@@ -32,11 +43,28 @@ export default function RegisterPage() {
   ];
 
   const toggleSkill = (skill) => {
-    setForm(prev => ({
-      ...prev,
-      skills: prev.skills.includes(skill) ? prev.skills.filter(s => s !== skill) : [...prev.skills, skill],
-    }));
+    setForm(prev => {
+      if (prev.skills.includes(skill)) {
+        return { ...prev, skills: prev.skills.filter(s => s !== skill) };
+      }
+      if (prev.skills.length >= 3) {
+        toast.error('Maximum 3 skills allowed. Deselect one to choose another.');
+        return prev;
+      }
+      return { ...prev, skills: [...prev.skills, skill] };
+    });
   };
+
+  const toggleServiceCity = (cityEn) => {
+    setServiceCities(prev => {
+      if (prev.includes(cityEn)) return prev.filter(c => c !== cityEn);
+      const updated = [...prev, cityEn];
+      // Auto-set primary city to first selected
+      if (!form.city) setForm(f => ({ ...f, city: cityEn }));
+      return updated;
+    });
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,6 +81,13 @@ export default function RegisterPage() {
       setError(t('errorSelectSkill'));
       return;
     }
+    if (selectedRole === 'labour') {
+      const totalSkills = form.skills.length + (customSkill.trim() ? 1 : 0);
+      if (totalSkills > 3) {
+        setError('Workers can select a maximum of 3 skills/services.');
+        return;
+      }
+    }
 
     setLoading(true);
     const finalSkills = customSkill.trim()
@@ -60,9 +95,15 @@ export default function RegisterPage() {
       : form.skills;
 
     try {
-      const { data } = await api.post('/auth/register', { ...form, skills: finalSkills, role: selectedRole });
+      const payload = { ...form, skills: finalSkills, role: selectedRole };
+      if ((selectedRole === 'labour' || selectedRole === 'carowner') && serviceCities.length > 0) {
+        payload.serviceCities = serviceCities;
+      }
+
+
+      const { data } = await api.post('/auth/register', payload);
       login(data);
-      toast.success(`KroEasy पर स्वागत है, ${data.name}! 🎉`);
+      toast.success(`KroEasy par swagat hai, ${data.name}! 🎉`);
       const paths = { user: '/dashboard', labour: '/labour-dashboard', carowner: '/carowner-dashboard' };
       navigate(paths[data.role] || '/');
     } catch (err) {
@@ -77,7 +118,7 @@ export default function RegisterPage() {
       {/* Header — light theme */}
       <div className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link to="/" style={{ textDecoration: 'none' }}>
-          <div style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.5px' }}>⚡ KroEasy</div>
+          <div style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.5px' }}>🚀 KroEasy</div>
           <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '500' }}>{t('registerTitle')}</div>
         </Link>
         <Link to="/login" style={{ textDecoration: 'none', padding: '7px 14px', background: '#EEF2FF', border: '1.5px solid #C7D2FE', color: '#4338CA', borderRadius: '10px', fontSize: '12px', fontWeight: '700' }}>
@@ -136,45 +177,136 @@ export default function RegisterPage() {
             <input id="reg-password" className="input-field" type="password" placeholder={t('passwordPlaceholder')} value={form.password} onChange={e => { setForm({ ...form, password: e.target.value }); setError(''); }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>{t('cityReq')}</label>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '5px' }}>
+              {t('cityReq')} {(selectedRole === 'labour' || selectedRole === 'carowner') ? '(Primary City)' : ''}
+            </label>
             <select
               id="reg-city"
               className="input-field"
               value={form.city}
-              onChange={e => { setForm({ ...form, city: e.target.value }); setError(''); }}
+              onChange={e => {
+                const val = e.target.value;
+                setForm({ ...form, city: val });
+                const locMatch = locations.find(l => l.city === val);
+                if (locMatch && locMatch.location && locMatch.location.coordinates) {
+                  setSelectedLocation({ lat: locMatch.location.coordinates[1], lng: locMatch.location.coordinates[0] });
+                }
+                setError('');
+              }}
               style={{ appearance: 'auto' }}
             >
               <option value="">{t('selectCity')}</option>
-              {CITIES.map(c => (
-                <option key={c.en} value={c.en}>{lang === 'hi' ? c.hi : c.en}</option>
+              {locations.map(c => (
+                <option key={c._id} value={c.city}>{lang === 'hi' ? (c.nameHi || c.city) : c.city}</option>
               ))}
             </select>
           </div>
+
+          {/* Multi-city service area for workers/car owners */}
+          {(selectedRole === 'labour' || selectedRole === 'carowner') && (
+            <div style={{
+              background: selectedRole === 'labour' ? 'linear-gradient(135deg,#EFF6FF,#E0E7FF)' : 'linear-gradient(135deg,#FFF7ED,#FFEDD5)',
+              border: `1.5px solid ${selectedRole === 'labour' ? '#BFDBFE' : '#FED7AA'}`,
+              borderRadius: '14px', padding: '14px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '20px' }}>🌍</span>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: selectedRole === 'labour' ? '#1E3A8A' : '#C2410C' }}>
+                    {lang === 'hi' ? 'सेवा शहर चुनें (एक या अधिक)' : 'Select Service Cities'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: selectedRole === 'labour' ? '#3730A3' : '#9A3412', marginTop: '1px' }}>
+                    {lang === 'hi' ? 'जिन शहरों में सेवा देंगे सभी चुनें' : 'Select all cities where you will provide service'}
+                  </div>
+                </div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: '8px', padding: '9px 11px', marginBottom: '12px', fontSize: '12px', fontWeight: '600', color: selectedRole === 'labour' ? '#1E40AF' : '#9A3412', lineHeight: '1.5' }}>
+                💡 {lang === 'hi'
+                  ? 'जितने ज़्यादा शहर, उतने ज़्यादा customers! पहला शहर आपका primary city बन जाएगा।'
+                  : 'More cities = more customers! First city selected becomes your primary city.'}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                {locations.map(c => {
+                  const sel = serviceCities.includes(c.city);
+                  const accent = selectedRole === 'labour' ? '#1E3A8A' : '#C2410C';
+                  const light = selectedRole === 'labour' ? '#BFDBFE' : '#FED7AA';
+                  const label = lang === 'hi' ? (c.nameHi || c.city) : c.city;
+                  return (
+                    <button key={c._id} type="button"
+                      onClick={() => toggleServiceCity(c.city)}
+                      style={{
+                        padding: '7px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700',
+                        border: `2px solid ${sel ? accent : light}`,
+                        background: sel ? accent : 'white',
+                        color: sel ? 'white' : accent,
+                        cursor: 'pointer', transition: 'all 0.15s',
+                        boxShadow: sel ? `0 2px 8px ${accent}40` : 'none'
+                      }}>
+                      {label} {sel ? '✓' : '+'}
+                    </button>
+                  );
+                })}
+              </div>
+              {serviceCities.length > 0 && (
+                <div style={{ fontSize: '12px', color: selectedRole === 'labour' ? '#1E40AF' : '#9A3412', fontWeight: '600' }}>
+                  ✅ {serviceCities.length} {lang === 'hi' ? 'शहर चुने गए' : 'cities selected'}
+                </div>
+              )}
+            </div>
+          )}
+
 
           {/* Labour-specific fields */}
           {selectedRole === 'labour' && (
             <>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>{t('skillsLabel')}</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>{t('skillsLabel')}</label>
+                  <span style={{
+                    fontSize: '11px', fontWeight: '700',
+                    color: form.skills.length >= 3 ? '#DC2626' : '#6366F1',
+                    background: form.skills.length >= 3 ? '#FEF2F2' : '#EEF2FF',
+                    padding: '2px 8px', borderRadius: '999px',
+                  }}>
+                    {form.skills.length}/3 {form.skills.length >= 3 ? '🔒 Max reached' : 'selected'}
+                  </span>
+                </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {skillOptions.map(skill => (
-                    <button
-                      key={skill}
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      style={{
-                        padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '500',
-                        border: `1.5px solid ${form.skills.includes(skill) ? '#1E3A8A' : '#E2E8F0'}`,
-                        background: form.skills.includes(skill) ? '#1E3A8A' : 'white',
-                        color: form.skills.includes(skill) ? 'white' : '#374151',
-                        cursor: 'pointer', transition: 'all 0.15s',
-                      }}
-                    >{skill}</button>
-                  ))}
-                  {/* Other — custom skill pill */}
+                  {skillOptions.map(skill => {
+                    const primaryCityLoc = locations.find(l => l.city === form.city);
+                    const cityEnabledSkills = primaryCityLoc?.enabledServices || [];
+                    if (cityEnabledSkills.length > 0 && !cityEnabledSkills.includes(skill)) return null;
+
+                    const isSelected = form.skills.includes(skill);
+                    const isDisabled = !isSelected && form.skills.length >= 3;
+                    return (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => toggleSkill(skill)}
+                        disabled={isDisabled}
+                        style={{
+                          padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '500',
+                          border: `1.5px solid ${isSelected ? '#1E3A8A' : isDisabled ? '#E2E8F0' : '#E2E8F0'}`,
+                          background: isSelected ? '#1E3A8A' : isDisabled ? '#F8FAFC' : 'white',
+                          color: isSelected ? 'white' : isDisabled ? '#CBD5E1' : '#374151',
+                          cursor: isDisabled ? 'not-allowed' : 'pointer',
+                          transition: 'all 0.15s',
+                          opacity: isDisabled ? 0.5 : 1,
+                        }}
+                      >{skill}</button>
+                    );
+                  })}
+                  {/* Other — custom skill pill (only if < 3 skills) */}
                   <button
                     type="button"
-                    onClick={() => setShowCustomInput(v => !v)}
+                    onClick={() => {
+                      if (form.skills.length >= 3 && !showCustomInput) {
+                        toast.error('Maximum 3 skills allowed.');
+                        return;
+                      }
+                      setShowCustomInput(v => !v);
+                    }}
                     style={{
                       padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '500',
                       border: `1.5px solid ${showCustomInput ? '#F97316' : '#E2E8F0'}`,

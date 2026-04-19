@@ -18,7 +18,8 @@ export default function BottomNav({ activeTab, onTabClick }) {
 
   // Active tab detection
   const isHome     = !activeTab && location.pathname === '/';
-  const isServices = activeTab === 'services' || (!activeTab && location.pathname !== '/' && !location.search?.includes('tab=cars'));
+  const isReels    = activeTab === 'reels'    || (!activeTab && location.pathname === '/reels');
+  const isServices = activeTab === 'services' || (!activeTab && location.pathname !== '/' && location.pathname !== '/reels' && !location.search?.includes('tab=cars'));
   const isCars     = activeTab === 'cars'     || (!activeTab && location.search?.includes('tab=cars'));
   const isProfile  = activeTab === 'profile';
 
@@ -47,6 +48,7 @@ export default function BottomNav({ activeTab, onTabClick }) {
     home:     t('home')     || 'Home',
     services: t('services') || 'Services',
     cars:     t('cars')     || 'Cars',
+    videos:   'Videos',
     profile:  t('profile')  || 'Profile',
   };
 
@@ -93,6 +95,12 @@ export default function BottomNav({ activeTab, onTabClick }) {
           <span>{clean(label.cars)}</span>
         </Link>
       )}
+
+      {/* Videos / Reels */}
+      <Link to="/reels" style={tab(isReels)}>
+        <span style={{ fontSize: '22px' }}>🎬</span>
+        <span>{clean(label.videos)}</span>
+      </Link>
 
       {/* Profile — role check FIRST so labour/carowner never land on the customer Profile tab */}
       <button style={tab(isProfile)} onClick={() => {

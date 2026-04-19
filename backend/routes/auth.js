@@ -6,6 +6,7 @@ const User = require('../models/User');
 const Labour = require('../models/Labour');
 const CarOwner = require('../models/CarOwner');
 const GuestToken = require('../models/GuestToken');
+const Subscription = require('../models/Subscription');
 const { upload } = require('../config/cloudinary');
 const { protect, loadUser } = require('../middleware/auth');
 const { notifyAdmins } = require('../utils/sendNotification');
@@ -27,7 +28,12 @@ const generateToken = (user) =>
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
     try {
-        const { name, phone, password, role, city, skills, experience, charges, description } = req.body;
+        const { name, phone, password, role, city, skills, experience, charges, description, serviceCities, latitude, longitude, workRadius } = req.body;
+
+        // ── Validate max 3 skills for workers ──────────────────────────────
+        if (role === 'labour' && Array.isArray(skills) && skills.length > 3) {
+            return res.status(400).json({ message: 'Workers can select a maximum of 3 skills/services.' });
+        }
 
         const existingUser = await User.findOne({ phone });
         if (existingUser) return res.status(400).json({ message: 'Phone number already registered' });
@@ -35,14 +41,31 @@ router.post('/register', async (req, res) => {
         const user = await User.create({ name, phone, password, role: role || 'user', city });
 
         if (role === 'labour') {
-            await Labour.create({
+            const labourPayload = {
                 userId: user._id,
                 skills: skills || [],
                 experience: experience || 0,
                 charges: charges || '',
                 description: description || '',
                 city,
-            });
+                serviceCities: serviceCities || [],
+            };
+            if (latitude && longitude) {
+                labourPayload.location = { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] };
+                labourPayload.workRadius = workRadius ? parseInt(workRadius) : 10;
+            }
+            const labour = await Labour.create(labourPayload);
+
+            // ── Auto-create 90-day free trial subscription ─────────────────
+            const trialEnd = new Date();
+            trialEnd.setDate(trialEnd.getDate() + 90);
+            Subscription.create({
+                userId: user._id,
+                labourId: labour._id,
+                status: 'trial',
+                trialEndsAt: trialEnd,
+            }).catch(e => console.error('Subscription create error:', e.message));
+
             // Notify admin about new labour registration (fire-and-forget)
             notifyAdmins({
                 title: '🆕 New Worker Registered',
@@ -50,7 +73,13 @@ router.post('/register', async (req, res) => {
                 data: { type: 'new_registration', role: 'labour' },
             }).catch(() => {});
         } else if (role === 'carowner') {
-            await CarOwner.create({ userId: user._id, city });
+            const carOwnerPayload = { userId: user._id, city, serviceCities: serviceCities || [] };
+            if (latitude && longitude) {
+                carOwnerPayload.location = { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] };
+                carOwnerPayload.workRadius = workRadius ? parseInt(workRadius) : 10;
+            }
+            await CarOwner.create(carOwnerPayload);
+
             // Notify admin about new car owner registration (fire-and-forget)
             notifyAdmins({
                 title: '🆕 New Car Owner Registered',

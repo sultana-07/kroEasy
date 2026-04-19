@@ -8,7 +8,11 @@ const Booking = require('../models/Booking');
 const CallLog = require('../models/CallLog');
 const PwaInstall = require('../models/PwaInstall');
 const GuestToken = require('../models/GuestToken');
+const Banner = require('../models/Banner');
+const Location = require('../models/Location');
 const { protect, authorize } = require('../middleware/auth');
+const { upload } = require('../config/cloudinary');
+
 
 // Helper: parse pagination query params
 const paginate = (query) => {
@@ -268,7 +272,7 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
                 isApproved: l.isApproved,
                 weekBookings: weekBookMap[l._id.toString()] || 0,
                 monthBookings: monthBookMap[l._id.toString()] || 0,
-                totalBookings: l.bookingCount || 0,
+                totalBookings: totalBookMap[l._id.toString()] || 0,
                 completedBookings: completedBookMap[l._id.toString()] || 0,
                 todayCalls: todayCallMap[l._id.toString()] || 0,
                 weekCalls: weekCallMap[l._id.toString()] || 0,
@@ -298,7 +302,7 @@ router.get('/provider-stats', protect, authorize('admin'), async (req, res) => {
                 isApproved: o.isApproved,
                 weekBookings: weekBookMap[o._id.toString()] || 0,
                 monthBookings: monthBookMap[o._id.toString()] || 0,
-                totalBookings: totalCarBookings,
+                totalBookings: totalBookMap[o._id.toString()] || 0,
                 completedBookings: completedBookMap[o._id.toString()] || 0,
                 todayCalls: sumCarCalls(todayCarCallMapByCar, o._id.toString()),
                 weekCalls: sumCarCalls(weekCarCallMapByCar, o._id.toString()),
@@ -425,32 +429,533 @@ router.post('/broadcast-notification', protect, authorize('admin'), async (req, 
         const { title, body, role } = req.body;
         if (!title || !body) return res.status(400).json({ message: 'title and body are required' });
 
-        const { sendNotificationToToken } = require('../utils/sendNotification');
+        const admin = require('../config/firebase');
         const GuestToken = require('../models/GuestToken');
 
         // Build registered user query
-        const query = { fcmToken: { $ne: null } };
+        const query = { fcmToken: { $exists: true, $ne: null, $ne: '' } };
         if (role && role !== 'all') query.role = role;
 
         const [users, guestTokens] = await Promise.all([
             User.find(query).select('fcmToken').lean(),
-            // Only include guests when sending to 'all'
-            (!role || role === 'all') ? GuestToken.find().select('token').lean() : [],
+            (!role || role === 'all') ? GuestToken.find({ token: { $exists: true, $ne: '', $ne: null } }).select('token').lean() : [],
         ]);
 
         const allTokens = [
             ...users.map(u => u.fcmToken),
             ...guestTokens.map(g => g.token),
-        ].filter(Boolean);
+        ].filter(t => typeof t === 'string' && t.trim().length > 0);
 
-        if (allTokens.length === 0) return res.json({ sent: 0, message: 'No users with notifications enabled' });
+        if (allTokens.length === 0) return res.json({ sent: 0, failed: 0, message: 'No devices with notifications enabled' });
 
-        await Promise.all(allTokens.map(t => sendNotificationToToken(t, { title, body, data: { link: 'https://kroeasy.com/' } })));
+        const stringData = { link: 'https://kroeasy.com/' };
 
-        res.json({ sent: allTokens.length, message: `Notification sent to ${allTokens.length} device(s)` });
+        // FCM multicast supports max 500 tokens per call — chunk accordingly
+        const CHUNK_SIZE = 500;
+        const staleTokens = [];
+        let totalSent = 0;
+        let totalFailed = 0;
+
+        for (let i = 0; i < allTokens.length; i += CHUNK_SIZE) {
+            const chunk = allTokens.slice(i, i + CHUNK_SIZE);
+            const multicastMessage = {
+                tokens: chunk,
+                notification: { title, body },
+                data: stringData,
+                webpush: {
+                    notification: {
+                        title,
+                        body,
+                        icon: '/pwa-192x192.png',
+                        badge: '/pwa-192x192.png',
+                        vibrate: [200, 100, 200],
+                        data: stringData,
+                    },
+                    fcmOptions: { link: stringData.link },
+                },
+            };
+
+            try {
+                const batchResponse = await admin.messaging().sendEachForMulticast(multicastMessage);
+                totalSent += batchResponse.successCount;
+                totalFailed += batchResponse.failureCount;
+
+                // Collect stale tokens to clean up
+                batchResponse.responses.forEach((resp, idx) => {
+                    if (!resp.success) {
+                        const code = resp.error?.code || '';
+                        if (
+                            code.includes('registration-token-not-registered') ||
+                            code.includes('invalid-registration-token') ||
+                            code.includes('NotRegistered')
+                        ) {
+                            staleTokens.push(chunk[idx]);
+                        }
+                    }
+                });
+            } catch (batchErr) {
+                console.error('Batch send error:', batchErr.message);
+                totalFailed += chunk.length;
+            }
+        }
+
+        // Clean up stale tokens in bulk (fire-and-forget, don't block response)
+        if (staleTokens.length > 0) {
+            Promise.all([
+                User.updateMany({ fcmToken: { $in: staleTokens } }, { $unset: { fcmToken: '' } }),
+                GuestToken.deleteMany({ token: { $in: staleTokens } }),
+            ]).catch(e => console.error('Stale token cleanup error:', e.message));
+        }
+
+        res.json({
+            sent: totalSent,
+            failed: totalFailed,
+            staleRemoved: staleTokens.length,
+            message: `✅ Sent to ${totalSent} device(s). Failed: ${totalFailed}. Cleaned ${staleTokens.length} expired tokens.`,
+        });
+    } catch (error) {
+        console.error('broadcast-notification error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+
+// GET /api/admin/city-partners — list all city partner accounts
+router.get('/city-partners', protect, authorize('admin'), async (req, res) => {
+    try {
+        const partners = await User.find({ role: 'citypartner' })
+            .select('-password -resetPasswordToken -resetPasswordExpiry')
+            .sort({ createdAt: -1 });
+        res.json(partners);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
 
+// POST /api/admin/city-partners — create a new city partner account
+router.post('/city-partners', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { name, phone, password, city } = req.body;
+        if (!name || !phone || !password || !city) {
+            return res.status(400).json({ message: 'name, phone, password and city are all required' });
+        }
+        const existing = await User.findOne({ phone });
+        if (existing) return res.status(400).json({ message: 'Phone number already registered' });
+
+        const partner = await User.create({ name, phone, password, role: 'citypartner', city });
+        res.status(201).json({
+            _id: partner._id,
+            name: partner.name,
+            phone: partner.phone,
+            role: partner.role,
+            city: partner.city,
+            createdAt: partner.createdAt,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// DELETE /api/admin/city-partners/:id — remove a city partner
+router.delete('/city-partners/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const partner = await User.findOne({ _id: req.params.id, role: 'citypartner' });
+        if (!partner) return res.status(404).json({ message: 'City partner not found' });
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ message: 'City partner deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET /api/admin/city-partners/:id/stats — full stats for one city partner
+router.get('/city-partners/:id/stats', protect, authorize('admin'), async (req, res) => {
+    try {
+        const partner = await User.findOne({ _id: req.params.id, role: 'citypartner' })
+            .select('-password -resetPasswordToken -resetPasswordExpiry')
+            .lean();
+        if (!partner) return res.status(404).json({ message: 'City partner not found' });
+
+        const cityRegex = { $regex: partner.city, $options: 'i' };
+
+        const [
+            totalLabours,
+            approvedLabours,
+            totalCarOwners,
+            approvedCarOwners,
+            cityLabourDocs,
+            cityCarOwnerDocs,
+        ] = await Promise.all([
+            Labour.countDocuments({ city: cityRegex }),
+            Labour.countDocuments({ city: cityRegex, isApproved: true }),
+            CarOwner.countDocuments({ city: cityRegex }),
+            CarOwner.countDocuments({ city: cityRegex, isApproved: true }),
+            Labour.find({ city: cityRegex }).select('_id').lean(),
+            CarOwner.find({ city: cityRegex }).select('_id').lean(),
+        ]);
+
+        const labourIds = cityLabourDocs.map(l => l._id);
+        const carOwnerIds = cityCarOwnerDocs.map(o => o._id);
+
+        const bookingFilter = {
+            $or: [
+                { providerType: 'labour', providerId: { $in: labourIds } },
+                { providerType: 'car', providerId: { $in: carOwnerIds } },
+            ],
+        };
+
+        const [
+            totalBookings,
+            pendingBookings,
+            confirmedBookings,
+            completedBookings,
+            cancelledBookings,
+            recentBookings,
+        ] = await Promise.all([
+            Booking.countDocuments(bookingFilter),
+            Booking.countDocuments({ ...bookingFilter, status: 'pending' }),
+            Booking.countDocuments({ ...bookingFilter, status: 'confirmed' }),
+            Booking.countDocuments({ ...bookingFilter, status: 'completed' }),
+            Booking.countDocuments({ ...bookingFilter, status: 'cancelled' }),
+            Booking.find(bookingFilter)
+                .populate('userId', 'name phone city')
+                .populate('carId', 'carName modelYear basePrice priceType')
+                .sort({ createdAt: -1 })
+                .limit(10)
+                .lean(),
+        ]);
+
+        // Enrich recent bookings with provider details
+        const recentLabourIds = recentBookings.filter(b => b.providerType === 'labour').map(b => b.providerId);
+        const recentCarOwnerIds = recentBookings.filter(b => b.providerType === 'car').map(b => b.providerId);
+
+        const [labourProviders, carOwnerProviders] = await Promise.all([
+            Labour.find({ _id: { $in: recentLabourIds } })
+                .populate('userId', 'name phone')
+                .select('skills charges userId')
+                .lean(),
+            CarOwner.find({ _id: { $in: recentCarOwnerIds } })
+                .populate('userId', 'name phone')
+                .lean(),
+        ]);
+
+        const labourMap = Object.fromEntries(labourProviders.map(l => [l._id.toString(), l]));
+        const carOwnerMap = Object.fromEntries(carOwnerProviders.map(o => [o._id.toString(), o]));
+
+        const enrichedBookings = recentBookings.map(b => {
+            const providerDetails = b.providerType === 'labour'
+                ? labourMap[b.providerId?.toString()]
+                : carOwnerMap[b.providerId?.toString()];
+            return { ...b, providerDetails };
+        });
+
+        // Get recent workers & car owners (last 5 pending)
+        const [pendingWorkers, pendingOwners] = await Promise.all([
+            Labour.find({ city: cityRegex, isApproved: false })
+                .populate('userId', 'name phone')
+                .select('skills charges city userId isApproved createdAt')
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .lean(),
+            CarOwner.find({ city: cityRegex, isApproved: false })
+                .populate('userId', 'name phone')
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .lean(),
+        ]);
+
+        res.json({
+            partner,
+            stats: {
+                totalLabours,
+                approvedLabours,
+                pendingLabours: totalLabours - approvedLabours,
+                totalCarOwners,
+                approvedCarOwners,
+                pendingCarOwners: totalCarOwners - approvedCarOwners,
+                totalBookings,
+                pendingBookings,
+                confirmedBookings,
+                completedBookings,
+                cancelledBookings,
+            },
+            recentBookings: enrichedBookings,
+            pendingWorkers,
+            pendingOwners,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+// ─── Banner routes ─────────────────────────────────────────────────────────
+
+// GET /api/banners — public: get all active banners sorted by order
+router.get('/banners', async (req, res) => {
+    try {
+        const banners = await Banner.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
+        res.json(banners);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/admin/banners — admin: get ALL banners (including inactive)
+router.get('/admin-banners', protect, authorize('admin'), async (req, res) => {
+    try {
+        const banners = await Banner.find().sort({ order: 1, createdAt: 1 });
+        res.json(banners);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST /api/admin/banners — admin: upload a new banner image
+router.post('/admin-banners', protect, authorize('admin'), upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ message: 'Image file is required' });
+        const count = await Banner.countDocuments();
+        const banner = await Banner.create({
+            imageUrl: req.file.path,  // Cloudinary URL
+            link: req.body.link || '',
+            order: count,
+        });
+        res.status(201).json(banner);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// DELETE /api/admin/banners/:id — admin: remove a banner
+router.delete('/admin-banners/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        await Banner.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Banner deleted' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PATCH /api/admin/banners/:id — admin: toggle active / update order
+router.patch('/admin-banners/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const banner = await Banner.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!banner) return res.status(404).json({ message: 'Banner not found' });
+        res.json(banner);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// ─── Location routes ────────────────────────────────────────────────────────
+// GET /api/admin/locations - get all locations
+router.get('/locations', protect, authorize('admin'), async (req, res) => {
+    try {
+        const locations = await Location.find().sort({ city: 1 });
+        res.json(locations);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Helper: normalize areas to [{name, isActive}] objects
+function normalizeAreas(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map(a => {
+        if (typeof a === 'string') return { name: a.trim(), isActive: true };
+        return { name: (a.name || '').trim(), isActive: a.isActive !== false };
+    }).filter(a => a.name);
+}
+
+// POST /api/admin/locations - add new location
+router.post('/locations', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { city, nameHi, pincode, areas, location: geoLoc, serviceRadius, isActive, enabledServices } = req.body;
+        if (!city) return res.status(400).json({ message: 'City name is required' });
+        const location = await Location.create({ 
+            city, 
+            nameHi,
+            pincode, 
+            areas: normalizeAreas(areas),
+            location: geoLoc,
+            serviceRadius: serviceRadius || 10,
+            isActive: isActive !== undefined ? isActive : true,
+            enabledServices: enabledServices || []
+        });
+        res.status(201).json(location);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PUT /api/admin/locations/:id - update location
+router.put('/locations/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const body = { ...req.body };
+        // Normalize areas if provided
+        if (body.areas !== undefined) {
+            body.areas = normalizeAreas(body.areas);
+        }
+        const location = await Location.findByIdAndUpdate(req.params.id, body, { new: true });
+        if (!location) return res.status(404).json({ message: 'Location not found' });
+        res.json(location);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// DELETE /api/admin/locations/:id - remove location
+router.delete('/locations/:id', protect, authorize('admin'), async (req, res) => {
+    try {
+        const location = await Location.findByIdAndDelete(req.params.id);
+        if (!location) return res.status(404).json({ message: 'Location not found' });
+        res.json({ message: 'Location deleted' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// ── User Saved Addresses Management (Admin) ──
+
+// POST /api/admin/users/:userId/addresses - add an address to any user
+router.post('/users/:userId/addresses', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { label, address, location } = req.body;
+        const user = await User.findById(req.params.userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.savedAddresses.push({ label, address, location });
+        await user.save();
+        res.json({ message: 'Address added', addresses: user.savedAddresses });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// DELETE /api/admin/users/:userId/addresses/:addrId - remove an address from any user
+router.delete('/users/:userId/addresses/:addrId', protect, authorize('admin'), async (req, res) => {
+    try {
+        const user = await User.findById(req.params.userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.savedAddresses = user.savedAddresses.filter(a => a._id.toString() !== req.params.addrId);
+        await user.save();
+        res.json({ message: 'Address removed', addresses: user.savedAddresses });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PATCH /api/admin/locations/:id/services — admin: update which services are enabled in a city
+router.patch('/locations/:id/services', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { enabledServices } = req.body;
+        if (!Array.isArray(enabledServices)) {
+            return res.status(400).json({ message: 'enabledServices must be an array' });
+        }
+        const location = await Location.findByIdAndUpdate(
+            req.params.id,
+            { enabledServices },
+            { new: true }
+        );
+        if (!location) return res.status(404).json({ message: 'Location not found' });
+        res.json(location);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PATCH /api/admin/locations/:id/toggle — admin: toggle a location active/inactive
+router.patch('/locations/:id/toggle', protect, authorize('admin'), async (req, res) => {
+    try {
+        const location = await Location.findById(req.params.id);
+        if (!location) return res.status(404).json({ message: 'Location not found' });
+        location.isActive = !location.isActive;
+        await location.save();
+        res.json(location);
+    } catch (err) {
+        res.status(err.status || 500).json({ message: err.message });
+    }
+});
+
+// ─── Area Management Routes ─────────────────────────────────────────────────
+
+// POST /api/admin/locations/:id/areas — add a new area to a city
+router.post('/locations/:id/areas', protect, authorize('admin'), async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ message: 'Area name is required' });
+        }
+        const location = await Location.findById(req.params.id);
+        if (!location) return res.status(404).json({ message: 'Location not found' });
+
+        // Prevent duplicate area names (case-insensitive)
+        const exists = location.areas.some(a => {
+            const aName = typeof a === 'string' ? a : a.name;
+            return aName.toLowerCase() === name.trim().toLowerCase();
+        });
+        if (exists) return res.status(409).json({ message: 'Area already exists' });
+
+        location.areas.push({ name: name.trim(), isActive: true });
+        await location.save();
+        res.json(location);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PATCH /api/admin/locations/:id/areas/:areaName/toggle — toggle specific area ON/OFF
+router.patch('/locations/:id/areas/:areaName/toggle', protect, authorize('admin'), async (req, res) => {
+    try {
+        const location = await Location.findById(req.params.id);
+        if (!location) return res.status(404).json({ message: 'Location not found' });
+
+        // Find the area (support both string and object)
+        const idx = location.areas.findIndex(a => {
+            const aName = typeof a === 'string' ? a : a.name;
+            return aName.toLowerCase() === decodeURIComponent(req.params.areaName).toLowerCase();
+        });
+        if (idx === -1) return res.status(404).json({ message: 'Area not found' });
+
+        // Normalize string areas to objects on first toggle
+        if (typeof location.areas[idx] === 'string') {
+            location.areas[idx] = { name: location.areas[idx], isActive: false };
+        } else {
+            location.areas[idx].isActive = !location.areas[idx].isActive;
+        }
+
+        location.markModified('areas');
+        await location.save();
+        res.json(location);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// DELETE /api/admin/locations/:id/areas/:areaName — remove an area from a city
+router.delete('/locations/:id/areas/:areaName', protect, authorize('admin'), async (req, res) => {
+    try {
+        const location = await Location.findById(req.params.id);
+        if (!location) return res.status(404).json({ message: 'Location not found' });
+
+        const targetName = decodeURIComponent(req.params.areaName).toLowerCase();
+        const before = location.areas.length;
+        location.areas = location.areas.filter(a => {
+            const aName = typeof a === 'string' ? a : a.name;
+            return aName.toLowerCase() !== targetName;
+        });
+
+        if (location.areas.length === before) {
+            return res.status(404).json({ message: 'Area not found' });
+        }
+
+        location.markModified('areas');
+        await location.save();
+        res.json(location);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;
+

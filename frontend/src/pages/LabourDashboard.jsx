@@ -4,13 +4,22 @@ import { useLanguage } from "../context/LanguageContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../api";
 import toast from "react-hot-toast";
-import CITIES from "../utils/cities";
+
 
 const STATUS_COLORS = {
   pending: "#F97316",
   confirmed: "#3B82F6",
+  in_progress: "#8B5CF6",
   completed: "#16A34A",
   cancelled: "#EF4444",
+};
+
+const STATUS_LABELS = {
+  pending: "Pending",
+  confirmed: "Accepted",
+  in_progress: "In Progress",
+  completed: "Completed",
+  cancelled: "Cancelled",
 };
 
 export default function LabourDashboard() {
@@ -26,17 +35,55 @@ export default function LabourDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
+  const [isOnline, setIsOnline] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  // ── Video state ──
+  const [myVideos, setMyVideos] = useState([]);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoError, setVideoError] = useState('');
   const [viewStats, setViewStats] = useState({
     todayViews: 0,
     monthlyViews: 0,
   });
   const [editNameOpen, setEditNameOpen] = useState(false);
-  const [editNameForm, setEditNameForm] = useState({ name: "", city: "" });
+  const [editNameForm, setEditNameForm] = useState({ name: "", city: "", serviceCities: [] });
   const [editNameLoading, setEditNameLoading] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwForm, setPwForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState('');
+  const [serviceCities, setServiceCities] = useState([]);
+  const [savingCities, setSavingCities] = useState(false);
+  const [locations, setLocations] = useState([]);
+  const [availableAreas, setAvailableAreas] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/locations');
+        setLocations(data);
+      } catch (err) { console.error('Failed to fetch locations', err); }
+    })();
+  }, []);
+
+  // Update available areas when service cities change
+  useEffect(() => {
+    const areas = [];
+    serviceCities.forEach(cityName => {
+      const loc = locations.find(l => l.city === cityName);
+      if (loc && loc.areas) {
+        loc.areas.forEach(a => {
+          // areas can be plain strings or {name, isActive} objects
+          const name = typeof a === 'string' ? a : a?.name;
+          const active = typeof a === 'string' ? true : a?.isActive !== false;
+          if (name && active && !areas.includes(name)) areas.push(name);
+        });
+      }
+    });
+    setAvailableAreas(areas);
+  }, [serviceCities, locations]);
 
   const skillOptions = [
     "Electrician",
@@ -72,6 +119,8 @@ export default function LabourDashboard() {
     } catch {}
   };
 
+
+
   const saveEditName = async () => {
     if (!editNameForm.name.trim()) {
       toast.error(t("name") + " खाली नहीं हो सकता");
@@ -89,18 +138,24 @@ export default function LabourDashboard() {
         JSON.stringify({ ...stored, name: data.name, city: data.city }),
       );
       refreshUser();
-      // Also update Labour.city so worker appears in correct city search results
-      if (profile?._id && editNameForm.city) {
-        await api.patch(`/labour/${profile._id}`, { city: editNameForm.city });
-        setProfile((prev) =>
-          prev
-            ? {
-                ...prev,
-                city: editNameForm.city,
-                userId: { ...prev.userId, city: editNameForm.city },
-              }
-            : prev,
-        );
+      // Also update Labour.city + Labour.serviceCities so worker appears in correct city search results
+      if (profile?._id) {
+        const labourUpdate = {};
+        if (editNameForm.city) labourUpdate.city = editNameForm.city;
+        if (editNameForm.serviceCities) labourUpdate.serviceCities = editNameForm.serviceCities;
+        if (Object.keys(labourUpdate).length > 0) {
+          await api.patch(`/labour/${profile._id}`, labourUpdate);
+          setProfile((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  city: labourUpdate.city ?? prev.city,
+                  serviceCities: labourUpdate.serviceCities ?? prev.serviceCities,
+                  userId: { ...prev.userId, city: labourUpdate.city ?? prev.userId?.city },
+                }
+              : prev,
+          );
+        }
       }
       setEditNameOpen(false);
       toast.success(t("profileUpdated") + " ✅");
@@ -156,7 +211,9 @@ export default function LabourDashboard() {
   useEffect(() => {
     if (activeTab !== "bookings") return;
     fetchBookings();
-    const interval = setInterval(fetchBookings, 15000);
+    const interval = setInterval(() => {
+        fetchBookings();
+    }, 15000);
     return () => clearInterval(interval);
   }, [activeTab]);
 
@@ -164,13 +221,19 @@ export default function LabourDashboard() {
     try {
       const { data } = await api.get("/labours/my");
       setProfile(data);
+      setIsOnline(data.isOnline);
+      setServiceCities(data.serviceCities || []);
       setEditForm({
         skills: data.skills,
         experience: data.experience,
         charges: data.charges,
         description: data.description,
         city: data.userId?.city || "",
+        serviceCities: data.serviceCities || [],
+        serviceAreas: data.serviceAreas || [],
+        workRadius: data.workRadius || 5,
       });
+      setServiceCities(data.serviceCities || []);
     } catch {
       toast.error("प्रोफ़ाइल लोड नहीं हुई");
     } finally {
@@ -185,19 +248,21 @@ export default function LabourDashboard() {
     } catch {}
   };
 
-  const toggleAvailability = async () => {
+  const toggleOnlineStatus = async () => {
+    const nextStatus = !isOnline;
+    setGpsLoading(true);
     try {
-      const { data } = await api.patch(`/labour/${profile._id}`, {
-        availability: !profile.availability,
-      });
-      setProfile(data);
-      toast.success(
-        data.availability ? t("availableNowText") : t("notAvailable"),
-      );
-    } catch {
-      toast.error("अपडेट नहीं हुआ");
+      const { data } = await api.patch('/labour/profile/online-status', { isOnline: nextStatus });
+      setIsOnline(data.isOnline);
+      toast.success(data.isOnline ? "You are now ONLINE 🟢" : "You are now OFFLINE 🔴");
+    } catch (err) {
+      toast.error("Failed to toggle status");
+    } finally {
+      setGpsLoading(false);
     }
   };
+
+
 
   const saveProfile = async () => {
     try {
@@ -211,12 +276,16 @@ export default function LabourDashboard() {
   };
 
   const toggleSkill = (skill) => {
-    setEditForm((prev) => ({
-      ...prev,
-      skills: prev.skills?.includes(skill)
-        ? prev.skills.filter((s) => s !== skill)
-        : [...(prev.skills || []), skill],
-    }));
+    setEditForm((prev) => {
+      if (prev.skills?.includes(skill)) {
+        return { ...prev, skills: prev.skills.filter((s) => s !== skill) };
+      }
+      if ((prev.skills?.length || 0) >= 3) {
+        toast.error('Maximum 3 skills allowed. Deselect one first.');
+        return prev;
+      }
+      return { ...prev, skills: [...(prev.skills || []), skill] };
+    });
   };
 
   const handleImageUpload = async (e) => {
@@ -246,12 +315,16 @@ export default function LabourDashboard() {
   const updateBookingStatus = async (bookingId, status) => {
     try {
       await api.patch(`/booking/${bookingId}/status`, { status });
-      toast.success(
-        `बुकिंग ${status === "confirmed" ? "स्वीकृत" : status === "completed" ? "पूर्ण" : "रद्द"} ✅`,
-      );
+      const labels = {
+        confirmed: 'स्वीकृत',
+        in_progress: 'शुरू (In Progress)',
+        completed: 'पूर्ण',
+        cancelled: 'रद्द',
+      };
+      toast.success(`बुकिंग ${labels[status] || status} ✅`);
       fetchBookings();
     } catch (err) {
-      toast.error(err.response?.data?.message || "स्टेटस अपडेट विफल");
+      toast.error(err.response?.data?.message || 'स्टेटस अपडेट विफल');
     }
   };
 
@@ -317,6 +390,7 @@ export default function LabourDashboard() {
           { key: "dashboard", label: t("tabDashboard") },
           { key: "profile", label: t("tabProfile") },
           { key: "bookings", label: t("tabBookings") },
+          { key: "videos", label: "🎬 Videos" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -407,6 +481,8 @@ export default function LabourDashboard() {
         </div>
       )}
 
+
+
       {/* Dashboard Tab */}
       {activeTab === "dashboard" && (
         <div style={{ padding: "16px" }}>
@@ -496,8 +572,8 @@ export default function LabourDashboard() {
               <div style={{ fontSize: "15px", fontWeight: "700" }}>
                 {t("availability")}
               </div>
-              <div style={{ fontSize: "13px", color: "#64748B" }}>
-                {profile?.availability
+              <div style={{ fontSize: "13px", color: isOnline ? "#16A34A" : "#64748B", fontWeight: isOnline ? "600" : "400" }}>
+                {isOnline
                   ? t("availableNowText")
                   : t("notAvailable")}
               </div>
@@ -505,12 +581,14 @@ export default function LabourDashboard() {
             <label className="toggle">
               <input
                 type="checkbox"
-                checked={profile?.availability || false}
-                onChange={toggleAvailability}
+                checked={isOnline}
+                onChange={toggleOnlineStatus}
+                disabled={gpsLoading}
               />
               <span className="toggle-slider" />
             </label>
           </div>
+          {gpsLoading && <div style={{ fontSize: '11px', color: '#3B82F6', textAlign: 'right', marginTop: '4px' }}>Updating location...</div>}
 
           {/* Profile Summary */}
           <div className="card" style={{ padding: "20px", marginTop: "12px" }}>
@@ -651,6 +729,16 @@ export default function LabourDashboard() {
                 <h2 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "4px" }}>{user?.name}</h2>
                 <p style={{ color: "#64748B", fontSize: "14px" }}>📱 {user?.phone}</p>
                 <p style={{ color: "#64748B", fontSize: "14px" }}>🏙️ {profile?.userId?.city || user?.city || "Not set"}</p>
+                {profile?.serviceCities?.length > 0 && (
+                  <div style={{ marginTop: "8px" }}>
+                    <div style={{ fontSize: "11px", fontWeight: "700", color: "#6366F1", marginBottom: "4px" }}>📍 {lang === "hi" ? "सेवा क्षेत्र" : "Service Cities"}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", justifyContent: "center" }}>
+                      {profile.serviceCities.map((c) => (
+                        <span key={c} style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "999px", background: "#EEF2FF", color: "#4338CA", fontWeight: "600", border: "1px solid #C7D2FE" }}>{c}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "center", marginTop: "10px" }}>
                   {profile?.skills?.map((s) => (
                     <span key={s} className="badge badge-blue">{s}</span>
@@ -663,6 +751,7 @@ export default function LabourDashboard() {
                   {profile?.description && <div style={{ marginTop: "6px", color: "#94A3B8" }}>{profile.description}</div>}
                 </div>
               </div>
+
 
               {/* 2. Language Selector — same EN/HI two-button style as customer */}
               <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
@@ -684,7 +773,7 @@ export default function LabourDashboard() {
 
               {/* 3. Edit Personal Info */}
               <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
-                <button onClick={() => { setEditNameOpen(!editNameOpen); setEditNameForm({ name: user?.name || "", city: profile?.userId?.city || user?.city || "" }); }}
+                <button onClick={() => { setEditNameOpen(!editNameOpen); setEditNameForm({ name: user?.name || "", city: profile?.userId?.city || user?.city || "", serviceCities: profile?.serviceCities || [] }); }}
                   style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <span style={{ fontSize: "20px" }}>✏️</span>
@@ -699,10 +788,10 @@ export default function LabourDashboard() {
                       <input className="input-field" value={editNameForm.name} onChange={(e) => setEditNameForm((f) => ({ ...f, name: e.target.value }))} placeholder="अपना नाम" style={{ padding: "10px 12px", fontSize: "14px" }} />
                     </div>
                     <div>
-                      <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#374151", marginBottom: "5px" }}>{t("city")}</label>
+                      <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#374151", marginBottom: "5px" }}>{t("city")} ({lang === "hi" ? "मुख्य शहर" : "Primary City"})</label>
                       <select className="input-field" value={editNameForm.city} onChange={(e) => setEditNameForm((f) => ({ ...f, city: e.target.value }))} style={{ padding: "10px 12px", fontSize: "14px" }}>
                         <option value="">{t("selectCity")}</option>
-                        {CITIES.map((c) => (<option key={c.en} value={c.en}>{lang === "hi" ? c.hi : c.en}</option>))}
+                        {locations.map((c) => (<option key={c._id} value={c.city}>{lang === "hi" ? (c.nameHi || c.city) : c.city}</option>))}
                       </select>
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
@@ -714,6 +803,110 @@ export default function LabourDashboard() {
                   </div>
                 )}
               </div>
+
+              {/* 3b. Service Cities — simplified single-step card */}
+              {(() => {
+                const toggleCity = (cityEn) => {
+                  setServiceCities(prev =>
+                    prev.includes(cityEn)
+                      ? prev.filter(c => c !== cityEn)
+                      : [...prev, cityEn]
+                  );
+                };
+                const saveCities = async () => {
+                  if (!profile?._id) return;
+                  setSavingCities(true);
+                  try {
+                    await api.patch(`/labour/${profile._id}`, {
+                      serviceCities,
+                      serviceAreas: editForm.serviceAreas || []
+                    });
+                    setProfile(prev => prev ? { ...prev, serviceCities } : prev);
+                    toast.success(lang === "hi" ? "✅ शहर सेव हो गए!" : "✅ Cities saved!");
+                  } catch {
+                    toast.error(lang === "hi" ? "अपडेट विफल" : "Update failed");
+                  } finally {
+                    setSavingCities(false);
+                  }
+                };
+                return (
+                  <div className="card" style={{ padding: "16px", marginBottom: "12px", background: "linear-gradient(135deg,#EFF6FF,#E0E7FF)", border: "1.5px solid #BFDBFE" }}>
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+                      <span style={{ fontSize: "26px" }}>📍</span>
+                      <div>
+                        <div style={{ fontSize: "15px", fontWeight: "800", color: "#1E3A8A" }}>
+                          {lang === "hi" ? "अपने सेवा शहर चुनें" : "Select Your Service Cities"}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#3730A3", marginTop: "2px" }}>
+                          {lang === "hi" ? "जिन शहरों में काम करते हैं उन्हें टैप करें, फिर Save करें" : "Tap the cities you work in, then tap Save"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step indicator */}
+                    <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "white", borderRadius: "20px", padding: "5px 12px", border: "1.5px solid #BFDBFE" }}>
+                        <span style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#1E3A8A", color: "white", fontSize: "11px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>1</span>
+                        <span style={{ fontSize: "12px", fontWeight: "700", color: "#1E3A8A" }}>{lang === "hi" ? "शहर चुनें" : "Pick cities"}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "white", borderRadius: "20px", padding: "5px 12px", border: "1.5px solid #BFDBFE" }}>
+                        <span style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#1E3A8A", color: "white", fontSize: "11px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>2</span>
+                        <span style={{ fontSize: "12px", fontWeight: "700", color: "#1E3A8A" }}>{lang === "hi" ? "Save दबाएं" : "Press Save"}</span>
+                      </div>
+                    </div>
+
+                    {/* City buttons */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "6px" }}>
+                      {locations.map((c) => {
+                        const selected = serviceCities.includes(c.city);
+                        const label = lang === "hi" ? (c.nameHi || c.city) : c.city;
+                        return (
+                          <button key={c._id} type="button"
+                            onClick={() => toggleCity(c.city)}
+                            style={{
+                              padding: "10px 18px", borderRadius: "25px", fontSize: "14px", fontWeight: "700",
+                              border: `2.5px solid ${selected ? "#1E3A8A" : "#BFDBFE"}`,
+                              background: selected ? "#1E3A8A" : "white",
+                              color: selected ? "white" : "#3730A3",
+                              cursor: "pointer", transition: "all 0.15s",
+                              boxShadow: selected ? "0 3px 10px rgba(30,58,138,0.3)" : "none"
+                            }}>
+                            {selected ? "✅ " : ""}{label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Selected count */}
+                    {serviceCities.length > 0 ? (
+                      <div style={{ fontSize: "12px", color: "#1E40AF", fontWeight: "600", marginTop: "10px", marginBottom: "12px", background: "rgba(255,255,255,0.7)", borderRadius: "8px", padding: "8px 12px" }}>
+                        ✅ {lang === "hi" ? `${serviceCities.length} शहर चुने: ` : `${serviceCities.length} selected: `}
+                        <strong>{serviceCities.join(", ")}</strong>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: "12px", color: "#6366F1", fontWeight: "600", marginTop: "10px", marginBottom: "12px", background: "rgba(255,255,255,0.6)", borderRadius: "8px", padding: "8px 12px", textAlign: "center" }}>
+                        👆 {lang === "hi" ? "ऊपर से कोई शहर टैप करें" : "Tap a city above to select it"}
+                      </div>
+                    )}
+
+                    {/* Single Save button */}
+                    <button
+                      onClick={saveCities}
+                      disabled={savingCities || serviceCities.length === 0}
+                      style={{
+                        width: "100%", padding: "13px", background: serviceCities.length === 0 ? "#CBD5E1" : (savingCities ? "#93C5FD" : "#1E3A8A"),
+                        color: "white", border: "none", borderRadius: "12px",
+                        fontSize: "15px", fontWeight: "800", cursor: serviceCities.length === 0 ? "not-allowed" : "pointer",
+                        transition: "all 0.2s"
+                      }}>
+                      {savingCities
+                        ? (lang === "hi" ? "⏳ सेव हो रहा है..." : "⏳ Saving...")
+                        : (lang === "hi" ? "💾 शहर सेव करें" : "💾 Save Cities")}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* 4. Edit Work Profile */}
               <div className="card" style={{ padding: "16px", marginBottom: "12px" }}>
@@ -765,9 +958,9 @@ export default function LabourDashboard() {
               </div>
 
               {/* 6. Logout — bottom */}
-              <button onClick={() => { logout(); navigate("/"); }} className="btn-danger"
-                style={{ width: "100%", padding: "14px", fontSize: "15px", justifyContent: "center", marginTop: "8px" }}>
-                🚪 {t("logout")}
+              <button onClick={() => { logout(); navigate('/'); }} className="btn-danger"
+                style={{ width: '100%', padding: '14px', fontSize: '15px', justifyContent: 'center', marginTop: '8px' }}>
+                🚪 {t('logout')}
               </button>
             </>
 
@@ -790,42 +983,45 @@ export default function LabourDashboard() {
                 }}
               >
                 <div>
-                  <label
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      display: "block",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    {t("skillsField")}
-                  </label>
-                  <div
-                    style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}
-                  >
-                    {skillOptions.map((skill) => (
-                      <button
-                        key={skill}
-                        type="button"
-                        onClick={() => toggleSkill(skill)}
-                        style={{
-                          padding: "5px 10px",
-                          borderRadius: "16px",
-                          fontSize: "12px",
-                          fontWeight: "500",
-                          border: `1.5px solid ${editForm.skills?.includes(skill) ? "#1E3A8A" : "#E2E8F0"}`,
-                          background: editForm.skills?.includes(skill)
-                            ? "#1E3A8A"
-                            : "white",
-                          color: editForm.skills?.includes(skill)
-                            ? "white"
-                            : "#374151",
-                          cursor: "pointer",
-                        }}
-                      >
-                        {skill}
-                      </button>
-                    ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: '600' }}>
+                      {t('skillsField')}
+                    </label>
+                    <span style={{
+                      fontSize: '11px', fontWeight: '700',
+                      color: (editForm.skills?.length || 0) >= 3 ? '#DC2626' : '#6366F1',
+                      background: (editForm.skills?.length || 0) >= 3 ? '#FEF2F2' : '#EEF2FF',
+                      padding: '2px 8px', borderRadius: '999px',
+                    }}>
+                      {editForm.skills?.length || 0}/3
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {skillOptions.map((skill) => {
+                      const isSelected = editForm.skills?.includes(skill);
+                      const isDisabled = !isSelected && (editForm.skills?.length || 0) >= 3;
+                      return (
+                        <button
+                          key={skill}
+                          type="button"
+                          onClick={() => toggleSkill(skill)}
+                          disabled={isDisabled}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '16px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            border: `1.5px solid ${isSelected ? '#1E3A8A' : '#E2E8F0'}`,
+                            background: isSelected ? '#1E3A8A' : isDisabled ? '#F8FAFC' : 'white',
+                            color: isSelected ? 'white' : isDisabled ? '#CBD5E1' : '#374151',
+                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                            opacity: isDisabled ? 0.5 : 1,
+                          }}
+                        >
+                          {skill}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <div
@@ -938,28 +1134,21 @@ export default function LabourDashboard() {
             >
               {bookings.map((b) => (
                 <div key={b._id} className="card" style={{ padding: "16px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      marginBottom: "10px",
-                    }}
-                  >
+                  {/* Customer Info Header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
                     <div>
                       <div style={{ fontWeight: "700", fontSize: "15px" }}>
                         {b.userId?.name || "ग्राहक"}
                       </div>
-                      <div style={{ fontSize: "13px", color: "#64748B" }}>
+                      {/* <div style={{ fontSize: "13px", color: "#64748B" }}>
                         📱 {b.userId?.phone}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "12px",
-                          color: "#94a3b8",
-                          marginTop: "4px",
-                        }}
-                      >
+                      </div> */}
+                      {(b.userId?.city || b.address) && (
+                        <div style={{ fontSize: "12px", color: "#4F46E5", fontWeight: "600", marginTop: "2px" }}>
+                          📍 {[b.address, b.userId?.city].filter(Boolean).join(", ")}
+                        </div>
+                      )}
+                      <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>
                         {new Date(b.createdAt).toLocaleDateString("hi-IN")}
                       </div>
                     </div>
@@ -969,25 +1158,33 @@ export default function LabourDashboard() {
                         borderRadius: "20px",
                         fontSize: "12px",
                         fontWeight: "600",
-                        background:
-                          (STATUS_COLORS[b.status] || "#64748B") + "20",
+                        background: (STATUS_COLORS[b.status] || "#64748B") + "20",
                         color: STATUS_COLORS[b.status] || "#64748B",
                       }}
                     >
-                      {b.status === "pending"
-                        ? t("statusPending")
-                        : b.status === "confirmed"
-                          ? t("statusConfirmed")
-                          : b.status === "completed"
-                            ? t("statusCompleted")
-                            : t("statusCancelled")}
+                      {STATUS_LABELS[b.status] || b.status}
                     </span>
                   </div>
 
-                  {b.status === "pending" && (
-                    <div
-                      style={{ display: "flex", gap: "8px", marginTop: "8px" }}
+                {/* Call Button — always shown when phone is available */}
+                  {b.userId?.phone && b.status !== "completed" && b.status !== "cancelled" && (
+                    <a
+                      href={`tel:${b.userId.phone}`}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                        width: "100%", padding: "9px", marginBottom: "8px",
+                        borderRadius: "10px", background: "linear-gradient(135deg, #16A34A, #15803D)",
+                        color: "white", fontSize: "13px", fontWeight: "700",
+                        textDecoration: "none", boxSizing: "border-box",
+                      }}
                     >
+                      📞 {lang === "hi" ? "कस्टमर को कॉल करें" : "Call Customer"}
+                    </a>
+                  )}
+
+                  {/* Action Buttons */}
+                  {b.status === "pending" && (
+                    <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
                       <button
                         onClick={() => updateBookingStatus(b._id, "confirmed")}
                         className="btn-primary"
@@ -1004,18 +1201,13 @@ export default function LabourDashboard() {
                       </button>
                     </div>
                   )}
-                  {b.status === "confirmed" && (
+                  {(b.status === "confirmed" || b.status === "in_progress") && (
                     <button
-                      onClick={() => updateBookingStatus(b._id, "completed")}
+                      onClick={() => updateBookingStatus(b._id, 'completed')}
                       className="btn-success"
-                      style={{
-                        width: "100%",
-                        padding: "8px",
-                        fontSize: "13px",
-                        marginTop: "8px",
-                      }}
+                      style={{ width: '100%', padding: '10px', fontSize: '13px', marginTop: '4px', fontWeight: '700' }}
                     >
-                      {t("markCompletedBtn")}
+                      ✅ {t('markCompletedBtn')}
                     </button>
                   )}
 
@@ -1052,6 +1244,161 @@ export default function LabourDashboard() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Videos Tab ── */}
+      {activeTab === "videos" && (
+        <LabourVideoTab
+          profileId={profile?._id}
+          myVideos={myVideos}
+          setMyVideos={setMyVideos}
+          videoUrl={videoUrl}
+          setVideoUrl={setVideoUrl}
+          videoTitle={videoTitle}
+          setVideoTitle={setVideoTitle}
+          videoUploading={videoUploading}
+          setVideoUploading={setVideoUploading}
+          videoError={videoError}
+          setVideoError={setVideoError}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   LabourVideoTab — isolated component so
+   the heavy video logic stays separate
+───────────────────────────────────────── */
+function LabourVideoTab({
+  profileId, myVideos, setMyVideos,
+  videoUrl, setVideoUrl,
+  videoTitle, setVideoTitle,
+  videoUploading, setVideoUploading,
+  videoError, setVideoError,
+}) {
+  // Fetch own videos on mount
+  useEffect(() => {
+    if (!profileId) return;
+    api.get('/videos?limit=50').then(({ data }) => {
+      // filter to only this uploader's videos
+      setMyVideos((data.data || []).filter(v => v.uploaderId === profileId.toString()));
+    }).catch(() => {});
+  }, [profileId]);
+
+  const handleUpload = async () => {
+    setVideoError('');
+    const trimmed = videoUrl.trim();
+    if (!trimmed) { setVideoError('Please paste a YouTube Shorts link.'); return; }
+    setVideoUploading(true);
+    try {
+      const { data } = await api.post('/videos', { youtubeUrl: trimmed, title: videoTitle.trim() });
+      setMyVideos(prev => [data, ...prev]);
+      setVideoUrl('');
+      setVideoTitle('');
+      toast.success('🎬 Video uploaded successfully!');
+    } catch (err) {
+      setVideoError(err.response?.data?.message || 'Upload failed.');
+    } finally {
+      setVideoUploading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this video?')) return;
+    try {
+      await api.delete(`/videos/my/${id}`);
+      setMyVideos(prev => prev.filter(v => v._id !== id));
+      toast.success('Video deleted.');
+    } catch {
+      toast.error('Delete failed.');
+    }
+  };
+
+  return (
+    <div style={{ padding: '16px' }}>
+      {/* Upload card */}
+      <div className="card" style={{ padding: '20px', marginBottom: '16px', background: 'linear-gradient(135deg,#EFF6FF,#E0E7FF)', border: '1.5px solid #BFDBFE' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#1E3A8A', marginBottom: '4px' }}>🎬 Upload YouTube Shorts</h3>
+        <p style={{ fontSize: '12px', color: '#3730A3', marginBottom: '16px', lineHeight: '1.5' }}>
+          Share your work! Paste a YouTube Shorts link below. Only Shorts links are accepted
+          (e.g. <code style={{ background: '#DBEAFE', padding: '1px 4px', borderRadius: '4px' }}>https://youtube.com/shorts/VIDEO_ID</code>)
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <input
+            className="input-field"
+            placeholder="https://youtube.com/shorts/..."
+            value={videoUrl}
+            onChange={e => { setVideoUrl(e.target.value); setVideoError(''); }}
+            style={{ padding: '11px 12px', fontSize: '13px' }}
+          />
+          <input
+            className="input-field"
+            placeholder="Caption / title (optional)"
+            value={videoTitle}
+            onChange={e => setVideoTitle(e.target.value)}
+            style={{ padding: '11px 12px', fontSize: '13px' }}
+          />
+
+          {videoError && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#DC2626', fontWeight: '600' }}>
+              ⚠️ {videoError}
+            </div>
+          )}
+
+          <button
+            onClick={handleUpload}
+            disabled={videoUploading}
+            className="btn-primary"
+            style={{ padding: '12px', fontSize: '14px', opacity: videoUploading ? 0.7 : 1 }}
+          >
+            {videoUploading ? '⏳ Uploading…' : '📤 Upload Video'}
+          </button>
+        </div>
+      </div>
+
+      {/* My Videos list */}
+      <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', marginBottom: '12px' }}>My Uploaded Videos ({myVideos.length})</h3>
+      {myVideos.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '32px 16px', color: '#94A3B8' }}>
+          <div style={{ fontSize: '40px' }}>🎬</div>
+          <p style={{ fontSize: '13px', marginTop: '8px' }}>No videos yet. Upload your first YouTube Short!</p>
+        </div>
+      ) : (
+        myVideos.map(v => (
+          <div key={v._id} className="card" style={{ padding: '14px', marginBottom: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            {/* Thumbnail */}
+            <img
+              src={`https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg`}
+              alt="thumbnail"
+              style={{ width: '100px', height: '56px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {v.title || 'Untitled'}
+              </p>
+              <p style={{ fontSize: '11px', color: '#94A3B8', margin: 0 }}>
+                {new Date(v.createdAt).toLocaleDateString('en-IN')}
+              </p>
+              <a
+                href={v.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: '11px', color: '#4F46E5', textDecoration: 'none', fontWeight: '600' }}
+              >
+                ▶ View on YouTube
+              </a>
+            </div>
+            <button
+              onClick={() => handleDelete(v._id)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#EF4444', padding: '4px', flexShrink: 0 }}
+              title="Delete"
+            >
+              🗑️
+            </button>
+          </div>
+        ))
       )}
     </div>
   );

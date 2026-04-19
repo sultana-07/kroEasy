@@ -22,12 +22,16 @@ const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const LabourDashboard = lazy(() => import("./pages/LabourDashboard"));
 const CarOwnerDashboard = lazy(() => import("./pages/CarOwnerDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const CityPartnerDashboard = lazy(() => import("./pages/CityPartnerDashboard"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
 const BookingSuccessPage = lazy(() => import("./pages/BookingSuccessPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
+const ReelsPage = lazy(() => import("./pages/ReelsPage"));
+const WorkerProfile = lazy(() => import("./pages/WorkerProfile"));
+
 
 const PageLoader = () => (
   <div
@@ -71,25 +75,24 @@ const AppRoutes = () => {
   useEffect(() => {
     const routeMeta = {
       "/": {
-        title:
-          "KroEasy – Electrician, Beautician, AC Technician, Car Booking in Nowrozabad & Birshingpur Pali",
+        title: "KroEasy – Book Home Services Across India | Electrician, Plumber, Beautician & More",
         description:
-          "KroEasy – Nowrozabad aur Birshingpur Pali mein verified Electrician, Plumber, Beautician, AC Technician, Carpenter, Mason aur Car Booking service. Free registration, trusted workers.",
+          "KroEasy connects you with verified local service workers. Book Electricians, Plumbers, Beauticians, AC Technicians & more in your city. No commission model.",
       },
       "/about": {
-        title: "Sultan Ali – Founder & CEO of KroEasy | Nowrozabad",
+        title: "About KroEasy – India's No-Commission Home Services Marketplace",
         description:
-          "Sultan Ali är the founder and CEO of KroEasy – a local services platform for Nowrozabad and Birshingpur Pali.",
+          "Learn about KroEasy – the subscription-based home services platform built for PAN India expansion.",
       },
       "/terms": {
         title: "KroEasy Terms & Conditions",
         description:
-          "Terms and conditions for KroEasy local service marketplace in Nowrozabad and Birshingpur Pali.",
+          "Terms and conditions for the KroEasy home services marketplace.",
       },
       "/privacy": {
         title: "KroEasy Privacy Policy",
         description:
-          "Privacy policy for KroEasy local service marketplace users and service providers.",
+          "Privacy policy for KroEasy platform users and service providers.",
       },
       "/support": {
         title: "KroEasy Support",
@@ -98,23 +101,24 @@ const AppRoutes = () => {
       },
       "/services": {
         title:
-          "KroEasy Services – Book Local Electricians, Plumbers, Car Booking",
+          "Browse Services – KroEasy | Book Local Electricians, Plumbers & More",
         description:
-          "Browse and book local service professionals in Nowrozabad & Birshingpur Pali.",
+          "Browse and book verified local service professionals near you on KroEasy.",
       },
       "/booking-success": {
-        title: "Booking Success | KroEasy",
+        title: "Booking Confirmed | KroEasy",
         description: "Your service booking was successful on KroEasy.",
       },
+
     };
 
     const meta = routeMeta[location.pathname] || {
-      title: "KroEasy – Local Services in Nowrozabad",
+      title: "KroEasy – Home Services Marketplace India",
       description:
-        "KroEasy local services platform for Nowrozabad and Birshingpur Pali.",
+        "KroEasy – Book verified home service workers near you across India.",
     };
 
-    const canonicalHref = `https://kroeasy.com${location.pathname === "/" ? "/" : location.pathname}`;
+    const canonicalHref = `https://kroeasy.in${location.pathname === "/" ? "/" : location.pathname}`;
     let canonicalLink = document.querySelector('link[rel="canonical"]');
     if (!canonicalLink) {
       canonicalLink = document.createElement("link");
@@ -134,7 +138,7 @@ const AppRoutes = () => {
 
     return () => {
       if (canonicalLink)
-        canonicalLink.href = previousCanonical || "https://kroeasy.com/";
+        canonicalLink.href = previousCanonical || "https://kroeasy.in/";
       if (metaDesc && previousDesc != null)
         metaDesc.setAttribute("content", previousDesc);
     };
@@ -196,12 +200,23 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/citypartner-dashboard"
+        element={
+          <ProtectedRoute roles={["citypartner"]}>
+            <CityPartnerDashboard />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/support" element={<SupportPage />} />
       <Route path="/booking-success" element={<BookingSuccessPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/about" element={<AboutPage />} />
+      <Route path="/reels" element={<ReelsPage />} />
+      <Route path="/profile/:type/:id" element={<WorkerProfile />} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -213,6 +228,7 @@ const getDashboardPath = (role) => {
     labour: "/labour-dashboard",
     carowner: "/carowner-dashboard",
     admin: "/admin",
+    citypartner: "/citypartner-dashboard",
   };
   return paths[role] || "/";
 };
